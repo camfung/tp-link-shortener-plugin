@@ -83,14 +83,34 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                             </div>
                         </div>
 
-                        <!-- Just Name It Section -->
+                        <!-- Naming Guidance Sections -->
                         <div class="tp-section tp-name-section rounded-4 p-4 mb-4">
-                            <h3 class="tp-section-title h5 mb-3">
+                            <h3 class="tp-section-title h5 mb-2">
                                 <i class="fas fa-signature me-2"></i>
-                                <?php esc_html_e('Just name it', 'tp-link-shortener'); ?>
+                                <?php esc_html_e('Pick a short keyword', 'tp-link-shortener'); ?>
                             </h3>
                             <p class="tp-section-description mb-0">
-                                <?php esc_html_e('Choose your own meaningful word or easy-to-remember code. Define as many aliases or synonyms as you want. Random keys are available also, but how about /6MagicTricks/ instead of https://www.youtube.com/watch?v=EqCeqYTpJpE Choose a short, easy to remember word or generate a random combination of letters. Provide the destination. No registration needed! Unique personalized FREE link shortener - no registration, no payment. Just use it.', 'tp-link-shortener'); ?>
+                                <?php esc_html_e('Use a word, code, or acronym that you and your visitors will remember in seconds.', 'tp-link-shortener'); ?>
+                            </p>
+                        </div>
+
+                        <div class="tp-section rounded-4 p-4 mb-4">
+                            <h3 class="tp-section-title h5 mb-2">
+                                <i class="fas fa-bullseye me-2"></i>
+                                <?php esc_html_e('Keep it relevant', 'tp-link-shortener'); ?>
+                            </h3>
+                            <p class="tp-section-description mb-0">
+                                <?php esc_html_e('Match the key to your campaign, location, or offer so it stays meaningful at a glance.', 'tp-link-shortener'); ?>
+                            </p>
+                        </div>
+
+                        <div class="tp-section rounded-4 p-4 mb-4">
+                            <h3 class="tp-section-title h5 mb-2">
+                                <i class="fas fa-rocket me-2"></i>
+                                <?php esc_html_e('Share it instantly', 'tp-link-shortener'); ?>
+                            </h3>
+                            <p class="tp-section-description mb-0">
+                                <?php esc_html_e('Generate a random key when you are in a hurry and pair it with a QR code for quick scans.', 'tp-link-shortener'); ?>
                             </p>
                         </div>
 
