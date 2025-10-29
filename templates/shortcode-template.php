@@ -82,13 +82,14 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                         <?php endif; ?>
 
                         <!-- Trial Message -->
+                        <?php if (!is_user_logged_in()): ?>
                         <div class="tp-trial-message alert d-flex flex-column flex-md-row align-items-md-center gap-3 mb-4">
                             <div class="d-flex align-items-start gap-3">
                                 <span class="tp-trial-icon">
                                     <i class="fas fa-info-circle"></i>
                                 </span>
                                 <p class="mb-0">
-                                    <?php esc_html_e('Be aware that your trial shortener expires in 24 hours since created. In order to keep it and to have a lot of extra services, please create an account.', 'tp-link-shortener'); ?>
+                                    <?php esc_html_e('Trial links expire in 24 hours. Create an account to keep them active and unlock extras.', 'tp-link-shortener'); ?>
                                 </p>
                             </div>
                             <div class="tp-action-buttons d-flex flex-column flex-sm-row align-items-stretch align-items-sm-center gap-2 ms-md-auto">
@@ -103,6 +104,16 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                                 </button>
                             </div>
                         </div>
+                        <?php else: ?>
+                        <div class="tp-trial-message alert d-flex align-items-start gap-3 mb-4">
+                            <span class="tp-trial-icon">
+                                <i class="fas fa-user-check"></i>
+                            </span>
+                            <p class="mb-0">
+                                <?php esc_html_e('You are logged in, so your shortened links stay active and ready to manage in your dashboard.', 'tp-link-shortener'); ?>
+                            </p>
+                        </div>
+                        <?php endif; ?>
 
                         <!-- Naming Guidance Sections -->
                         <div class="tp-section tp-name-section rounded-4 p-4 mb-4">
