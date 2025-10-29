@@ -60,6 +60,27 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                             </div>
                         </div>
 
+                        <!-- Custom Shortcode Input (only show if not premium-only OR user is premium) -->
+                        <?php if (!$is_premium_only || is_user_logged_in()): ?>
+                        <div class="tp-form-group tp-custom-key-group mb-4">
+                            <label for="tp-custom-key" class="tp-label mb-2">
+                                <i class="fas fa-edit me-2"></i>
+                                <?php esc_html_e('Custom Shortcode (Optional)', 'tp-link-shortener'); ?>
+                            </label>
+                            <input
+                                type="text"
+                                id="tp-custom-key"
+                                name="custom_key"
+                                class="form-control form-control-lg tp-form-control"
+                                placeholder="<?php esc_attr_e('6MagicTricks', 'tp-link-shortener'); ?>"
+                                pattern="[a-zA-Z0-9\.\-_]+"
+                            />
+                            <div class="form-text tp-help-text">
+                                <?php esc_html_e('Leave empty to generate a random code', 'tp-link-shortener'); ?>
+                            </div>
+                        </div>
+                        <?php endif; ?>
+
                         <!-- Trial Message -->
                         <div class="tp-trial-message alert d-flex flex-column flex-md-row align-items-md-center gap-3 mb-4">
                             <div class="d-flex align-items-start gap-3">
@@ -113,27 +134,6 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                                 <?php esc_html_e('Generate a random key when you are in a hurry and pair it with a QR code for quick scans.', 'tp-link-shortener'); ?>
                             </p>
                         </div>
-
-                        <!-- Custom Shortcode Input (only show if not premium-only OR user is premium) -->
-                        <?php if (!$is_premium_only || is_user_logged_in()): ?>
-                        <div class="tp-form-group tp-custom-key-group mb-4">
-                            <label for="tp-custom-key" class="tp-label mb-2">
-                                <i class="fas fa-edit me-2"></i>
-                                <?php esc_html_e('Custom Shortcode (Optional)', 'tp-link-shortener'); ?>
-                            </label>
-                            <input
-                                type="text"
-                                id="tp-custom-key"
-                                name="custom_key"
-                                class="form-control form-control-lg tp-form-control"
-                                placeholder="<?php esc_attr_e('6MagicTricks', 'tp-link-shortener'); ?>"
-                                pattern="[a-zA-Z0-9\.\-_]+"
-                            />
-                            <div class="form-text tp-help-text">
-                                <?php esc_html_e('Leave empty to generate a random code', 'tp-link-shortener'); ?>
-                            </div>
-                        </div>
-                        <?php endif; ?>
 
                         <!-- Result Section (hidden initially) -->
                         <div id="tp-result-section" class="tp-result-section card border-0 shadow-sm rounded-4 mb-4 d-none">
