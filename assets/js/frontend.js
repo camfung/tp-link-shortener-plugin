@@ -20,10 +20,27 @@
         $copyBtn: null,
         $qrContainer: null,
         $downloadQrBtn: null,
+        $pasteBtn: null,
 
         // State
         qrCode: null,
         lastShortUrl: '',
+        isValid: false,
+
+        // Configuration
+        config: {
+            maxLength: 2000,
+            minLength: 10,
+            invalidChars: /[<>"{}|\\^`\[\]]/g,
+            urlPattern: /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/i,
+            tldPattern: /\.([a-z]{2,6})$/i,
+            commonTlds: [
+                'com', 'net', 'org', 'edu', 'gov', 'mil', 'int',
+                'ca', 'uk', 'us', 'de', 'fr', 'it', 'es', 'nl',
+                'au', 'jp', 'cn', 'in', 'br', 'ru', 'za',
+                'io', 'co', 'app', 'dev', 'ai', 'tech', 'online'
+            ],
+        },
 
         /**
          * Initialize
@@ -31,6 +48,7 @@
         init: function() {
             this.cacheElements();
             this.bindEvents();
+            this.checkClipboardSupport();
         },
 
         /**
@@ -48,6 +66,7 @@
             this.$copyBtn = $('#tp-copy-btn');
             this.$qrContainer = $('#tp-qr-code-container');
             this.$downloadQrBtn = $('#tp-download-qr-btn');
+            this.$pasteBtn = $('#tp-paste-btn');
         },
 
         /**
@@ -57,6 +76,17 @@
             this.$form.on('submit', this.handleSubmit.bind(this));
             this.$copyBtn.on('click', this.copyToClipboard.bind(this));
             this.$downloadQrBtn.on('click', this.downloadQRCode.bind(this));
+
+            // Validation events for destination input
+            this.$destinationInput.on('input', this.handleInput.bind(this));
+            this.$destinationInput.on('paste', this.handlePasteEvent.bind(this));
+            this.$destinationInput.on('blur', this.handleBlur.bind(this));
+            this.$destinationInput.on('focus', this.handleFocus.bind(this));
+
+            // Paste button
+            if (this.$pasteBtn.length) {
+                this.$pasteBtn.on('click', this.handlePasteClick.bind(this));
+            }
         },
 
         /**
@@ -157,6 +187,178 @@
             } catch (e) {
                 return false;
             }
+        },
+
+        /**
+         * Check clipboard API support
+         */
+        checkClipboardSupport: function() {
+            if (this.$pasteBtn.length && (!navigator.clipboard || !navigator.clipboard.readText)) {
+                this.$pasteBtn.prop('disabled', true);
+                this.$pasteBtn.attr('title', 'Clipboard not supported in this browser');
+            }
+        },
+
+        /**
+         * Handle input event (real-time validation and sanitization)
+         */
+        handleInput: function(e) {
+            let value = e.target.value;
+
+            // Remove invalid characters in real-time
+            const cleaned = value.replace(this.config.invalidChars, '');
+
+            if (cleaned !== value) {
+                this.$destinationInput.val(cleaned);
+                value = cleaned;
+            }
+
+            // Check length
+            if (value.length > this.config.maxLength) {
+                this.$destinationInput.val(value.substring(0, this.config.maxLength));
+                this.showError('URL too long (max 2000 characters)');
+                return;
+            }
+
+            // Remove validation classes while typing
+            this.$destinationInput.removeClass('is-invalid is-valid');
+
+            // Hide error while typing
+            if (value.length > 0) {
+                this.hideError();
+            }
+        },
+
+        /**
+         * Handle paste event (from keyboard)
+         */
+        handlePasteEvent: function(e) {
+            setTimeout(function() {
+                const value = this.$destinationInput.val().trim();
+                if (value) {
+                    this.processUrl(value);
+                }
+            }.bind(this), 100);
+        },
+
+        /**
+         * Handle paste button click
+         */
+        handlePasteClick: async function() {
+            try {
+                const text = await navigator.clipboard.readText();
+
+                if (!text || text.trim() === '') {
+                    this.showError('Clipboard is empty');
+                    return;
+                }
+
+                this.$destinationInput.val(text.trim());
+                this.processUrl(text.trim());
+
+            } catch (err) {
+                if (err.name === 'NotAllowedError') {
+                    this.showError('Clipboard permission denied. Please allow clipboard access or paste manually.');
+                } else {
+                    this.showError('Unable to read clipboard. Please paste manually (Ctrl+V or Cmd+V).');
+                }
+                console.warn('Clipboard read failed:', err);
+            }
+        },
+
+        /**
+         * Handle blur event
+         */
+        handleBlur: function() {
+            const value = this.$destinationInput.val().trim();
+
+            if (value === '') {
+                this.$destinationInput.removeClass('is-invalid is-valid');
+                this.hideError();
+                return;
+            }
+
+            this.processUrl(value);
+        },
+
+        /**
+         * Handle focus event
+         */
+        handleFocus: function() {
+            // Clear error on focus to reduce visual noise
+            if (this.$destinationInput.val().trim() === '') {
+                this.hideError();
+                this.$destinationInput.removeClass('is-invalid');
+            }
+        },
+
+        /**
+         * Process URL (validate and auto-add protocol)
+         */
+        processUrl: function(url) {
+            if (!url || url.length < this.config.minLength) {
+                this.showError('URL is too short (min 10 characters)');
+                this.setInvalid();
+                return;
+            }
+
+            // Auto-add protocol if missing
+            if (!this.hasProtocol(url)) {
+                if (this.hasValidTld(url)) {
+                    url = 'https://' + url;
+                    this.$destinationInput.val(url);
+                } else {
+                    this.showError('Invalid URL format. Include protocol (https://) or valid domain.');
+                    this.setInvalid();
+                    return;
+                }
+            }
+
+            // Validate URL
+            if (this.validateUrl(url)) {
+                this.setValid();
+                this.hideError();
+            } else {
+                this.showError('Invalid URL format. Example: https://example.com/page');
+                this.setInvalid();
+            }
+        },
+
+        /**
+         * Check if URL has protocol
+         */
+        hasProtocol: function(url) {
+            return /^https?:\/\//i.test(url);
+        },
+
+        /**
+         * Check if URL has valid TLD
+         */
+        hasValidTld: function(url) {
+            const match = url.match(this.config.tldPattern);
+
+            if (!match) {
+                return false;
+            }
+
+            const tld = match[1].toLowerCase();
+            return this.config.commonTlds.includes(tld);
+        },
+
+        /**
+         * Set valid state
+         */
+        setValid: function() {
+            this.isValid = true;
+            this.$destinationInput.removeClass('is-invalid').addClass('is-valid');
+        },
+
+        /**
+         * Set invalid state
+         */
+        setInvalid: function() {
+            this.isValid = false;
+            this.$destinationInput.removeClass('is-valid').addClass('is-invalid');
         },
 
         /**

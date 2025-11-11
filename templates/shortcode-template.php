@@ -37,7 +37,7 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                             </label>
                             <div class="row g-3 align-items-center">
                                 <div class="col-md">
-                                    <div class="input-group">
+                                    <div class="input-group tp-input-wrapper">
                                         <span class="input-group-text bg-white border-end-0">
                                             <i class="fas fa-link text-muted"></i>
                                         </span>
@@ -48,7 +48,22 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                                             class="form-control tp-form-control border-start-0"
                                             placeholder="https://example.com/long-url"
                                             required
+                                            autocomplete="off"
+                                            maxlength="2000"
+                                            aria-describedby="tp-destination-hint"
                                         />
+                                        <button
+                                            type="button"
+                                            class="btn tp-paste-btn"
+                                            id="tp-paste-btn"
+                                            title="<?php esc_attr_e('Paste from clipboard', 'tp-link-shortener'); ?>"
+                                            aria-label="<?php esc_attr_e('Paste from clipboard', 'tp-link-shortener'); ?>"
+                                        >
+                                            <i class="fas fa-paste" aria-hidden="true"></i>
+                                        </button>
+                                    </div>
+                                    <div id="tp-destination-hint" class="form-text tp-help-text">
+                                        <?php esc_html_e('Enter the URL you want to shorten', 'tp-link-shortener'); ?>
                                     </div>
                                 </div>
                                 <div class="col-md-auto">
