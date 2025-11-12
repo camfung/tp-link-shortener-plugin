@@ -56,9 +56,11 @@ class TP_API_Handler {
     private function register_ajax_handlers() {
         // For logged-in users
         add_action('wp_ajax_tp_create_link', array($this, 'ajax_create_link'));
+        add_action('wp_ajax_tp_validate_key', array($this, 'ajax_validate_key'));
 
         // For non-logged-in users
         add_action('wp_ajax_nopriv_tp_create_link', array($this, 'ajax_create_link'));
+        add_action('wp_ajax_nopriv_tp_validate_key', array($this, 'ajax_validate_key'));
     }
 
     /**
@@ -211,6 +213,137 @@ class TP_API_Handler {
         }
 
         return $key;
+    }
+
+    /**
+     * AJAX handler for validating stored keys
+     */
+    public function ajax_validate_key() {
+        // Verify nonce
+        check_ajax_referer('tp_link_shortener_nonce', 'nonce');
+
+        // Get POST data
+        $key = isset($_POST['key']) ? sanitize_text_field($_POST['key']) : '';
+        $destination = isset($_POST['destination']) ? sanitize_url($_POST['destination']) : '';
+        $uid = isset($_POST['uid']) ? intval($_POST['uid']) : 0;
+
+        if ($uid <= 0) {
+            $uid = TP_Link_Shortener::get_user_id();
+        }
+
+        // Validate inputs
+        if (empty($key)) {
+            wp_send_json_error(array(
+                'message' => __('Key is required', 'tp-link-shortener')
+            ));
+        }
+
+        // Validate the key against the API
+        $result = $this->validate_key($key, $destination, $uid);
+
+        if ($result['success']) {
+            wp_send_json_success($result['data']);
+        } else {
+            wp_send_json_error(array(
+                'message' => $result['message']
+            ));
+        }
+    }
+
+    /**
+     * Validate key against API
+     */
+    private function validate_key(string $key, string $destination, int $uid): array {
+        try {
+            $record = $this->client->getMaskedRecord($key, $uid);
+
+            // Key not found
+            if ($record === null) {
+                return array(
+                    'success' => true,
+                    'data' => array(
+                        'status' => 'unavailable',
+                        'message' => __('This key is no longer available.', 'tp-link-shortener')
+                    )
+                );
+            }
+
+            // Extract record data
+            $recordStatus = $record['data']['status'] ?? 'unknown';
+            $recordDestination = $record['data']['destination'] ?? '';
+
+            // Check if destination matches (if provided)
+            $destinationMatches = empty($destination) || $recordDestination === $destination;
+
+            // Determine status
+            if ($recordStatus === 'intro') {
+                return array(
+                    'success' => true,
+                    'data' => array(
+                        'status' => 'intro',
+                        'destination' => $recordDestination,
+                        'destination_matches' => $destinationMatches,
+                        'message' => __('Your trial key is active!', 'tp-link-shortener')
+                    )
+                );
+            } elseif ($recordStatus === 'expired') {
+                return array(
+                    'success' => true,
+                    'data' => array(
+                        'status' => 'expired',
+                        'destination' => $recordDestination,
+                        'destination_matches' => $destinationMatches,
+                        'message' => __('This key has expired.', 'tp-link-shortener')
+                    )
+                );
+            } elseif ($recordStatus === 'active') {
+                return array(
+                    'success' => true,
+                    'data' => array(
+                        'status' => 'active',
+                        'destination' => $recordDestination,
+                        'destination_matches' => $destinationMatches,
+                        'message' => __('This key is active.', 'tp-link-shortener')
+                    )
+                );
+            } else {
+                return array(
+                    'success' => true,
+                    'data' => array(
+                        'status' => 'unavailable',
+                        'message' => __('This key is not available.', 'tp-link-shortener')
+                    )
+                );
+            }
+
+        } catch (AuthenticationException $e) {
+            error_log('TP Link Shortener Auth Error: ' . $e->getMessage());
+            return array(
+                'success' => false,
+                'message' => __('Authentication failed.', 'tp-link-shortener')
+            );
+
+        } catch (NetworkException $e) {
+            error_log('TP Link Shortener Network Error: ' . $e->getMessage());
+            return array(
+                'success' => false,
+                'message' => __('Network error. Please try again later.', 'tp-link-shortener')
+            );
+
+        } catch (ApiException $e) {
+            error_log('TP Link Shortener API Error: ' . $e->getMessage());
+            return array(
+                'success' => false,
+                'message' => __('API error. Please try again.', 'tp-link-shortener')
+            );
+
+        } catch (Exception $e) {
+            error_log('TP Link Shortener Error: ' . $e->getMessage());
+            return array(
+                'success' => false,
+                'message' => __('An unexpected error occurred.', 'tp-link-shortener')
+            );
+        }
     }
 
     /**

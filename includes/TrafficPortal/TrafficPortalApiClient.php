@@ -155,6 +155,79 @@ class TrafficPortalApiClient
     }
 
     /**
+     * Get a masked record by key
+     *
+     * @param string $key The shortcode key to retrieve
+     * @param int $uid The user ID
+     * @return array|null The record data or null if not found
+     * @throws AuthenticationException If authentication fails
+     * @throws NetworkException If network error occurs
+     * @throws ApiException For other API errors
+     */
+    public function getMaskedRecord(string $key, int $uid): ?array
+    {
+        $url = $this->apiEndpoint . '/items/' . urlencode($key) . '?uid=' . $uid;
+
+        // Initialize cURL
+        $ch = curl_init($url);
+        if ($ch === false) {
+            throw new NetworkException('Failed to initialize cURL');
+        }
+
+        // Set cURL options
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER => [
+                'Content-Type: application/json',
+                'x-api-key: ' . $this->apiKey,
+            ],
+            CURLOPT_TIMEOUT => $this->timeout,
+            CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_FOLLOWLOCATION => false,
+        ]);
+
+        // Execute request
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($ch);
+        $curlErrno = curl_errno($ch);
+
+        curl_close($ch);
+
+        // Handle cURL errors
+        if ($curlErrno !== 0) {
+            throw new NetworkException(
+                sprintf('cURL error: %s', $curlError),
+                $curlErrno
+            );
+        }
+
+        // Handle 404 - record not found
+        if ($httpCode === 404) {
+            return null;
+        }
+
+        // Handle empty response
+        if ($response === false || $response === '') {
+            throw new NetworkException('Empty response from API');
+        }
+
+        // Decode JSON response
+        $data = json_decode($response, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new ApiException(
+                sprintf('Invalid JSON response: %s', json_last_error_msg()),
+                $httpCode
+            );
+        }
+
+        // Handle HTTP errors
+        $this->handleHttpErrors($httpCode, $data);
+
+        return $data;
+    }
+
+    /**
      * Get the API endpoint
      *
      * @return string
