@@ -92,8 +92,8 @@
     box-shadow: 0 0 0 0.25rem rgba(217, 83, 79, 0.15);
 }
 
-.input-group > .form-control.tp-form-control,
-.input-group > .input-group-text {
+.input-group>.form-control.tp-form-control,
+.input-group>.input-group-text {
     border-radius: 1rem;
 }
 
@@ -296,7 +296,6 @@
 /* Input Wrapper Styles */
 .tp-input-wrapper {
     display: flex;
-    align-items: center;
 }
 
 .tp-input-wrapper .input-group-text {
