@@ -130,14 +130,15 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                         </div>
                         <?php endif; ?>
 
+                        <!-- Success Message (hidden initially) -->
+                        <div id="tp-success-message" class="tp-success-message alert alert-success d-flex align-items-center gap-3 mb-4 d-none">
+                            <i class="fas fa-check-circle fs-4"></i>
+                            <span class="fw-semibold"><?php esc_html_e('Link created successfully!', 'tp-link-shortener'); ?></span>
+                        </div>
+
                         <!-- Result Section (hidden initially) -->
                         <div id="tp-result-section" class="tp-result-section card border-0 shadow-sm rounded-4 mb-4 d-none">
                             <div class="card-body p-4">
-                                <div class="tp-success-message alert alert-success d-flex align-items-center gap-3 mb-4">
-                                    <i class="fas fa-check-circle fs-4"></i>
-                                    <span class="fw-semibold"><?php esc_html_e('Link created successfully!', 'tp-link-shortener'); ?></span>
-                                </div>
-
                                 <div class="tp-result-content">
                                     <div class="tp-short-url-display">
                                         <label class="form-label fw-semibold"><?php esc_html_e('Your Short URL', 'tp-link-shortener'); ?></label>

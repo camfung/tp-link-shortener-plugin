@@ -15,6 +15,7 @@
         $customKeyInput: null,
         $loading: null,
         $errorMessage: null,
+        $successMessage: null,
         $resultSection: null,
         $shortUrlOutput: null,
         $copyBtn: null,
@@ -66,6 +67,7 @@
             this.$customKeyInput = $('#tp-custom-key');
             this.$loading = $('#tp-loading');
             this.$errorMessage = $('#tp-error-message');
+            this.$successMessage = $('#tp-success-message');
             this.$resultSection = $('#tp-result-section');
             this.$shortUrlOutput = $('#tp-short-url-output');
             this.$copyBtn = $('#tp-copy-btn');
@@ -415,9 +417,24 @@
         },
 
         /**
+         * Show success message
+         */
+        showSuccessMessage: function() {
+            this.$successMessage.removeClass('d-none');
+        },
+
+        /**
+         * Hide success message
+         */
+        hideSuccessMessage: function() {
+            this.$successMessage.addClass('d-none');
+        },
+
+        /**
          * Show result section
          */
         showResult: function() {
+            this.showSuccessMessage();
             this.$resultSection.removeClass('d-none');
         },
 
@@ -425,6 +442,7 @@
          * Hide result section
          */
         hideResult: function() {
+            this.hideSuccessMessage();
             this.$resultSection.addClass('d-none');
             this.hideQRSection();
         },
