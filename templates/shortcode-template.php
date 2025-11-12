@@ -83,17 +83,24 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                                 <?php esc_html_e('Custom Shortcode (Optional)', 'tp-link-shortener'); ?>
                             </label>
                             <div class="tp-input-wrapper">
-                                <span class="input-group-text bg-white border-end-0">
-                                    <i class="fa-solid fa-lightbulb text-muted"></i>
-                                </span>
                                 <input
                                     type="text"
                                     id="tp-custom-key"
                                     name="custom_key"
-                                    class="form-control tp-form-control border-start-0"
+                                    class="form-control tp-form-control"
                                     placeholder="<?php esc_attr_e('6MagicTricks', 'tp-link-shortener'); ?>"
                                     pattern="[a-zA-Z0-9\.\-_]+"
+                                    style="border-radius: 1rem 0 0 1rem;"
                                 />
+                                <button
+                                    type="button"
+                                    class="btn"
+                                    id="tp-suggest-btn"
+                                    title="<?php esc_attr_e('Get suggestion', 'tp-link-shortener'); ?>"
+                                    aria-label="<?php esc_attr_e('Get suggestion', 'tp-link-shortener'); ?>"
+                                >
+                                    <i class="fa-solid fa-lightbulb" aria-hidden="true"></i>
+                                </button>
                             </div>
                             <div class="form-text tp-help-text">
                                 <?php esc_html_e('Leave empty to generate a random code', 'tp-link-shortener'); ?>
