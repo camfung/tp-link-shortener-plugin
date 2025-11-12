@@ -29,7 +29,6 @@
         isValid: false,
         isReturningVisitor: false,
         countdownTimer: null,
-        validationStatus: null,
 
         // Configuration
         config: {
@@ -516,74 +515,28 @@
                 return;
             }
 
+            // Check if expired
+            if (storedData.isExpired) {
+                // Clear expired data and show normal form
+                window.TPStorageService.clearShortcodeData();
+                return;
+            }
+
             // Mark as returning visitor
             this.isReturningVisitor = true;
 
-            // Validate the stored key
-            this.validateStoredKey(storedData);
+            // Show the stored link (no API validation needed)
+            this.showStoredLink(storedData);
         },
 
         /**
-         * Validate stored key against database
+         * Show stored link with countdown
          */
-        validateStoredKey: function(storedData) {
-            const data = {
-                action: 'tp_validate_key',
-                nonce: tpLinkShortener.nonce,
-                key: storedData.shortcode,
-                destination: storedData.destination
-            };
-
-            // Only include UID if it exists
-            if (storedData.uid) {
-                data.uid = storedData.uid;
-            }
-
-            $.ajax({
-                url: tpLinkShortener.ajaxUrl,
-                type: 'POST',
-                data: data,
-                success: function(response) {
-                    if (response.success && response.data) {
-                        this.handleValidationResult(response.data, storedData);
-                    } else {
-                        // Validation failed, clear storage
-                        window.TPStorageService.clearShortcodeData();
-                    }
-                }.bind(this),
-                error: function() {
-                    // Network error, ignore and show normal form
-                    console.warn('Failed to validate stored key');
-                }.bind(this)
-            });
-        },
-
-        /**
-         * Handle validation result and update UI
-         */
-        handleValidationResult: function(validationData, storedData) {
-            this.validationStatus = validationData.status;
-
-            if (validationData.status === 'intro') {
-                // Active intro key - show with countdown, disable new generation
-                this.showActiveIntroKey(storedData, validationData);
-            } else if (validationData.status === 'expired') {
-                // Expired key - pre-fill form with message
-                this.showExpiredKey(storedData, validationData);
-            } else {
-                // Key unavailable - show message
-                this.showUnavailableKey(validationData);
-            }
-        },
-
-        /**
-         * Show active intro key with countdown
-         */
-        showActiveIntroKey: function(storedData, validationData) {
+        showStoredLink: function(storedData) {
             const domain = tpLinkShortener.domain || 'tp.local';
             const shortUrl = 'https://' + domain + '/' + storedData.shortcode;
 
-            // Display the active short URL
+            // Display the short URL
             this.$shortUrlOutput.val(shortUrl);
             this.lastShortUrl = shortUrl;
             this.showResult();
@@ -591,11 +544,7 @@
             // Generate QR code
             this.generateQRCode(shortUrl);
 
-            // Disable form submission
-            this.$submitBtn.prop('disabled', true);
-            this.$submitBtn.addClass('disabled');
-
-            // Show returning visitor message
+            // Show returning visitor message with countdown
             this.showReturningVisitorMessage(
                 '<i class="fas fa-clock me-2"></i>' +
                 'Your trial key is active! Time remaining: <span id="tp-countdown"></span>. ' +
@@ -610,51 +559,6 @@
             $('#tp-clear-key').on('click', function(e) {
                 e.preventDefault();
                 this.clearStoredKey();
-            }.bind(this));
-        },
-
-        /**
-         * Show expired key - pre-fill form
-         */
-        showExpiredKey: function(storedData, validationData) {
-            // Pre-fill destination
-            this.$destinationInput.val(storedData.destination);
-
-            // Show message
-            this.showReturningVisitorMessage(
-                '<i class="fas fa-exclamation-triangle me-2"></i>' +
-                'Your previous trial key (' + storedData.shortcode + ') has expired. ' +
-                'Note: You cannot reuse the same key and destination combination. ' +
-                '<a href="#" id="tp-clear-prefill">Clear form</a>'
-            );
-
-            // Bind clear action
-            $('#tp-clear-prefill').on('click', function(e) {
-                e.preventDefault();
-                this.$destinationInput.val('');
-                this.hideReturningVisitorMessage();
-                window.TPStorageService.clearShortcodeData();
-            }.bind(this));
-        },
-
-        /**
-         * Show unavailable key message
-         */
-        showUnavailableKey: function(validationData) {
-            this.showReturningVisitorMessage(
-                '<i class="fas fa-info-circle me-2"></i>' +
-                validationData.message + ' ' +
-                '<a href="#" id="tp-try-new">Try generating a new one</a> or ' +
-                '<a href="#" id="tp-register-now">register an account</a>.'
-            );
-
-            // Clear stored data
-            window.TPStorageService.clearShortcodeData();
-
-            // Bind actions
-            $('#tp-try-new').on('click', function(e) {
-                e.preventDefault();
-                this.hideReturningVisitorMessage();
             }.bind(this));
         },
 
@@ -723,10 +627,7 @@
             window.TPStorageService.clearShortcodeData();
             this.hideReturningVisitorMessage();
             this.hideResult();
-            this.$submitBtn.prop('disabled', false);
-            this.$submitBtn.removeClass('disabled');
             this.isReturningVisitor = false;
-            this.validationStatus = null;
         }
     };
 
