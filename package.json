@@ -1,0 +1,16 @@
+{
+  "name": "tp-link-shortener-plugin",
+  "version": "1.0.0",
+  "description": "WordPress plugin for Traffic Portal link shortening",
+  "scripts": {
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest --coverage"
+  },
+  "devDependencies": {
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/user-event": "^14.6.1",
+    "jsdom": "^27.0.1",
+    "vitest": "^3.2.4"
+  }
+}
