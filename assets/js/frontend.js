@@ -599,18 +599,20 @@
             // Generate QR code
             this.generateQRCode(shortUrl);
 
-            // Disable the form
-            this.disableForm();
+            // Only disable the form for non-logged-in users (trial users)
+            if (!tpLinkShortener.isLoggedIn) {
+                this.disableForm();
 
-            // Show returning visitor message with countdown
-            this.showReturningVisitorMessage(
-                '<i class="fas fa-clock me-2"></i>' +
-                'Your trial key is active! Time remaining: <span id="tp-countdown" class="me-1"></span> ' +
-                '<a href="#" id="tp-register-link">Register to keep it active</a>.'
-            );
+                // Show returning visitor message with countdown for trial users
+                this.showReturningVisitorMessage(
+                    '<i class="fas fa-clock me-2"></i>' +
+                    'Your trial key is active! Time remaining: <span id="tp-countdown" class="me-1"></span> ' +
+                    '<a href="#" id="tp-register-link">Register to keep it active</a>.'
+                );
 
-            // Start countdown
-            this.startCountdown();
+                // Start countdown
+                this.startCountdown();
+            }
         },
 
         /**

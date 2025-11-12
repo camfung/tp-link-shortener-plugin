@@ -88,6 +88,7 @@ class TP_Assets {
             'nonce' => wp_create_nonce('tp_link_shortener_nonce'),
             'domain' => TP_Link_Shortener::get_domain(),
             'isPremiumOnly' => TP_Link_Shortener::is_premium_only(),
+            'isLoggedIn' => is_user_logged_in(),
             'strings' => array(
                 'creating' => __('Creating...', 'tp-link-shortener'),
                 'success' => __('Link created successfully!', 'tp-link-shortener'),
