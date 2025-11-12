@@ -23,6 +23,7 @@
         $qrContainer: null,
         $downloadQrBtn: null,
         $pasteBtn: null,
+        $suggestBtn: null,
         $returningVisitorMessage: null,
 
         // State
@@ -75,6 +76,7 @@
             this.$qrContainer = $('#tp-qr-code-container');
             this.$downloadQrBtn = $('#tp-download-qr-btn');
             this.$pasteBtn = $('#tp-paste-btn');
+            this.$suggestBtn = $('#tp-suggest-btn');
         },
 
         /**
@@ -94,6 +96,11 @@
             // Paste button
             if (this.$pasteBtn.length) {
                 this.$pasteBtn.on('click', this.handlePasteClick.bind(this));
+            }
+
+            // Suggest button (lightbulb)
+            if (this.$suggestBtn.length) {
+                this.$suggestBtn.on('click', this.handleSuggestClick.bind(this));
             }
         },
 
@@ -293,6 +300,29 @@
                 }
                 console.warn('Clipboard read failed:', err);
             }
+        },
+
+        /**
+         * Handle suggest button click (lightbulb)
+         */
+        handleSuggestClick: function() {
+            const randomKey = this.generateRandomKey();
+            this.$customKeyInput.val(randomKey);
+        },
+
+        /**
+         * Generate a random shortcode key
+         */
+        generateRandomKey: function() {
+            const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+            const length = 8;
+            let result = '';
+
+            for (let i = 0; i < length; i++) {
+                result += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+
+            return result;
         },
 
         /**
