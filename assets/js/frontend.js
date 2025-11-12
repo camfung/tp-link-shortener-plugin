@@ -580,19 +580,11 @@
             this.showReturningVisitorMessage(
                 '<i class="fas fa-clock me-2"></i>' +
                 'Your trial key is active! Time remaining: <span id="tp-countdown" class="me-1"></span> ' +
-                '<a href="#" id="tp-register-link" class="me-1">Register to keep it active</a> ' +
-                '<span class="me-1">or</span> ' +
-                '<a href="#" id="tp-clear-key">generate a new key</a>.'
+                '<a href="#" id="tp-register-link">Register to keep it active</a>.'
             );
 
             // Start countdown
             this.startCountdown();
-
-            // Bind clear key action
-            $('#tp-clear-key').on('click', function(e) {
-                e.preventDefault();
-                this.clearStoredKey();
-            }.bind(this));
         },
 
         /**
