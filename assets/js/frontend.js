@@ -586,7 +586,9 @@
             // Display the short URL
             this.$shortUrlOutput.val(shortUrl);
             this.lastShortUrl = shortUrl;
-            this.showResult();
+
+            // Show result section WITHOUT success message (for returning visitors)
+            this.$resultSection.removeClass('d-none');
 
             // Generate QR code
             this.generateQRCode(shortUrl);
