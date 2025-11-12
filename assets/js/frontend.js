@@ -583,6 +583,12 @@
             const domain = tpLinkShortener.domain || 'tp.local';
             const shortUrl = 'https://' + domain + '/' + storedData.shortcode;
 
+            // Pre-fill form inputs with stored data
+            this.$destinationInput.val(storedData.destination);
+            if (this.$customKeyInput.length) {
+                this.$customKeyInput.val(storedData.shortcode);
+            }
+
             // Display the short URL
             this.$shortUrlOutput.val(shortUrl);
             this.lastShortUrl = shortUrl;
