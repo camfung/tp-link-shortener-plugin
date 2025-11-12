@@ -83,6 +83,16 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                                 <?php esc_html_e('Custom Shortcode (Optional)', 'tp-link-shortener'); ?>
                             </label>
                             <div class="tp-input-wrapper">
+                                <button
+                                    type="button"
+                                    class="btn"
+                                    id="tp-suggest-btn"
+                                    title="<?php esc_attr_e('Get suggestion', 'tp-link-shortener'); ?>"
+                                    aria-label="<?php esc_attr_e('Get suggestion', 'tp-link-shortener'); ?>"
+                                    style="border-top-right-radius: 0; border-bottom-right-radius: 0; border-top-left-radius: 1rem; border-bottom-left-radius: 1rem;"
+                                >
+                                    <i class="fa-solid fa-lightbulb" aria-hidden="true"></i>
+                                </button>
                                 <input
                                     type="text"
                                     id="tp-custom-key"
@@ -90,17 +100,8 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                                     class="form-control tp-form-control"
                                     placeholder="<?php esc_attr_e('6MagicTricks', 'tp-link-shortener'); ?>"
                                     pattern="[a-zA-Z0-9\.\-_]+"
-                                    style="border-radius: 1rem 0 0 1rem;"
+                                    style="border-left: none; border-radius: 0 1rem 1rem 0;"
                                 />
-                                <button
-                                    type="button"
-                                    class="btn"
-                                    id="tp-suggest-btn"
-                                    title="<?php esc_attr_e('Get suggestion', 'tp-link-shortener'); ?>"
-                                    aria-label="<?php esc_attr_e('Get suggestion', 'tp-link-shortener'); ?>"
-                                >
-                                    <i class="fa-solid fa-lightbulb" aria-hidden="true"></i>
-                                </button>
                             </div>
                             <div class="form-text tp-help-text">
                                 <?php esc_html_e('Leave empty to generate a random code', 'tp-link-shortener'); ?>
