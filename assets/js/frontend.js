@@ -162,12 +162,21 @@
 
                 this.lastShortUrl = shortUrl;
 
+                // Get the UID that was used
+                let uid = null;
+                try {
+                    uid = window.localStorage.getItem('tpUid');
+                } catch (error) {
+                    // Ignore
+                }
+
                 // Save to local storage
                 if (window.TPStorageService && window.TPStorageService.isAvailable()) {
                     window.TPStorageService.saveShortcodeData({
                         shortcode: key,
                         destination: destination,
-                        expiresInHours: 24
+                        expiresInHours: 24,
+                        uid: uid
                     });
                 }
 
@@ -522,9 +531,13 @@
                 action: 'tp_validate_key',
                 nonce: tpLinkShortener.nonce,
                 key: storedData.shortcode,
-                destination: storedData.destination,
-                uid: storedData.sessionId
+                destination: storedData.destination
             };
+
+            // Only include UID if it exists
+            if (storedData.uid) {
+                data.uid = storedData.uid;
+            }
 
             $.ajax({
                 url: tpLinkShortener.ajaxUrl,

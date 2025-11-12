@@ -10,7 +10,8 @@ export const StorageService = {
     DESTINATION: 'tp_destination',
     EXPIRATION: 'tp_expiration',
     SESSION_ID: 'tp_session_id',
-    CREATED_AT: 'tp_created_at'
+    CREATED_AT: 'tp_created_at',
+    UID: 'tp_uid'
   },
 
   /**
@@ -26,10 +27,11 @@ export const StorageService = {
    * @param {string} data.shortcode - The short key/code
    * @param {string} data.destination - The destination URL
    * @param {number} data.expiresInHours - Hours until expiration (default 24)
+   * @param {string} data.uid - User ID (optional)
    */
   saveShortcodeData(data) {
     try {
-      const { shortcode, destination, expiresInHours = 24 } = data;
+      const { shortcode, destination, expiresInHours = 24, uid } = data;
 
       if (!shortcode || !destination) {
         throw new Error('Shortcode and destination are required');
@@ -52,6 +54,11 @@ export const StorageService = {
       localStorage.setItem(this.KEYS.SESSION_ID, sessionId);
       localStorage.setItem(this.KEYS.CREATED_AT, now.toString());
 
+      // Store UID if provided
+      if (uid) {
+        localStorage.setItem(this.KEYS.UID, uid.toString());
+      }
+
       return true;
     } catch (error) {
       console.error('Failed to save shortcode data:', error);
@@ -70,6 +77,7 @@ export const StorageService = {
       const expiration = localStorage.getItem(this.KEYS.EXPIRATION);
       const sessionId = localStorage.getItem(this.KEYS.SESSION_ID);
       const createdAt = localStorage.getItem(this.KEYS.CREATED_AT);
+      const uid = localStorage.getItem(this.KEYS.UID);
 
       // Return null if essential data is missing
       if (!shortcode || !destination || !expiration) {
@@ -82,6 +90,7 @@ export const StorageService = {
         expiration: parseInt(expiration, 10),
         sessionId,
         createdAt: createdAt ? parseInt(createdAt, 10) : null,
+        uid,
         isExpired: this.isExpired()
       };
     } catch (error) {
@@ -172,7 +181,7 @@ export const StorageService = {
       localStorage.removeItem(this.KEYS.DESTINATION);
       localStorage.removeItem(this.KEYS.EXPIRATION);
       localStorage.removeItem(this.KEYS.CREATED_AT);
-      // Note: Keep session ID for analytics/tracking purposes
+      // Note: Keep session ID and UID for tracking purposes
       return true;
     } catch (error) {
       console.error('Failed to clear shortcode data:', error);
