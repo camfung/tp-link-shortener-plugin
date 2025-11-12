@@ -296,6 +296,7 @@
 /* Paste Button Styles */
 .tp-input-wrapper {
     position: relative;
+    align-items: center !important;
 }
 
 .tp-paste-btn {
@@ -312,6 +313,9 @@
     transition: color 0.2s ease, background-color 0.2s ease;
     border-radius: 0.5rem;
     z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .tp-paste-btn:hover:not(:disabled) {
