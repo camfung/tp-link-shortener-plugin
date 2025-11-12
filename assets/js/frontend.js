@@ -578,10 +578,10 @@
 
             // Show returning visitor message with countdown
             this.showReturningVisitorMessage(
-                '<i class="fas fa-clock me-2"></i>' +
+                '<i class="fas fa-clock me-2"></i> ' +
                 'Your trial key is active! Time remaining: <span id="tp-countdown"></span>. ' +
-                '<a href="#" id="tp-register-link">Register to keep it active</a> or ' +
-                '<a href="#" id="tp-clear-key">generate a new key</a>.'
+                '<a href="#" id="tp-register-link">Register to keep it active</a> ' +
+                'or <a href="#" id="tp-clear-key">generate a new key</a>.'
             );
 
             // Start countdown
