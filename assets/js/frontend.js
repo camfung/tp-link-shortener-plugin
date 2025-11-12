@@ -573,6 +573,9 @@
             // Generate QR code
             this.generateQRCode(shortUrl);
 
+            // Disable the form
+            this.disableForm();
+
             // Show returning visitor message with countdown
             this.showReturningVisitorMessage(
                 '<i class="fas fa-clock me-2"></i>' +
@@ -649,6 +652,36 @@
         },
 
         /**
+         * Disable form inputs
+         */
+        disableForm: function() {
+            this.$destinationInput.prop('disabled', true);
+            if (this.$customKeyInput.length) {
+                this.$customKeyInput.prop('disabled', true);
+            }
+            this.$submitBtn.prop('disabled', true);
+            this.$submitBtn.addClass('disabled');
+            if (this.$pasteBtn.length) {
+                this.$pasteBtn.prop('disabled', true);
+            }
+        },
+
+        /**
+         * Enable form inputs
+         */
+        enableForm: function() {
+            this.$destinationInput.prop('disabled', false);
+            if (this.$customKeyInput.length) {
+                this.$customKeyInput.prop('disabled', false);
+            }
+            this.$submitBtn.prop('disabled', false);
+            this.$submitBtn.removeClass('disabled');
+            if (this.$pasteBtn.length) {
+                this.$pasteBtn.prop('disabled', false);
+            }
+        },
+
+        /**
          * Clear stored key and reset form
          */
         clearStoredKey: function() {
@@ -656,6 +689,7 @@
             window.TPStorageService.clearShortcodeData();
             this.hideReturningVisitorMessage();
             this.hideResult();
+            this.enableForm();
             this.isReturningVisitor = false;
         }
     };
