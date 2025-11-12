@@ -21,11 +21,15 @@
         $qrContainer: null,
         $downloadQrBtn: null,
         $pasteBtn: null,
+        $returningVisitorMessage: null,
 
         // State
         qrCode: null,
         lastShortUrl: '',
         isValid: false,
+        isReturningVisitor: false,
+        countdownTimer: null,
+        validationStatus: null,
 
         // Configuration
         config: {
@@ -49,6 +53,7 @@
             this.cacheElements();
             this.bindEvents();
             this.checkClipboardSupport();
+            this.checkReturningVisitor();
         },
 
         /**
@@ -152,7 +157,19 @@
         handleSuccess: function(response) {
             if (response.success && response.data) {
                 const shortUrl = response.data.short_url;
+                const key = response.data.key;
+                const destination = response.data.destination;
+
                 this.lastShortUrl = shortUrl;
+
+                // Save to local storage
+                if (window.TPStorageService && window.TPStorageService.isAvailable()) {
+                    window.TPStorageService.saveShortcodeData({
+                        shortcode: key,
+                        destination: destination,
+                        expiresInHours: 24
+                    });
+                }
 
                 // Display result
                 this.$shortUrlOutput.val(shortUrl);
@@ -473,6 +490,230 @@
                 document.body.removeChild(a);
                 URL.revokeObjectURL(url);
             });
+        },
+
+        /**
+         * Check for returning visitor
+         */
+        checkReturningVisitor: function() {
+            // Check if storage service is available
+            if (!window.TPStorageService || !window.TPStorageService.isAvailable()) {
+                return;
+            }
+
+            // Get stored data
+            const storedData = window.TPStorageService.getShortcodeData();
+            if (!storedData) {
+                return;
+            }
+
+            // Mark as returning visitor
+            this.isReturningVisitor = true;
+
+            // Validate the stored key
+            this.validateStoredKey(storedData);
+        },
+
+        /**
+         * Validate stored key against database
+         */
+        validateStoredKey: function(storedData) {
+            const data = {
+                action: 'tp_validate_key',
+                nonce: tpLinkShortener.nonce,
+                key: storedData.shortcode,
+                destination: storedData.destination,
+                uid: storedData.sessionId
+            };
+
+            $.ajax({
+                url: tpLinkShortener.ajaxUrl,
+                type: 'POST',
+                data: data,
+                success: function(response) {
+                    if (response.success && response.data) {
+                        this.handleValidationResult(response.data, storedData);
+                    } else {
+                        // Validation failed, clear storage
+                        window.TPStorageService.clearShortcodeData();
+                    }
+                }.bind(this),
+                error: function() {
+                    // Network error, ignore and show normal form
+                    console.warn('Failed to validate stored key');
+                }.bind(this)
+            });
+        },
+
+        /**
+         * Handle validation result and update UI
+         */
+        handleValidationResult: function(validationData, storedData) {
+            this.validationStatus = validationData.status;
+
+            if (validationData.status === 'intro') {
+                // Active intro key - show with countdown, disable new generation
+                this.showActiveIntroKey(storedData, validationData);
+            } else if (validationData.status === 'expired') {
+                // Expired key - pre-fill form with message
+                this.showExpiredKey(storedData, validationData);
+            } else {
+                // Key unavailable - show message
+                this.showUnavailableKey(validationData);
+            }
+        },
+
+        /**
+         * Show active intro key with countdown
+         */
+        showActiveIntroKey: function(storedData, validationData) {
+            const domain = tpLinkShortener.domain || 'tp.local';
+            const shortUrl = 'https://' + domain + '/' + storedData.shortcode;
+
+            // Display the active short URL
+            this.$shortUrlOutput.val(shortUrl);
+            this.lastShortUrl = shortUrl;
+            this.showResult();
+
+            // Generate QR code
+            this.generateQRCode(shortUrl);
+
+            // Disable form submission
+            this.$submitBtn.prop('disabled', true);
+            this.$submitBtn.addClass('disabled');
+
+            // Show returning visitor message
+            this.showReturningVisitorMessage(
+                '<i class="fas fa-clock me-2"></i>' +
+                'Your trial key is active! Time remaining: <span id="tp-countdown"></span>. ' +
+                '<a href="#" id="tp-register-link">Register to keep it active</a> or ' +
+                '<a href="#" id="tp-clear-key">generate a new key</a>.'
+            );
+
+            // Start countdown
+            this.startCountdown();
+
+            // Bind clear key action
+            $('#tp-clear-key').on('click', function(e) {
+                e.preventDefault();
+                this.clearStoredKey();
+            }.bind(this));
+        },
+
+        /**
+         * Show expired key - pre-fill form
+         */
+        showExpiredKey: function(storedData, validationData) {
+            // Pre-fill destination
+            this.$destinationInput.val(storedData.destination);
+
+            // Show message
+            this.showReturningVisitorMessage(
+                '<i class="fas fa-exclamation-triangle me-2"></i>' +
+                'Your previous trial key (' + storedData.shortcode + ') has expired. ' +
+                'Note: You cannot reuse the same key and destination combination. ' +
+                '<a href="#" id="tp-clear-prefill">Clear form</a>'
+            );
+
+            // Bind clear action
+            $('#tp-clear-prefill').on('click', function(e) {
+                e.preventDefault();
+                this.$destinationInput.val('');
+                this.hideReturningVisitorMessage();
+                window.TPStorageService.clearShortcodeData();
+            }.bind(this));
+        },
+
+        /**
+         * Show unavailable key message
+         */
+        showUnavailableKey: function(validationData) {
+            this.showReturningVisitorMessage(
+                '<i class="fas fa-info-circle me-2"></i>' +
+                validationData.message + ' ' +
+                '<a href="#" id="tp-try-new">Try generating a new one</a> or ' +
+                '<a href="#" id="tp-register-now">register an account</a>.'
+            );
+
+            // Clear stored data
+            window.TPStorageService.clearShortcodeData();
+
+            // Bind actions
+            $('#tp-try-new').on('click', function(e) {
+                e.preventDefault();
+                this.hideReturningVisitorMessage();
+            }.bind(this));
+        },
+
+        /**
+         * Show returning visitor message
+         */
+        showReturningVisitorMessage: function(message) {
+            if (!this.$returningVisitorMessage || !this.$returningVisitorMessage.length) {
+                // Create message element if it doesn't exist
+                this.$returningVisitorMessage = $('<div>')
+                    .attr('id', 'tp-returning-visitor-message')
+                    .addClass('alert alert-info d-flex align-items-center mb-4')
+                    .insertBefore(this.$form.find('.tp-form-group').first());
+            }
+
+            this.$returningVisitorMessage.html(message).removeClass('d-none');
+        },
+
+        /**
+         * Hide returning visitor message
+         */
+        hideReturningVisitorMessage: function() {
+            if (this.$returningVisitorMessage) {
+                this.$returningVisitorMessage.addClass('d-none');
+            }
+        },
+
+        /**
+         * Start countdown timer
+         */
+        startCountdown: function() {
+            const updateCountdown = function() {
+                const formatted = window.TPStorageService.getFormattedTimeRemaining();
+                if (formatted) {
+                    $('#tp-countdown').text(formatted);
+                } else {
+                    // Expired during countdown
+                    this.stopCountdown();
+                    this.clearStoredKey();
+                    location.reload();
+                }
+            }.bind(this);
+
+            // Update immediately
+            updateCountdown();
+
+            // Update every second
+            this.countdownTimer = setInterval(updateCountdown, 1000);
+        },
+
+        /**
+         * Stop countdown timer
+         */
+        stopCountdown: function() {
+            if (this.countdownTimer) {
+                clearInterval(this.countdownTimer);
+                this.countdownTimer = null;
+            }
+        },
+
+        /**
+         * Clear stored key and reset form
+         */
+        clearStoredKey: function() {
+            this.stopCountdown();
+            window.TPStorageService.clearShortcodeData();
+            this.hideReturningVisitorMessage();
+            this.hideResult();
+            this.$submitBtn.prop('disabled', false);
+            this.$submitBtn.removeClass('disabled');
+            this.isReturningVisitor = false;
+            this.validationStatus = null;
         }
     };
 

@@ -64,11 +64,20 @@ class TP_Assets {
             true
         );
 
+        // Enqueue storage service
+        wp_enqueue_script(
+            'tp-storage-service',
+            TP_LINK_SHORTENER_PLUGIN_URL . 'assets/js/storage-service-standalone.js',
+            array(),
+            TP_LINK_SHORTENER_VERSION,
+            true
+        );
+
         // Enqueue custom JS
         wp_enqueue_script(
             'tp-link-shortener-js',
             TP_LINK_SHORTENER_PLUGIN_URL . 'assets/js/frontend.js',
-            array('jquery', 'tp-qrcode', 'tp-bootstrap-js'),
+            array('jquery', 'tp-qrcode', 'tp-bootstrap-js', 'tp-storage-service'),
             TP_LINK_SHORTENER_VERSION,
             true
         );
