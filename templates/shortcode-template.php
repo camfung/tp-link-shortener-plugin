@@ -163,7 +163,6 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                     <div id="tp-qr-section" class="tp-qr-section-wrapper d-none">
                         <div class="card border-0 shadow-sm rounded-4">
                             <div class="card-body p-4 text-center">
-                                <label class="form-label fw-semibold mb-3"><?php esc_html_e('QR Code', 'tp-link-shortener'); ?></label>
                                 <div id="tp-qr-code-container" class="tp-qr-code-container rounded-4 d-inline-block"></div>
                                 <div class="mt-3">
                                     <button type="button" class="btn tp-btn tp-btn-download-qr" id="tp-download-qr-btn">
