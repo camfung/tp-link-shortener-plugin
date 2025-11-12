@@ -18,6 +18,7 @@
         $resultSection: null,
         $shortUrlOutput: null,
         $copyBtn: null,
+        $qrSection: null,
         $qrContainer: null,
         $downloadQrBtn: null,
         $pasteBtn: null,
@@ -68,6 +69,7 @@
             this.$resultSection = $('#tp-result-section');
             this.$shortUrlOutput = $('#tp-short-url-output');
             this.$copyBtn = $('#tp-copy-btn');
+            this.$qrSection = $('#tp-qr-section');
             this.$qrContainer = $('#tp-qr-code-container');
             this.$downloadQrBtn = $('#tp-download-qr-btn');
             this.$pasteBtn = $('#tp-paste-btn');
@@ -424,6 +426,28 @@
          */
         hideResult: function() {
             this.$resultSection.addClass('d-none');
+            this.hideQRSection();
+        },
+
+        /**
+         * Show QR section with animation
+         */
+        showQRSection: function() {
+            this.$qrSection.removeClass('d-none');
+            // Trigger reflow to ensure animation plays
+            this.$qrSection[0].offsetHeight;
+            this.$qrSection.addClass('tp-slide-down');
+        },
+
+        /**
+         * Hide QR section
+         */
+        hideQRSection: function() {
+            this.$qrSection.removeClass('tp-slide-down');
+            // Wait for animation to complete before hiding
+            setTimeout(function() {
+                this.$qrSection.addClass('d-none');
+            }.bind(this), 500);
         },
 
         /**
@@ -445,12 +469,17 @@
             try {
                 this.qrCode = new QRCode(qrDiv[0], {
                     text: qrUrl,
-                    width: 156,
-                    height: 156,
+                    width: 200,
+                    height: 200,
                     colorDark: '#000000',
                     colorLight: '#ffffff',
                     correctLevel: QRCode.CorrectLevel.H
                 });
+
+                // Show QR section with animation after QR code is generated
+                setTimeout(function() {
+                    this.showQRSection();
+                }.bind(this), 100);
             } catch (e) {
                 console.error('QR Code generation failed:', e);
             }
