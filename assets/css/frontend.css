@@ -293,50 +293,52 @@
     font-size: 1.2rem;
 }
 
-/* Paste Button Styles */
+/* Input Wrapper Styles */
 .tp-input-wrapper {
-    position: relative;
-    align-items: center !important;
-}
-
-.tp-paste-btn {
-    position: absolute;
-    right: 0.5rem;
-    top: 50%;
-    transform: translateY(-50%);
-    background: transparent;
-    border: none;
-    color: var(--tp-primary);
-    cursor: pointer;
-    padding: 0.5rem;
-    font-size: 1.1rem;
-    transition: color 0.2s ease, background-color 0.2s ease;
-    border-radius: 0.5rem;
-    z-index: 10;
     display: flex;
     align-items: center;
-    justify-content: center;
 }
 
-.tp-paste-btn:hover:not(:disabled) {
+.tp-input-wrapper .input-group-text {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.tp-input-wrapper .tp-form-control {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+    flex: 1;
+}
+
+.tp-input-wrapper .btn {
+    background: transparent;
+    border: 1px solid var(--tp-border);
+    border-left: none;
+    color: var(--tp-primary);
+    cursor: pointer;
+    padding: 0.85rem 1.1rem;
+    font-size: 1.1rem;
+    transition: color 0.2s ease, background-color 0.2s ease;
+    border-top-right-radius: 1rem;
+    border-bottom-right-radius: 1rem;
+}
+
+.tp-input-wrapper .btn:hover:not(:disabled) {
     color: var(--tp-primary-contrast);
     background: rgba(91, 192, 222, 0.1);
 }
 
-.tp-paste-btn:focus {
+.tp-input-wrapper .btn:focus {
     outline: 2px solid var(--tp-primary);
     outline-offset: 2px;
 }
 
-.tp-paste-btn:disabled {
+.tp-input-wrapper .btn:disabled {
     color: var(--tp-muted);
     cursor: not-allowed;
     opacity: 0.5;
-}
-
-/* Adjust input padding to make room for paste button */
-.tp-input-wrapper .tp-form-control {
-    padding-right: 3rem;
 }
 
 @media (max-width: 767.98px) {

@@ -37,7 +37,7 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                             </label>
                             <div class="row g-3 align-items-center">
                                 <div class="col-md">
-                                    <div class="input-group tp-input-wrapper">
+                                    <div class="tp-input-wrapper">
                                         <span class="input-group-text bg-white border-end-0">
                                             <i class="fas fa-link text-muted"></i>
                                         </span>
@@ -54,16 +54,13 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                                         />
                                         <button
                                             type="button"
-                                            class="btn tp-paste-btn"
+                                            class="btn"
                                             id="tp-paste-btn"
                                             title="<?php esc_attr_e('Paste from clipboard', 'tp-link-shortener'); ?>"
                                             aria-label="<?php esc_attr_e('Paste from clipboard', 'tp-link-shortener'); ?>"
                                         >
                                             <i class="fas fa-paste" aria-hidden="true"></i>
                                         </button>
-                                    </div>
-                                    <div id="tp-destination-hint" class="form-text tp-help-text">
-                                        <?php esc_html_e('Enter the URL you want to shorten', 'tp-link-shortener'); ?>
                                     </div>
                                 </div>
                                 <div class="col-md-auto">
@@ -72,6 +69,9 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                                         <?php esc_html_e('Register', 'tp-link-shortener'); ?>
                                     </button>
                                 </div>
+                            </div>
+                            <div id="tp-destination-hint" class="form-text tp-help-text mt-2">
+                                <?php esc_html_e('Enter the URL you want to shorten', 'tp-link-shortener'); ?>
                             </div>
                         </div>
 
