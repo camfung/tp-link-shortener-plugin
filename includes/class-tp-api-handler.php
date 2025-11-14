@@ -75,7 +75,10 @@ class TP_API_Handler {
         $custom_key = isset($_POST['custom_key']) ? sanitize_text_field($_POST['custom_key']) : '';
         $uid = isset($_POST['uid']) ? intval($_POST['uid']) : 0;
 
-        if ($uid <= 0) {
+        // If user is not logged in, set uid to -1
+        if (!is_user_logged_in()) {
+            $uid = -1;
+        } elseif ($uid <= 0) {
             $uid = TP_Link_Shortener::get_user_id();
         }
 
