@@ -67,6 +67,8 @@ class TP_API_Handler {
      * AJAX handler for creating short links
      */
     public function ajax_create_link() {
+        error_log('TP Link Shortener: ajax_create_link called');
+
         // Verify nonce
         check_ajax_referer('tp_link_shortener_nonce', 'nonce');
 
@@ -75,15 +77,22 @@ class TP_API_Handler {
         $custom_key = isset($_POST['custom_key']) ? sanitize_text_field($_POST['custom_key']) : '';
         $uid = isset($_POST['uid']) ? intval($_POST['uid']) : 0;
 
+        error_log('TP Link Shortener: Initial POST data - destination: ' . $destination . ', custom_key: ' . $custom_key . ', uid: ' . $uid);
+
         // If user is not logged in, set uid to -1
         if (!is_user_logged_in()) {
+            error_log('TP Link Shortener: User not logged in, setting uid to -1');
             $uid = -1;
         } elseif ($uid <= 0) {
             $uid = TP_Link_Shortener::get_user_id();
+            error_log('TP Link Shortener: User logged in, using configured uid: ' . $uid);
+        } else {
+            error_log('TP Link Shortener: Using provided uid: ' . $uid);
         }
 
         // Validate destination
         if (empty($destination) || !filter_var($destination, FILTER_VALIDATE_URL)) {
+            error_log('TP Link Shortener: Invalid destination URL: ' . $destination);
             wp_send_json_error(array(
                 'message' => __('Please enter a valid URL', 'tp-link-shortener')
             ));
@@ -91,8 +100,10 @@ class TP_API_Handler {
 
         // Check if custom key is allowed
         if (!empty($custom_key) && TP_Link_Shortener::is_premium_only()) {
+            error_log('TP Link Shortener: Premium-only mode enabled, checking user status');
             // Check if user is premium
             if (!$this->is_user_premium()) {
+                error_log('TP Link Shortener: User is not premium, rejecting custom key');
                 wp_send_json_error(array(
                     'message' => __('Custom shortcodes are only available for premium members', 'tp-link-shortener')
                 ));
@@ -102,14 +113,20 @@ class TP_API_Handler {
         // Generate random key if custom key not provided
         if (empty($custom_key)) {
             $custom_key = $this->generate_random_key();
+            error_log('TP Link Shortener: Generated random key: ' . $custom_key);
+        } else {
+            error_log('TP Link Shortener: Using custom key: ' . $custom_key);
         }
 
         // Create the short link
+        error_log('TP Link Shortener: Creating short link - destination: ' . $destination . ', key: ' . $custom_key . ', uid: ' . $uid);
         $result = $this->create_short_link($destination, $custom_key, $uid);
 
         if ($result['success']) {
+            error_log('TP Link Shortener: Link created successfully: ' . json_encode($result['data']));
             wp_send_json_success($result['data']);
         } else {
+            error_log('TP Link Shortener: Link creation failed: ' . $result['message']);
             wp_send_json_error(array(
                 'message' => $result['message']
             ));
@@ -121,6 +138,8 @@ class TP_API_Handler {
      */
     private function create_short_link(string $destination, string $key, int $uid): array {
         try {
+            error_log('TP Link Shortener: Building CreateMapRequest with uid=' . $uid . ', key=' . $key . ', domain=' . TP_Link_Shortener::get_domain());
+
             $request = new CreateMapRequest(
                 uid: $uid,
                 tpKey: $key,
@@ -135,11 +154,15 @@ class TP_API_Handler {
                 cacheContent: 0
             );
 
+            error_log('TP Link Shortener: Sending request to API: ' . json_encode($request->toArray()));
             $response = $this->client->createMaskedRecord($request);
+            error_log('TP Link Shortener: Received API response');
 
             if ($response->isSuccess()) {
                 $domain = TP_Link_Shortener::get_domain();
                 $short_url = 'https://' . $domain . '/' . $key;
+
+                error_log('TP Link Shortener: API response successful - mid: ' . $response->getMid());
 
                 return array(
                     'success' => true,
@@ -154,6 +177,7 @@ class TP_API_Handler {
                 );
             }
 
+            error_log('TP Link Shortener: API response unsuccessful');
             return array(
                 'success' => false,
                 'message' => __('Failed to create link', 'tp-link-shortener')
@@ -163,7 +187,8 @@ class TP_API_Handler {
             error_log('TP Link Shortener Auth Error: ' . $e->getMessage());
             return array(
                 'success' => false,
-                'message' => __('Authentication failed. Please check plugin configuration.', 'tp-link-shortener')
+                'message' => __('Authentication failed. Please check plugin configuration.', 'tp-link-shortener'),
+                'debug_error' => $e->getMessage() // DEBUG: Remove in production
             );
 
         } catch (ValidationException $e) {
@@ -171,34 +196,39 @@ class TP_API_Handler {
             if (strpos($e->getMessage(), 'invalid') !== false) {
                 return array(
                     'success' => false,
-                    'message' => __('This shortcode is already taken. Please try another.', 'tp-link-shortener')
+                    'message' => __('This shortcode is already taken. Please try another.', 'tp-link-shortener'),
+                    'debug_error' => $e->getMessage() // DEBUG: Remove in production
                 );
             }
 
             return array(
                 'success' => false,
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
+                'debug_error' => $e->getMessage() // DEBUG: Remove in production
             );
 
         } catch (NetworkException $e) {
             error_log('TP Link Shortener Network Error: ' . $e->getMessage());
             return array(
                 'success' => false,
-                'message' => __('Network error. Please try again later.', 'tp-link-shortener')
+                'message' => __('Network error. Please try again later.', 'tp-link-shortener'),
+                'debug_error' => $e->getMessage() // DEBUG: Remove in production
             );
 
         } catch (ApiException $e) {
             error_log('TP Link Shortener API Error: ' . $e->getMessage());
             return array(
                 'success' => false,
-                'message' => __('API error. Please try again.', 'tp-link-shortener')
+                'message' => __('API error. Please try again.', 'tp-link-shortener'),
+                'debug_error' => $e->getMessage() // DEBUG: Remove in production
             );
 
         } catch (Exception $e) {
             error_log('TP Link Shortener Error: ' . $e->getMessage());
             return array(
                 'success' => false,
-                'message' => __('An unexpected error occurred. Please try again.', 'tp-link-shortener')
+                'message' => __('An unexpected error occurred. Please try again.', 'tp-link-shortener'),
+                'debug_error' => $e->getMessage() // DEBUG: Remove in production
             );
         }
     }
@@ -222,6 +252,8 @@ class TP_API_Handler {
      * AJAX handler for validating stored keys
      */
     public function ajax_validate_key() {
+        error_log('TP Link Shortener: ajax_validate_key called');
+
         // Verify nonce
         check_ajax_referer('tp_link_shortener_nonce', 'nonce');
 
@@ -234,8 +266,11 @@ class TP_API_Handler {
             $uid = TP_Link_Shortener::get_user_id();
         }
 
+        error_log('TP Link Shortener: Validating key: ' . $key . ', destination: ' . $destination . ', uid: ' . $uid);
+
         // Validate inputs
         if (empty($key)) {
+            error_log('TP Link Shortener: Key validation failed - empty key');
             wp_send_json_error(array(
                 'message' => __('Key is required', 'tp-link-shortener')
             ));
@@ -245,8 +280,10 @@ class TP_API_Handler {
         $result = $this->validate_key($key, $destination, $uid);
 
         if ($result['success']) {
+            error_log('TP Link Shortener: Key validation successful: ' . json_encode($result['data']));
             wp_send_json_success($result['data']);
         } else {
+            error_log('TP Link Shortener: Key validation failed: ' . $result['message']);
             wp_send_json_error(array(
                 'message' => $result['message']
             ));
@@ -323,28 +360,32 @@ class TP_API_Handler {
             error_log('TP Link Shortener Auth Error: ' . $e->getMessage());
             return array(
                 'success' => false,
-                'message' => __('Authentication failed.', 'tp-link-shortener')
+                'message' => __('Authentication failed.', 'tp-link-shortener'),
+                'debug_error' => $e->getMessage() // DEBUG: Remove in production
             );
 
         } catch (NetworkException $e) {
             error_log('TP Link Shortener Network Error: ' . $e->getMessage());
             return array(
                 'success' => false,
-                'message' => __('Network error. Please try again later.', 'tp-link-shortener')
+                'message' => __('Network error. Please try again later.', 'tp-link-shortener'),
+                'debug_error' => $e->getMessage() // DEBUG: Remove in production
             );
 
         } catch (ApiException $e) {
             error_log('TP Link Shortener API Error: ' . $e->getMessage());
             return array(
                 'success' => false,
-                'message' => __('API error. Please try again.', 'tp-link-shortener')
+                'message' => __('API error. Please try again.', 'tp-link-shortener'),
+                'debug_error' => $e->getMessage() // DEBUG: Remove in production
             );
 
         } catch (Exception $e) {
             error_log('TP Link Shortener Error: ' . $e->getMessage());
             return array(
                 'success' => false,
-                'message' => __('An unexpected error occurred.', 'tp-link-shortener')
+                'message' => __('An unexpected error occurred.', 'tp-link-shortener'),
+                'debug_error' => $e->getMessage() // DEBUG: Remove in production
             );
         }
     }
