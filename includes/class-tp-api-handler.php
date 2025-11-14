@@ -204,7 +204,7 @@ class TP_API_Handler {
             return array(
                 'success' => false,
                 'message' => $e->getMessage(),
-                'debug_error' => $e->getMessage() // DEBUG: Remove in production
+                'debug_error' => $e->getMessage() + "test" // DEBUG: Remove in production
             );
 
         } catch (NetworkException $e) {
