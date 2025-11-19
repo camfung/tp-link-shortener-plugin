@@ -118,10 +118,10 @@
             if (result.isError) {
                 this.isValid = false;
                 this.$destinationInput.removeClass('is-valid').addClass('is-invalid');
-                // Hide the validating spinner message
-                this.$validationMessage.hide();
-                // Show the validation error message in main error area
-                this.showError(result.message);
+                // Show error message in validation message area (not main error area)
+                this.$validationMessage.html('<i class="fas fa-times-circle me-2"></i>' + result.message);
+                this.$validationMessage.removeClass('warning-message success-message text-muted text-success text-warning').addClass('error-message text-danger');
+                this.$validationMessage.show();
                 // Disable submit button
                 this.$submitBtn.prop('disabled', true);
                 this.$submitBtn.addClass('disabled');
@@ -129,11 +129,9 @@
                 // Warnings still allow submission but show warning message
                 this.isValid = true;
                 this.$destinationInput.removeClass('is-invalid').addClass('is-valid');
-                // Hide main error area
-                this.hideError();
                 // Show warning message in validation message area
                 this.$validationMessage.html('<i class="fas fa-exclamation-triangle me-2"></i>' + result.message);
-                this.$validationMessage.removeClass('error-message success-message text-muted').addClass('warning-message text-warning');
+                this.$validationMessage.removeClass('error-message success-message text-muted text-success text-danger').addClass('warning-message text-warning');
                 this.$validationMessage.show();
                 // Enable submit button (warnings are allowed)
                 this.$submitBtn.prop('disabled', false);
@@ -141,11 +139,9 @@
             } else {
                 this.isValid = true;
                 this.$destinationInput.removeClass('is-invalid').addClass('is-valid');
-                // Hide main error area
-                this.hideError();
                 // Show success message in validation message area
                 this.$validationMessage.html('<i class="fas fa-check-circle me-2"></i>' + result.message);
-                this.$validationMessage.removeClass('error-message warning-message text-muted').addClass('success-message text-success');
+                this.$validationMessage.removeClass('error-message warning-message text-muted text-warning text-danger').addClass('success-message text-success');
                 this.$validationMessage.show();
                 // Enable submit button
                 this.$submitBtn.prop('disabled', false);
