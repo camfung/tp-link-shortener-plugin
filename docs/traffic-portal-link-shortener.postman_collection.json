@@ -1,0 +1,75 @@
+{
+  "info": {
+    "_postman_id": "9180f7c7-3b23-4ee9-b30d-ad1b866b9bf4",
+    "name": "Traffic Portal Link Shortener",
+    "description": "Collection based on the bundled PHP API client. It mirrors the POST `/items` call made by `TrafficPortalApiClient::createMaskedRecord` for creating short links.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Create Short Link",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-api-key",
+            "value": "{{apiKey}}",
+            "type": "text",
+            "description": "Traffic Portal API key, same value used in `wp-config.php`."
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"uid\": {{tpUid}},\n  \"tpKey\": \"{{tpKey}}\",\n  \"domain\": \"{{tpDomain}}\",\n  \"destination\": \"{{tpDestination}}\",\n  \"status\": \"active\",\n  \"type\": \"redirect\",\n  \"is_set\": 0,\n  \"tags\": \"wordpress,plugin\",\n  \"notes\": \"Created via Postman\",\n  \"settings\": \"{}\",\n  \"cache_content\": 0\n}"
+        },
+        "url": {
+          "raw": "{{apiEndpoint}}/items"
+        },
+        "description": "Replicates the payload built in `CreateMapRequest` and sent through `TrafficPortalApiClient::createMaskedRecord`. Update the body variables before sending to match your shortcode, domain, and destination."
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "apiEndpoint",
+      "value": "https://ce7jzbocq1.execute-api.ca-central-1.amazonaws.com/dev",
+      "type": "string",
+      "description": "Base URL used by the WP plugin (override with your environment specific endpoint)."
+    },
+    {
+      "key": "apiKey",
+      "value": "",
+      "type": "string",
+      "description": "Traffic Portal API key, stored as `API_KEY` in WordPress."
+    },
+    {
+      "key": "tpUid",
+      "value": "125",
+      "type": "integer",
+      "description": "Default UID pulled from the plugin settings."
+    },
+    {
+      "key": "tpDomain",
+      "value": "dev.trfc.link",
+      "type": "string",
+      "description": "Domain used to build short URLs."
+    },
+    {
+      "key": "tpKey",
+      "value": "sample-key",
+      "type": "string",
+      "description": "Shortcode for the new link (`tpKey`)."
+    },
+    {
+      "key": "tpDestination",
+      "value": "https://example.com",
+      "type": "string",
+      "description": "Destination URL that traffic should redirect to."
+    }
+  ]
+}

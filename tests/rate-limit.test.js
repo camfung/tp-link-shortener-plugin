@@ -119,19 +119,19 @@ describe('Rate Limit Error Handling', () => {
 
       // Simulate showRateLimitError
       const errorHtml = `
-        <div>
-          <i class="fas fa-exclamation-triangle me-2"></i>
-          <strong>${message}</strong>
-        </div>
-        <div class="mt-3">
-          <p class="mb-2">Create an account to get:</p>
-          <ul class="mb-3" style="text-align: left; display: inline-block;">
-            <li>Unlimited short URLs</li>
-            <li>Analytics and tracking</li>
-            <li>Custom domains</li>
-            <li>URL management</li>
-          </ul>
-        </div>
+                <div class="d-flex align-items-start gap-3 mb-3">
+                    <i class="fas fa-exclamation-triangle fs-5 mt-1 flex-shrink-0"></i>
+                    <strong>${message}</strong>
+                </div>
+                <div class="ms-0 ms-md-5">
+                    <p class="mb-2 fw-semibold">Create an account to get:</p>
+                    <ul class="mb-0 ps-3">
+                        <li>Unlimited short URLs</li>
+                        <li>Analytics and tracking</li>
+                        <li>Custom domains</li>
+                        <li>URL management</li>
+                    </ul>
+                </div>
       `;
 
       errorMessageDiv.html(errorHtml).removeClass('d-none');
