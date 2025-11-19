@@ -82,19 +82,8 @@
             this.$pasteBtn = $('#tp-paste-btn');
             this.$suggestBtn = $('#tp-suggest-btn');
 
-            // Create validation message element if it doesn't exist
-            if ($('#tp-url-validation-message').length === 0) {
-                this.$validationMessage = $('<div>')
-                    .attr('id', 'tp-url-validation-message')
-                    .addClass('form-text mt-2')
-                    .css({
-                        'font-size': '0.875rem',
-                        'display': 'none'
-                    })
-                    .insertAfter(this.$destinationInput.closest('.tp-input-wrapper'));
-            } else {
-                this.$validationMessage = $('#tp-url-validation-message');
-            }
+            // Get validation message element (now exists in template)
+            this.$validationMessage = $('#tp-url-validation-message');
         },
 
         /**

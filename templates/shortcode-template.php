@@ -70,6 +70,7 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                                     </button>
                                 </div>
                             </div>
+                            <div id="tp-url-validation-message" class="form-text mt-2" style="display: none;"></div>
                             <div id="tp-destination-hint" class="form-text tp-help-text mt-2">
                                 <?php esc_html_e('Enter the URL you want to shorten', 'tp-link-shortener'); ?>
                             </div>
