@@ -84,6 +84,7 @@
 
             // Get validation message element (now exists in template)
             this.$validationMessage = $('#tp-url-validation-message');
+            this.$tryItMessage = $('#tp-try-it-message');
         },
 
         /**
@@ -276,11 +277,18 @@
                 // Generate QR code
                 this.generateQRCode(shortUrl);
 
+                // Show "Try It Now" message for non-logged-in users
+                if (this.$tryItMessage && this.$tryItMessage.length) {
+                    this.$tryItMessage.removeClass('d-none');
+                }
+
                 // Reset form
                 this.$destinationInput.val('');
                 this.$customKeyInput.val('');
             } else {
-                this.showError(response.data.message || tpLinkShortener.strings.error);
+                // Show debug error if available, otherwise show message
+                const errorMessage = response.data.debug_error || response.data.message || tpLinkShortener.strings.error;
+                this.showError(errorMessage);
             }
         },
 
@@ -588,6 +596,10 @@
             this.hideSuccessMessage();
             this.$resultSection.addClass('d-none');
             this.hideQRSection();
+            // Hide "Try It Now" message
+            if (this.$tryItMessage && this.$tryItMessage.length) {
+                this.$tryItMessage.addClass('d-none');
+            }
         },
 
         /**
