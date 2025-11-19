@@ -333,6 +333,17 @@
                 value = cleaned;
             }
 
+            // Attempt to auto-add protocol when we can identify a valid TLD
+            if (value.trim().length > 0) {
+                const normalizedValue = this.ensureProtocol(value.trim());
+                if (normalizedValue !== value.trim()) {
+                    value = normalizedValue;
+                    this.$destinationInput.val(normalizedValue);
+                } else {
+                    value = value.trim();
+                }
+            }
+
             // Check length
             if (value.length > this.config.maxLength) {
                 this.$destinationInput.val(value.substring(0, this.config.maxLength));
@@ -481,8 +492,9 @@
 
             // Auto-add protocol if missing
             if (!this.hasProtocol(url)) {
-                if (this.hasValidTld(url)) {
-                    url = 'https://' + url;
+                const normalizedUrl = this.ensureProtocol(url);
+                if (normalizedUrl !== url) {
+                    url = normalizedUrl;
                     this.$destinationInput.val(url);
                 } else {
                     this.showError('Invalid URL format. Include protocol (https://) or valid domain.');
@@ -520,6 +532,21 @@
 
             const tld = match[1].toLowerCase();
             return this.config.commonTlds.includes(tld);
+        },
+
+        /**
+         * Ensure the URL has a protocol when a valid TLD is detected
+         */
+        ensureProtocol: function(url) {
+            if (!url || this.hasProtocol(url)) {
+                return url;
+            }
+
+            if (this.hasValidTld(url)) {
+                return 'https://' + url;
+            }
+
+            return url;
         },
 
         /**
