@@ -1,0 +1,10 @@
+Online validation includes reading a response header. Not available destination, Protected links, as well as the links with incorrect SSL are invalid. The related message and border color to reflect the error. (Note: Protected links are allowed for registered users)
+
+The Permanent Redirect (301, 308) response raises a warning with the suggestion to replace the destination with the actual target.
+
+The Temporary Redirect (302, 307, other 3xx) are not allowed for a guest user.
+
+A static web page or an image as a destination is ok. Video and other types are allowed only for registered users.
+
+
+
