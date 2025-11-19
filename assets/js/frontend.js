@@ -131,6 +131,9 @@
                 this.$destinationInput.removeClass('is-valid').addClass('is-invalid');
                 // Show the validation error message
                 this.showError(result.message);
+                // Disable submit button
+                this.$submitBtn.prop('disabled', true);
+                this.$submitBtn.addClass('disabled');
             } else if (result.isWarning) {
                 // Warnings still allow submission but show warning message
                 this.isValid = true;
@@ -139,6 +142,9 @@
                 this.$validationMessage.html('<i class="fas fa-exclamation-triangle me-2"></i>' + result.message);
                 this.$validationMessage.removeClass('error-message success-message').addClass('warning-message text-warning');
                 this.$validationMessage.show();
+                // Enable submit button (warnings are allowed)
+                this.$submitBtn.prop('disabled', false);
+                this.$submitBtn.removeClass('disabled');
             } else {
                 this.isValid = true;
                 this.$destinationInput.removeClass('is-invalid').addClass('is-valid');
@@ -146,6 +152,9 @@
                 this.$validationMessage.html('<i class="fas fa-check-circle me-2"></i>' + result.message);
                 this.$validationMessage.removeClass('error-message warning-message').addClass('success-message text-success');
                 this.$validationMessage.show();
+                // Enable submit button
+                this.$submitBtn.prop('disabled', false);
+                this.$submitBtn.removeClass('disabled');
             }
         },
 
@@ -345,6 +354,13 @@
                 if (this.$validationMessage) {
                     this.$validationMessage.hide();
                 }
+                // Re-enable submit button while typing (will be disabled again if validation fails)
+                this.$submitBtn.prop('disabled', false);
+                this.$submitBtn.removeClass('disabled');
+            } else {
+                // If empty, disable submit button
+                this.$submitBtn.prop('disabled', true);
+                this.$submitBtn.addClass('disabled');
             }
 
             // Trigger online validation if URLValidator is available
@@ -356,6 +372,10 @@
                     this.$validationMessage.addClass('text-muted');
                     this.$validationMessage.show();
                 }
+
+                // Disable submit button while validating
+                this.$submitBtn.prop('disabled', true);
+                this.$submitBtn.addClass('disabled');
 
                 // Note: We pass null for the message element because we handle
                 // the styling ourselves in handleValidationResult

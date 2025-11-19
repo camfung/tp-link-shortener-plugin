@@ -64,8 +64,11 @@
                 <button class="btn btn-sm btn-outline-secondary test-url-btn" data-url="https://google.com">
                     ✅ Valid (google.com)
                 </button>
-                <button class="btn btn-sm btn-outline-secondary test-url-btn" data-url="https://httpstat.us/404">
-                    ❌ 404 Error
+                <button class="btn btn-sm btn-outline-secondary test-url-btn" data-url="https://httpbin.org/status/404">
+                    ❌ 404 Error (httpbin)
+                </button>
+                <button class="btn btn-sm btn-outline-secondary test-url-btn" data-url="https://httpbin.org/status/200">
+                    ✅ 200 Success (httpbin)
                 </button>
                 <button class="btn btn-sm btn-outline-secondary test-url-btn" data-url="https://httpstat.us/301">
                     ⚠️ 301 Redirect
@@ -123,14 +126,20 @@
                 statusOutput.classList.add('alert-danger');
                 statusOutput.innerHTML = '<i class="fas fa-times-circle me-2"></i><strong>Error:</strong> ' + result.message;
                 isValid = false;
+                // Disable submit button
+                submitBtn.disabled = true;
             } else if (result.isWarning) {
                 statusOutput.classList.add('alert-warning');
                 statusOutput.innerHTML = '<i class="fas fa-exclamation-triangle me-2"></i><strong>Warning:</strong> ' + result.message;
                 isValid = true;  // Warnings allow submission
+                // Enable submit button
+                submitBtn.disabled = false;
             } else {
                 statusOutput.classList.add('alert-success');
                 statusOutput.innerHTML = '<i class="fas fa-check-circle me-2"></i><strong>Success:</strong> ' + result.message;
                 isValid = true;
+                // Enable submit button
+                submitBtn.disabled = false;
             }
 
             // Show validation details
@@ -176,11 +185,16 @@
                 validationMessage.className = 'validation-message text-muted';
                 validationMessage.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Validating...';
 
+                // Disable submit button while validating
+                submitBtn.disabled = true;
+
                 // Trigger validation
                 debouncedValidate(value, null, null);
             } else {
                 statusOutput.className = 'alert alert-info';
                 statusOutput.textContent = 'Waiting for validation...';
+                // Disable submit button when empty
+                submitBtn.disabled = true;
             }
         });
 

@@ -428,14 +428,32 @@ class URLValidator {
 
       // Set new timeout for validation
       timeoutId = setTimeout(async () => {
-        const result = await this.validateURL(urlString);
+        try {
+          const result = await this.validateURL(urlString);
 
-        if (inputElement && messageElement) {
-          this.applyValidationToElement(inputElement, result, messageElement);
-        }
+          if (inputElement && messageElement) {
+            this.applyValidationToElement(inputElement, result, messageElement);
+          }
 
-        if (callback) {
-          callback(result, urlString);
+          if (callback) {
+            callback(result, urlString);
+          }
+        } catch (error) {
+          // Handle any uncaught errors (like CORS issues)
+          console.error('Validation error:', error);
+          const errorResult = this.createErrorResult(
+            URLValidator.ErrorTypes.NETWORK_ERROR,
+            'Unable to validate URL: ' + error.message,
+            URLValidator.BorderColors.ERROR
+          );
+
+          if (inputElement && messageElement) {
+            this.applyValidationToElement(inputElement, errorResult, messageElement);
+          }
+
+          if (callback) {
+            callback(errorResult, urlString);
+          }
         }
       }, delay);
     };
