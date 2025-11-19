@@ -404,12 +404,23 @@ class URLValidator {
       // Only validate if URL format is valid
       if (!this.isValidURLFormat(urlString)) {
         if (urlString.length > 0) {
+          const invalidResult = this.createErrorResult(
+            URLValidator.ErrorTypes.INVALID_URL,
+            'Invalid URL format',
+            URLValidator.BorderColors.ERROR
+          );
+
           if (inputElement) {
             inputElement.style.borderColor = URLValidator.BorderColors.ERROR;
           }
           if (messageElement) {
             messageElement.textContent = 'Invalid URL format';
             messageElement.className = 'error-message';
+          }
+
+          // Call callback even for invalid format
+          if (callback) {
+            callback(invalidResult, urlString);
           }
         }
         return;

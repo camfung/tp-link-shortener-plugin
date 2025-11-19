@@ -86,7 +86,11 @@
             if ($('#tp-url-validation-message').length === 0) {
                 this.$validationMessage = $('<div>')
                     .attr('id', 'tp-url-validation-message')
-                    .addClass('form-text mt-1')
+                    .addClass('form-text mt-2')
+                    .css({
+                        'font-size': '0.875rem',
+                        'display': 'none'
+                    })
                     .insertAfter(this.$destinationInput.closest('.tp-input-wrapper'));
             } else {
                 this.$validationMessage = $('#tp-url-validation-message');
@@ -124,11 +128,24 @@
             // Update UI based on validation result
             if (result.isError) {
                 this.isValid = false;
+                this.$destinationInput.removeClass('is-valid').addClass('is-invalid');
+                // Show the validation error message
+                this.showError(result.message);
             } else if (result.isWarning) {
-                // Warnings still allow submission
+                // Warnings still allow submission but show warning message
                 this.isValid = true;
+                this.$destinationInput.removeClass('is-invalid').addClass('is-valid');
+                // Show warning message (not as an error)
+                this.$validationMessage.html('<i class="fas fa-exclamation-triangle me-2"></i>' + result.message);
+                this.$validationMessage.removeClass('error-message success-message').addClass('warning-message text-warning');
+                this.$validationMessage.show();
             } else {
                 this.isValid = true;
+                this.$destinationInput.removeClass('is-invalid').addClass('is-valid');
+                // Show success message
+                this.$validationMessage.html('<i class="fas fa-check-circle me-2"></i>' + result.message);
+                this.$validationMessage.removeClass('error-message warning-message').addClass('success-message text-success');
+                this.$validationMessage.show();
             }
         },
 
@@ -178,9 +195,18 @@
                 uidFromStorage = null;
             }
 
-            // Validate
+            // Validate URL format
             if (!this.validateUrl(destination)) {
                 this.showError(tpLinkShortener.strings.invalidUrl);
+                return;
+            }
+
+            // Check if online validation has been performed and passed
+            if (!this.isValid) {
+                this.showError('Please enter a valid and accessible URL. The URL validation failed.');
+                this.$destinationInput.addClass('is-invalid');
+                // Scroll to the error
+                this.$destinationInput[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
                 return;
             }
 
@@ -315,14 +341,28 @@
             // Hide error while typing
             if (value.length > 0) {
                 this.hideError();
+                // Hide validation message while typing
+                if (this.$validationMessage) {
+                    this.$validationMessage.hide();
+                }
             }
 
             // Trigger online validation if URLValidator is available
             if (this.urlValidator && this.debouncedValidate && value.trim().length > 0) {
+                // Show validating message
+                if (this.$validationMessage) {
+                    this.$validationMessage.html('<i class="fas fa-spinner fa-spin me-2"></i>Validating URL...');
+                    this.$validationMessage.removeClass('error-message warning-message success-message text-success text-warning text-danger');
+                    this.$validationMessage.addClass('text-muted');
+                    this.$validationMessage.show();
+                }
+
+                // Note: We pass null for the message element because we handle
+                // the styling ourselves in handleValidationResult
                 this.debouncedValidate(
                     value.trim(),
-                    this.$destinationInput[0],
-                    this.$validationMessage[0]
+                    null,  // Don't let URLValidator apply styles directly
+                    null   // Don't let URLValidator apply message directly
                 );
             }
         },
