@@ -204,11 +204,35 @@ class URLValidator {
 
       // If proxy URL is configured, use it to avoid CORS issues
       if (this.proxyUrl) {
-        fetchUrl = `${this.proxyUrl}?url=${encodeURIComponent(urlString)}`;
+        fetchUrl = `${this.proxyUrl}&url=${encodeURIComponent(urlString)}`;
+        options.method = 'GET'; // Proxy uses GET
       }
 
       const response = await fetch(fetchUrl, options);
       clearTimeout(timeoutId);
+
+      // If using proxy, transform the response to match expected format
+      if (this.proxyUrl) {
+        const data = await response.json();
+
+        // Create a mock Response-like object
+        return {
+          ok: data.ok,
+          status: data.status,
+          headers: {
+            get: (key) => {
+              // Case-insensitive header lookup
+              const lowerKey = key.toLowerCase();
+              for (const headerKey in data.headers) {
+                if (headerKey.toLowerCase() === lowerKey) {
+                  return data.headers[headerKey];
+                }
+              }
+              return null;
+            }
+          }
+        };
+      }
 
       return response;
     } catch (error) {

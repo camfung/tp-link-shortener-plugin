@@ -57,10 +57,12 @@ class TP_API_Handler {
         // For logged-in users
         add_action('wp_ajax_tp_create_link', array($this, 'ajax_create_link'));
         add_action('wp_ajax_tp_validate_key', array($this, 'ajax_validate_key'));
+        add_action('wp_ajax_tp_validate_url', array($this, 'ajax_validate_url'));
 
         // For non-logged-in users
         add_action('wp_ajax_nopriv_tp_create_link', array($this, 'ajax_create_link'));
         add_action('wp_ajax_nopriv_tp_validate_key', array($this, 'ajax_validate_key'));
+        add_action('wp_ajax_nopriv_tp_validate_url', array($this, 'ajax_validate_url'));
     }
 
     /**
@@ -398,5 +400,83 @@ class TP_API_Handler {
         // For now, return true if user is logged in
         // You can integrate with your membership plugin here
         return is_user_logged_in();
+    }
+
+    /**
+     * AJAX handler for URL validation proxy (CORS bypass)
+     * This endpoint proxies HEAD requests to validate URLs
+     */
+    public function ajax_validate_url() {
+        // Get the URL to validate
+        $url = isset($_GET['url']) ? esc_url_raw($_GET['url']) : '';
+
+        if (empty($url)) {
+            wp_send_json_error(array(
+                'message' => 'URL parameter is required'
+            ), 400);
+            return;
+        }
+
+        // Validate URL format
+        if (!filter_var($url, FILTER_VALIDATE_URL)) {
+            wp_send_json_error(array(
+                'message' => 'Invalid URL format'
+            ), 400);
+            return;
+        }
+
+        // Only allow http and https protocols
+        $parsed_url = parse_url($url);
+        if (!isset($parsed_url['scheme']) || !in_array($parsed_url['scheme'], array('http', 'https'))) {
+            wp_send_json_error(array(
+                'message' => 'Only HTTP and HTTPS protocols are allowed'
+            ), 400);
+            return;
+        }
+
+        // Make HEAD request using WordPress HTTP API
+        $response = wp_remote_head($url, array(
+            'timeout' => 10,
+            'redirection' => 0, // Don't follow redirects automatically
+            'sslverify' => true,
+            'user-agent' => 'TP-Link-Shortener-Validator/1.0'
+        ));
+
+        // Check for errors
+        if (is_wp_error($response)) {
+            $error_message = $response->get_error_message();
+
+            // Return error response in format expected by URLValidator
+            header('Content-Type: application/json');
+            http_response_code(500);
+            echo json_encode(array(
+                'ok' => false,
+                'status' => 0,
+                'headers' => array(),
+                'error' => $error_message
+            ));
+            wp_die();
+        }
+
+        // Get response data
+        $status_code = wp_remote_retrieve_response_code($response);
+        $headers = wp_remote_retrieve_headers($response);
+
+        // Convert headers to simple key-value array
+        $headers_array = array();
+        if (is_object($headers)) {
+            $headers_array = $headers->getAll();
+        } elseif (is_array($headers)) {
+            $headers_array = $headers;
+        }
+
+        // Return response in format expected by URLValidator
+        header('Content-Type: application/json');
+        echo json_encode(array(
+            'ok' => $status_code >= 200 && $status_code < 400,
+            'status' => $status_code,
+            'headers' => $headers_array
+        ));
+        wp_die();
     }
 }

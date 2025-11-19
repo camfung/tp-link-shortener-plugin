@@ -25,6 +25,7 @@
         $pasteBtn: null,
         $suggestBtn: null,
         $returningVisitorMessage: null,
+        $validationMessage: null,
 
         // State
         qrCode: null,
@@ -32,6 +33,8 @@
         isValid: false,
         isReturningVisitor: false,
         countdownTimer: null,
+        urlValidator: null,
+        debouncedValidate: null,
 
         // Configuration
         config: {
@@ -53,6 +56,7 @@
          */
         init: function() {
             this.cacheElements();
+            this.initializeURLValidator();
             this.bindEvents();
             this.checkClipboardSupport();
             this.checkReturningVisitor();
@@ -77,6 +81,55 @@
             this.$downloadQrBtn = $('#tp-download-qr-btn');
             this.$pasteBtn = $('#tp-paste-btn');
             this.$suggestBtn = $('#tp-suggest-btn');
+
+            // Create validation message element if it doesn't exist
+            if ($('#tp-url-validation-message').length === 0) {
+                this.$validationMessage = $('<div>')
+                    .attr('id', 'tp-url-validation-message')
+                    .addClass('form-text mt-1')
+                    .insertAfter(this.$destinationInput.closest('.tp-input-wrapper'));
+            } else {
+                this.$validationMessage = $('#tp-url-validation-message');
+            }
+        },
+
+        /**
+         * Initialize URL Validator
+         */
+        initializeURLValidator: function() {
+            // Check if URLValidator class is available
+            if (typeof URLValidator === 'undefined') {
+                console.warn('URLValidator library not loaded. Online validation disabled.');
+                return;
+            }
+
+            // Initialize URLValidator with current user authentication status
+            this.urlValidator = new URLValidator({
+                isUserRegistered: tpLinkShortener.isLoggedIn || false,
+                proxyUrl: tpLinkShortener.ajaxUrl + '?action=tp_validate_url',
+                timeout: 10000
+            });
+
+            // Create debounced validator function
+            this.debouncedValidate = this.urlValidator.createDebouncedValidator(
+                this.handleValidationResult.bind(this),
+                800 // 800ms delay
+            );
+        },
+
+        /**
+         * Handle URL validation result
+         */
+        handleValidationResult: function(result, url) {
+            // Update UI based on validation result
+            if (result.isError) {
+                this.isValid = false;
+            } else if (result.isWarning) {
+                // Warnings still allow submission
+                this.isValid = true;
+            } else {
+                this.isValid = true;
+            }
         },
 
         /**
@@ -262,6 +315,15 @@
             // Hide error while typing
             if (value.length > 0) {
                 this.hideError();
+            }
+
+            // Trigger online validation if URLValidator is available
+            if (this.urlValidator && this.debouncedValidate && value.trim().length > 0) {
+                this.debouncedValidate(
+                    value.trim(),
+                    this.$destinationInput[0],
+                    this.$validationMessage[0]
+                );
             }
         },
 

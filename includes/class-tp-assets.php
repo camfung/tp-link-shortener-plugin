@@ -73,11 +73,20 @@ class TP_Assets {
             true
         );
 
+        // Enqueue URL validator library
+        wp_enqueue_script(
+            'tp-url-validator',
+            TP_LINK_SHORTENER_PLUGIN_URL . 'assets/js/url-validator.js',
+            array(),
+            TP_LINK_SHORTENER_VERSION,
+            true
+        );
+
         // Enqueue custom JS
         wp_enqueue_script(
             'tp-link-shortener-js',
             TP_LINK_SHORTENER_PLUGIN_URL . 'assets/js/frontend.js',
-            array('jquery', 'tp-qrcode', 'tp-bootstrap-js', 'tp-storage-service'),
+            array('jquery', 'tp-qrcode', 'tp-bootstrap-js', 'tp-storage-service', 'tp-url-validator'),
             TP_LINK_SHORTENER_VERSION,
             true
         );
