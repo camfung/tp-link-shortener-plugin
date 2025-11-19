@@ -10,6 +10,7 @@ use TrafficPortal\Exception\ApiException;
 use TrafficPortal\Exception\AuthenticationException;
 use TrafficPortal\Exception\ValidationException;
 use TrafficPortal\Exception\NetworkException;
+use TrafficPortal\Exception\RateLimitException;
 
 /**
  * Traffic Portal API Client
@@ -49,6 +50,7 @@ class TrafficPortalApiClient
      * @return CreateMapResponse The response data
      * @throws AuthenticationException If authentication fails
      * @throws ValidationException If validation fails
+     * @throws RateLimitException If rate limit is exceeded (HTTP 429)
      * @throws NetworkException If network error occurs
      * @throws ApiException For other API errors
      */
@@ -121,6 +123,7 @@ class TrafficPortalApiClient
      * @param array $data The response data
      * @throws AuthenticationException If authentication fails
      * @throws ValidationException If validation fails
+     * @throws RateLimitException If rate limit is exceeded
      * @throws ApiException For other API errors
      */
     private function handleHttpErrors(int $httpCode, array $data): void
@@ -138,6 +141,9 @@ class TrafficPortalApiClient
 
             case 400:
                 throw new ValidationException($message, $httpCode);
+
+            case 429:
+                throw new RateLimitException($message, $httpCode);
 
             case 502:
             case 500:

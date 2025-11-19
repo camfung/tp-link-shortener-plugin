@@ -15,6 +15,7 @@ use TrafficPortal\DTO\CreateMapRequest;
 use TrafficPortal\Exception\AuthenticationException;
 use TrafficPortal\Exception\ValidationException;
 use TrafficPortal\Exception\NetworkException;
+use TrafficPortal\Exception\RateLimitException;
 use TrafficPortal\Exception\ApiException;
 
 class TP_API_Handler {
@@ -129,9 +130,23 @@ class TP_API_Handler {
             wp_send_json_success($result['data']);
         } else {
             error_log('TP Link Shortener: Link creation failed: ' . $result['message']);
-            wp_send_json_error(array(
+
+            // Prepare error data
+            $error_data = array(
                 'message' => $result['message']
-            ));
+            );
+
+            // Add error type if present (for rate limit errors)
+            if (isset($result['error_type'])) {
+                $error_data['error_type'] = $result['error_type'];
+            }
+
+            // Add HTTP code if present
+            if (isset($result['http_code'])) {
+                $error_data['http_code'] = $result['http_code'];
+            }
+
+            wp_send_json_error($error_data);
         }
     }
 
@@ -190,6 +205,16 @@ class TP_API_Handler {
             return array(
                 'success' => false,
                 'message' => __('Authentication failed. Please check plugin configuration.', 'tp-link-shortener'),
+                'debug_error' => $e->getMessage() // DEBUG: Remove in production
+            );
+
+        } catch (RateLimitException $e) {
+            error_log('TP Link Shortener Rate Limit Error: ' . $e->getMessage());
+            return array(
+                'success' => false,
+                'message' => $e->getMessage(),
+                'error_type' => 'rate_limit',
+                'http_code' => 429,
                 'debug_error' => $e->getMessage() // DEBUG: Remove in production
             );
 

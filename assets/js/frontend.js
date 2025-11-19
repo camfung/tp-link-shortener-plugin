@@ -280,7 +280,12 @@
                 this.$destinationInput.val('');
                 this.$customKeyInput.val('');
             } else {
-                this.showError(response.data.message || tpLinkShortener.strings.error);
+                // Check if this is a rate limit error (429)
+                if (response.data && response.data.error_type === 'rate_limit') {
+                    this.showRateLimitError(response.data.message);
+                } else {
+                    this.showError(response.data.message || tpLinkShortener.strings.error);
+                }
             }
         },
 
@@ -549,6 +554,32 @@
         showError: function(message) {
             this.$errorMessage
                 .html('<i class="fas fa-exclamation-circle me-2"></i>' + message)
+                .removeClass('d-none');
+        },
+
+        /**
+         * Show rate limit error with registration prompt
+         */
+        showRateLimitError: function(message) {
+            // Enhanced error message with call to action
+            const errorHtml = `
+                <div>
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>${message}</strong>
+                </div>
+                <div class="mt-3">
+                    <p class="mb-2">Create an account to get:</p>
+                    <ul class="mb-3" style="text-align: left; display: inline-block;">
+                        <li>Unlimited short URLs</li>
+                        <li>Analytics and tracking</li>
+                        <li>Custom domains</li>
+                        <li>URL management</li>
+                    </ul>
+                </div>
+            `;
+
+            this.$errorMessage
+                .html(errorHtml)
                 .removeClass('d-none');
         },
 
