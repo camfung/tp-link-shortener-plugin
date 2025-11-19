@@ -180,9 +180,11 @@ class TP_API_Handler {
             }
 
             error_log('TP Link Shortener: API response unsuccessful');
+            error_log('TP Link Shortener: API response message: ' . $response->getMessage());
             return array(
                 'success' => false,
-                'message' => __('Failed to create link', 'tp-link-shortener')
+                'message' => __('Failed to create link', 'tp-link-shortener'),
+                'debug_error' => 'API returned unsuccessful response: ' . $response->getMessage()
             );
 
         } catch (AuthenticationException $e) {
