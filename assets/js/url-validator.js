@@ -215,6 +215,16 @@ class URLValidator {
       if (this.proxyUrl) {
         const data = await response.json();
 
+        // Check if proxy returned an error (e.g., DNS resolution failure, connection refused)
+        if (data.error) {
+          throw new Error(data.error);
+        }
+
+        // Check if status is 0 or undefined (indicates network/DNS failure)
+        if (!data.status || data.status === 0) {
+          throw new Error('Unable to reach the destination URL');
+        }
+
         // Create a mock Response-like object
         return {
           ok: data.ok,

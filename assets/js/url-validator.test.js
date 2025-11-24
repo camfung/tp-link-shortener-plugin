@@ -414,6 +414,107 @@ describe('URLValidator - validateURL() with mocked fetch', () => {
     expect(result.errorType).toBe(URLValidator.ErrorTypes.SSL_ERROR);
     expect(result.message).toContain('SSL');
   });
+
+  it('should reject URLs with invalid/non-existent TLDs like .c', async () => {
+    // This URL has a syntactically valid format but an invalid TLD (.c doesn't exist)
+    // The network request should fail with DNS resolution error
+    global.fetch = vi.fn().mockRejectedValueOnce(new Error('getaddrinfo ENOTFOUND smartenupinstitute.c'));
+
+    const result = await validator.validateURL('http://smartenupinstitute.c');
+    expect(result.valid).toBe(false);
+    expect(result.errorType).toBe(URLValidator.ErrorTypes.NETWORK_ERROR);
+    expect(result.isError).toBe(true);
+  });
+
+  it('should reject URLs with incomplete domains', async () => {
+    // URLs that pass format check but fail network validation
+    global.fetch = vi.fn().mockRejectedValueOnce(new Error('getaddrinfo ENOTFOUND incomplete-domain.x'));
+
+    const result = await validator.validateURL('https://incomplete-domain.x');
+    expect(result.valid).toBe(false);
+    expect(result.errorType).toBe(URLValidator.ErrorTypes.NETWORK_ERROR);
+  });
+
+  it('should reject URLs to non-existent domains', async () => {
+    global.fetch = vi.fn().mockRejectedValueOnce(new Error('getaddrinfo ENOTFOUND this-domain-definitely-does-not-exist-12345.com'));
+
+    const result = await validator.validateURL('https://this-domain-definitely-does-not-exist-12345.com');
+    expect(result.valid).toBe(false);
+    expect(result.errorType).toBe(URLValidator.ErrorTypes.NETWORK_ERROR);
+    expect(result.message).toContain('Unable to reach URL');
+  });
+});
+
+describe('URLValidator - Proxy Error Handling', () => {
+  let validator;
+
+  beforeEach(() => {
+    validator = new URLValidator({
+      proxyUrl: '/api/validate-url?action=tp_validate_url'
+    });
+  });
+
+  it('should reject when proxy returns error field (DNS failure)', async () => {
+    // Simulate proxy response for invalid domain like smartenupinstitute.c
+    global.fetch = vi.fn().mockResolvedValueOnce({
+      json: () => Promise.resolve({
+        ok: false,
+        status: 0,
+        headers: {},
+        error: 'cURL error: Could not resolve host: smartenupinstitute.c'
+      })
+    });
+
+    const result = await validator.validateURL('http://smartenupinstitute.c');
+    expect(result.valid).toBe(false);
+    expect(result.isError).toBe(true);
+    expect(result.errorType).toBe(URLValidator.ErrorTypes.NETWORK_ERROR);
+  });
+
+  it('should reject when proxy returns status 0 (network failure)', async () => {
+    global.fetch = vi.fn().mockResolvedValueOnce({
+      json: () => Promise.resolve({
+        ok: false,
+        status: 0,
+        headers: {}
+      })
+    });
+
+    const result = await validator.validateURL('http://invalid-domain.x');
+    expect(result.valid).toBe(false);
+    expect(result.isError).toBe(true);
+    expect(result.errorType).toBe(URLValidator.ErrorTypes.NETWORK_ERROR);
+    expect(result.message).toContain('Unable to reach');
+  });
+
+  it('should reject when proxy returns undefined status', async () => {
+    global.fetch = vi.fn().mockResolvedValueOnce({
+      json: () => Promise.resolve({
+        ok: false,
+        headers: {}
+        // status is undefined
+      })
+    });
+
+    const result = await validator.validateURL('http://missing-status.test');
+    expect(result.valid).toBe(false);
+    expect(result.errorType).toBe(URLValidator.ErrorTypes.NETWORK_ERROR);
+  });
+
+  it('should accept when proxy returns valid response', async () => {
+    global.fetch = vi.fn().mockResolvedValueOnce({
+      json: () => Promise.resolve({
+        ok: true,
+        status: 200,
+        headers: {
+          'content-type': 'text/html'
+        }
+      })
+    });
+
+    const result = await validator.validateURL('https://example.com');
+    expect(result.valid).toBe(true);
+  });
 });
 
 describe('URLValidator - applyValidationToElement()', () => {
