@@ -174,10 +174,26 @@ class URLValidator {
         );
       }
 
-      // Handle network errors
+      // Handle network errors with user-friendly messages
+      let friendlyMessage = 'Unable to reach this URL. Please check the address and try again.';
+
+      // Check for common error patterns and provide specific messages
+      if (error.message) {
+        const msg = error.message.toLowerCase();
+        if (msg.includes('could not resolve host') || msg.includes('enotfound') || msg.includes('getaddrinfo')) {
+          friendlyMessage = 'This website address doesn\'t exist. Please check for typos.';
+        } else if (msg.includes('connection refused') || msg.includes('econnrefused')) {
+          friendlyMessage = 'Unable to connect to this website. The server may be down.';
+        } else if (msg.includes('timeout') || msg.includes('etimedout')) {
+          friendlyMessage = 'Connection timed out. The website is taking too long to respond.';
+        } else if (msg.includes('reset') || msg.includes('econnreset')) {
+          friendlyMessage = 'Connection was reset. Please try again.';
+        }
+      }
+
       return this.createErrorResult(
         URLValidator.ErrorTypes.NETWORK_ERROR,
-        `Unable to reach URL: ${error.message}`,
+        friendlyMessage,
         URLValidator.BorderColors.ERROR
       );
     }

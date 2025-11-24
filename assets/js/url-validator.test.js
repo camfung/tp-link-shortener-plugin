@@ -403,7 +403,7 @@ describe('URLValidator - validateURL() with mocked fetch', () => {
     const result = await validator.validateURL('https://example.com');
     expect(result.valid).toBe(false);
     expect(result.errorType).toBe(URLValidator.ErrorTypes.NETWORK_ERROR);
-    expect(result.message).toContain('Network failure');
+    expect(result.message).toContain('Unable to reach this URL');
   });
 
   it('should handle SSL errors', async () => {
@@ -441,7 +441,31 @@ describe('URLValidator - validateURL() with mocked fetch', () => {
     const result = await validator.validateURL('https://this-domain-definitely-does-not-exist-12345.com');
     expect(result.valid).toBe(false);
     expect(result.errorType).toBe(URLValidator.ErrorTypes.NETWORK_ERROR);
-    expect(result.message).toContain('Unable to reach URL');
+    expect(result.message).toContain('doesn\'t exist');
+  });
+
+  it('should show friendly message for connection refused', async () => {
+    global.fetch = vi.fn().mockRejectedValueOnce(new Error('connect ECONNREFUSED 127.0.0.1:80'));
+
+    const result = await validator.validateURL('https://example.com');
+    expect(result.valid).toBe(false);
+    expect(result.message).toContain('server may be down');
+  });
+
+  it('should show friendly message for timeout', async () => {
+    global.fetch = vi.fn().mockRejectedValueOnce(new Error('connect ETIMEDOUT'));
+
+    const result = await validator.validateURL('https://example.com');
+    expect(result.valid).toBe(false);
+    expect(result.message).toContain('timed out');
+  });
+
+  it('should show friendly message for connection reset', async () => {
+    global.fetch = vi.fn().mockRejectedValueOnce(new Error('read ECONNRESET'));
+
+    const result = await validator.validateURL('https://example.com');
+    expect(result.valid).toBe(false);
+    expect(result.message).toContain('reset');
   });
 });
 
@@ -484,7 +508,7 @@ describe('URLValidator - Proxy Error Handling', () => {
     expect(result.valid).toBe(false);
     expect(result.isError).toBe(true);
     expect(result.errorType).toBe(URLValidator.ErrorTypes.NETWORK_ERROR);
-    expect(result.message).toContain('Unable to reach');
+    expect(result.message).toContain('Unable to reach this URL');
   });
 
   it('should reject when proxy returns undefined status', async () => {
