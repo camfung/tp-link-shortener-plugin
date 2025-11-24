@@ -110,6 +110,16 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                         </div>
                         <?php endif; ?>
 
+                        <!-- Try It Now Message (for non-logged-in users, shown after link creation) -->
+                        <?php if (!is_user_logged_in()): ?>
+                        <div id="tp-try-it-message" class="alert alert-info d-none mb-4" style="background-color: #e3f2fd; border-color: #2196f3; color: #0d47a1;">
+                            <div class="d-flex align-items-center gap-2">
+                                <i class="fas fa-hand-pointer fs-5"></i>
+                                <strong class="text-uppercase">TRY IT NOW - CLICK THE LINK OR SCAN THE QR CODE</strong>
+                            </div>
+                        </div>
+                        <?php endif; ?>
+
                         <!-- Trial Message -->
                         <?php if (!is_user_logged_in()): ?>
                         <div class="tp-trial-message alert d-flex flex-column flex-md-row align-items-md-center gap-3 mb-4">
