@@ -739,11 +739,20 @@
          * Capture screenshot of destination URL
          */
         captureScreenshot: function(url) {
+            console.log('[DEBUG] captureScreenshot called with URL:', url);
+
             // Reset screenshot UI
             this.$screenshotLoading.show();
             this.$screenshotImage.hide();
             this.$screenshotError.hide();
             this.$screenshotActions.hide();
+
+            // DEBUG: Add debug message to UI
+            this.updateScreenshotDebug('Starting screenshot capture...');
+
+            console.log('[DEBUG] AJAX URL:', tpLinkShortener.ajaxUrl);
+            console.log('[DEBUG] Nonce:', tpLinkShortener.nonce);
+            console.log('[DEBUG] Action:', 'tp_capture_screenshot');
 
             // Make AJAX request to capture screenshot
             $.ajax({
@@ -754,8 +763,22 @@
                     nonce: tpLinkShortener.nonce,
                     url: url
                 },
+                beforeSend: function() {
+                    console.log('[DEBUG] AJAX request starting...');
+                    this.updateScreenshotDebug('Sending request to server...');
+                }.bind(this),
                 success: function(response) {
+                    console.log('[DEBUG] AJAX success. Response:', response);
+                    this.updateScreenshotDebug('Server response received');
+
                     if (response.success && response.data) {
+                        console.log('[DEBUG] Screenshot captured successfully');
+                        console.log('[DEBUG] Image data length:', response.data.image ? response.data.image.length : 'N/A');
+                        console.log('[DEBUG] Cached:', response.data.cached);
+                        console.log('[DEBUG] Response time:', response.data.response_time);
+
+                        this.updateScreenshotDebug('Screenshot captured! Loading image...');
+
                         // Hide loading, show image
                         this.$screenshotLoading.hide();
                         this.$screenshotImage.attr('src', response.data.data_uri);
@@ -774,24 +797,56 @@
                             this.$screenshotInfo.text(info);
                             this.$screenshotActions.show();
                         }
+
+                        this.updateScreenshotDebug('Screenshot displayed successfully');
                     } else {
-                        this.showScreenshotError();
+                        console.log('[DEBUG] Screenshot capture failed - response not successful');
+                        console.log('[DEBUG] Response:', response);
+                        this.updateScreenshotDebug('Error: ' + (response.data ? response.data.message : 'Unknown error'));
+                        this.showScreenshotError(response.data ? response.data.message : null);
                     }
                 }.bind(this),
                 error: function(xhr, status, error) {
-                    console.error('Screenshot capture failed:', error);
-                    this.showScreenshotError();
+                    console.error('[DEBUG] AJAX error:', {xhr: xhr, status: status, error: error});
+                    console.error('[DEBUG] Response text:', xhr.responseText);
+                    this.updateScreenshotDebug('AJAX Error: ' + status + ' - ' + error);
+                    this.showScreenshotError('Network error: ' + status);
+                }.bind(this),
+                complete: function() {
+                    console.log('[DEBUG] AJAX request complete');
                 }.bind(this)
             });
         },
 
         /**
+         * Update screenshot debug message
+         */
+        updateScreenshotDebug: function(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const debugMsg = '[DEBUG ' + timestamp + '] ' + message;
+            console.log(debugMsg);
+
+            // Update UI debug info
+            let debugElement = $('#tp-screenshot-debug');
+            if (debugElement.length === 0) {
+                this.$screenshotInfo.after('<div id="tp-screenshot-debug" style="font-size: 11px; color: #666; margin-top: 5px; font-family: monospace;"></div>');
+                debugElement = $('#tp-screenshot-debug');
+            }
+            debugElement.text(debugMsg);
+        },
+
+        /**
          * Show screenshot error state
          */
-        showScreenshotError: function() {
+        showScreenshotError: function(errorMessage) {
+            console.log('[DEBUG] showScreenshotError called with message:', errorMessage);
             this.$screenshotLoading.hide();
             this.$screenshotImage.hide();
             this.$screenshotError.show();
+
+            if (errorMessage) {
+                this.$screenshotError.html('<p class="mb-0">Screenshot not available</p><small style="color: #999;">' + errorMessage + '</small>');
+            }
         },
 
         /**

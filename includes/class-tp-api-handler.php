@@ -524,64 +524,96 @@ class TP_API_Handler {
      * AJAX handler for capturing website screenshots
      */
     public function ajax_capture_screenshot() {
-        // Verify nonce
-        check_ajax_referer('tp_link_shortener_nonce', 'nonce');
+        error_log('[DEBUG] ajax_capture_screenshot called');
 
-        // Check if screenshot client is initialized
-        if (!$this->screenshotClient) {
+        // Verify nonce
+        try {
+            check_ajax_referer('tp_link_shortener_nonce', 'nonce');
+            error_log('[DEBUG] Nonce verified successfully');
+        } catch (Exception $e) {
+            error_log('[DEBUG] Nonce verification failed: ' . $e->getMessage());
             wp_send_json_error(array(
-                'message' => __('Screenshot service not configured', 'tp-link-shortener')
+                'message' => __('Security check failed', 'tp-link-shortener'),
+                'debug' => 'Nonce verification failed'
             ));
             return;
         }
 
+        // Check if screenshot client is initialized
+        error_log('[DEBUG] Checking if screenshot client is initialized');
+        if (!$this->screenshotClient) {
+            error_log('[DEBUG] Screenshot client NOT initialized - API key missing or invalid');
+            wp_send_json_error(array(
+                'message' => __('Screenshot service not configured', 'tp-link-shortener'),
+                'debug' => 'SnapCapture client not initialized. Check SNAPCAPTURE_API_KEY in wp-config.php'
+            ));
+            return;
+        }
+        error_log('[DEBUG] Screenshot client IS initialized');
+
         // Get URL from POST data
         $url = isset($_POST['url']) ? esc_url_raw($_POST['url']) : '';
+        error_log('[DEBUG] URL from POST: ' . $url);
 
         if (empty($url)) {
+            error_log('[DEBUG] URL is empty');
             wp_send_json_error(array(
-                'message' => __('URL is required', 'tp-link-shortener')
+                'message' => __('URL is required', 'tp-link-shortener'),
+                'debug' => 'No URL provided in request'
             ));
             return;
         }
 
         try {
+            error_log('[DEBUG] Creating screenshot request for URL: ' . $url);
             // Create screenshot request
             $request = ScreenshotRequest::desktop($url, 'jpeg', 75);
+            error_log('[DEBUG] Screenshot request created');
 
             // Capture screenshot
+            error_log('[DEBUG] Calling SnapCapture API...');
             $response = $this->screenshotClient->captureScreenshot($request);
+            error_log('[DEBUG] SnapCapture API response received');
+            error_log('[DEBUG] Cached: ' . ($response->isCached() ? 'yes' : 'no'));
+            error_log('[DEBUG] Response time: ' . $response->getResponseTimeMs() . 'ms');
 
             // Return base64 encoded image
+            error_log('[DEBUG] Sending success response to client');
             wp_send_json_success(array(
                 'image' => $response->getBase64(),
                 'cached' => $response->isCached(),
                 'response_time' => $response->getResponseTimeMs(),
-                'data_uri' => $response->getDataUri()
+                'data_uri' => $response->getDataUri(),
+                'debug' => 'Screenshot captured successfully'
             ));
 
         } catch (\SnapCapture\Exception\AuthenticationException $e) {
-            error_log('SnapCapture Auth Error: ' . $e->getMessage());
+            error_log('[DEBUG] SnapCapture Auth Error: ' . $e->getMessage());
             wp_send_json_error(array(
-                'message' => __('Screenshot authentication failed', 'tp-link-shortener')
+                'message' => __('Screenshot authentication failed', 'tp-link-shortener'),
+                'debug' => 'API key invalid or expired: ' . $e->getMessage()
             ));
 
         } catch (\SnapCapture\Exception\NetworkException $e) {
-            error_log('SnapCapture Network Error: ' . $e->getMessage());
+            error_log('[DEBUG] SnapCapture Network Error: ' . $e->getMessage());
             wp_send_json_error(array(
-                'message' => __('Network error while capturing screenshot', 'tp-link-shortener')
+                'message' => __('Network error while capturing screenshot', 'tp-link-shortener'),
+                'debug' => 'Network error: ' . $e->getMessage()
             ));
 
         } catch (\SnapCapture\Exception\ApiException $e) {
-            error_log('SnapCapture API Error: ' . $e->getMessage());
+            error_log('[DEBUG] SnapCapture API Error: ' . $e->getMessage());
             wp_send_json_error(array(
-                'message' => __('Failed to capture screenshot', 'tp-link-shortener')
+                'message' => __('Failed to capture screenshot', 'tp-link-shortener'),
+                'debug' => 'API error: ' . $e->getMessage()
             ));
 
         } catch (Exception $e) {
-            error_log('Screenshot Error: ' . $e->getMessage());
+            error_log('[DEBUG] Screenshot Error: ' . $e->getMessage());
+            error_log('[DEBUG] Stack trace: ' . $e->getTraceAsString());
             wp_send_json_error(array(
-                'message' => __('An error occurred while capturing screenshot', 'tp-link-shortener')
+                'message' => __('An error occurred while capturing screenshot', 'tp-link-shortener'),
+                'debug' => 'Unexpected error: ' . $e->getMessage()
             ));
         }
     }
