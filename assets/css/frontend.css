@@ -32,6 +32,13 @@
     width: 100%;
 }
 
+/* Escape block-theme content clamps so the form can span the page */
+.entry-content .tp-link-shortener-wrapper,
+.wp-block-post-content .tp-link-shortener-wrapper {
+    max-width: none;
+    width: 100%;
+}
+
 .tp-card {
     border-radius: 1.5rem;
     background: var(--tp-surface);
