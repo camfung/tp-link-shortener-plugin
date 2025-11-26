@@ -23,7 +23,7 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                                 <i class="fas fa-torii-gate"></i>
                             </span>
                             <h2 class="tp-title mb-0">
-                                <?php esc_html_e('Make a key to your virtual gate', 'tp-link-shortener'); ?>
+                                <?php esc_html_e('Link Shortener', 'tp-link-shortener'); ?>
                             </h2>
                         </div>
                     </div>
@@ -71,9 +71,6 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                                 </div>
                             </div>
                             <div id="tp-url-validation-message" class="form-text mt-2" style="display: none;"></div>
-                            <div id="tp-destination-hint" class="form-text tp-help-text mt-2">
-                                <?php esc_html_e('Enter the URL you want to shorten', 'tp-link-shortener'); ?>
-                            </div>
                         </div>
 
                         <!-- Custom Shortcode Input (only show if not premium-only OR user is premium) -->
@@ -104,9 +101,6 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                                     style="border-left: none; border-radius: 0 1rem 1rem 0;"
                                 />
                             </div>
-                            <div class="form-text tp-help-text">
-                                <?php esc_html_e('Leave empty to generate a random code', 'tp-link-shortener'); ?>
-                            </div>
                         </div>
                         <?php endif; ?>
 
@@ -128,7 +122,7 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                                     <i class="fas fa-info-circle"></i>
                                 </span>
                                 <p class="mb-0">
-                                    <?php esc_html_e('Trial links expire in 24 hours. Create an account to keep them active and unlock extras.', 'tp-link-shortener'); ?>
+                                    <?php esc_html_e('Trial links expire in 24 hours.', 'tp-link-shortener'); ?>
                                 </p>
                             </div>
                             <div class="tp-action-buttons d-flex flex-column flex-sm-row align-items-stretch align-items-sm-center gap-2 ms-md-auto">
@@ -142,15 +136,6 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                                     <?php esc_html_e('Login', 'tp-link-shortener'); ?>
                                 </button>
                             </div>
-                        </div>
-                        <?php else: ?>
-                        <div class="tp-trial-message alert d-flex align-items-start gap-3 mb-4">
-                            <span class="tp-trial-icon">
-                                <i class="fas fa-user-check"></i>
-                            </span>
-                            <p class="mb-0">
-                                <?php esc_html_e('You are logged in, so your shortened links stay active and ready to manage in your dashboard.', 'tp-link-shortener'); ?>
-                            </p>
                         </div>
                         <?php endif; ?>
 
@@ -197,37 +182,6 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                             </div>
                         </div>
                     </div>
-
-                        <!-- Naming Guidance Sections -->
-                        <div class="tp-section tp-name-section rounded-4 p-3 p-md-4 mb-4">
-                            <h3 class="tp-section-title h5 mb-2">
-                                <i class="fas fa-signature me-2"></i>
-                                <?php esc_html_e('Pick a short keyword', 'tp-link-shortener'); ?>
-                            </h3>
-                            <p class="tp-section-description mb-0">
-                                <?php esc_html_e('Use a word, code, or acronym that you and your visitors will remember in seconds.', 'tp-link-shortener'); ?>
-                            </p>
-                        </div>
-
-                        <div class="tp-section rounded-4 p-3 p-md-4 mb-4">
-                            <h3 class="tp-section-title h5 mb-2">
-                                <i class="fas fa-bullseye me-2"></i>
-                                <?php esc_html_e('Keep it relevant', 'tp-link-shortener'); ?>
-                            </h3>
-                            <p class="tp-section-description mb-0">
-                                <?php esc_html_e('Match the key to your campaign, location, or offer so it stays meaningful at a glance.', 'tp-link-shortener'); ?>
-                            </p>
-                        </div>
-
-                        <div class="tp-section rounded-4 p-3 p-md-4 mb-4">
-                            <h3 class="tp-section-title h5 mb-2">
-                                <i class="fas fa-rocket me-2"></i>
-                                <?php esc_html_e('Share it instantly', 'tp-link-shortener'); ?>
-                            </h3>
-                            <p class="tp-section-description mb-0">
-                                <?php esc_html_e('Generate a random key when you are in a hurry and pair it with a QR code for quick scans.', 'tp-link-shortener'); ?>
-                            </p>
-                        </div>
 
                         <!-- Loading Indicator -->
                         <div id="tp-loading" class="tp-loading d-none text-center py-4">
