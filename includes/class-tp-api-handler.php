@@ -57,11 +57,31 @@ class TP_API_Handler {
             30
         );
 
-        // Initialize SnapCapture client
+        // Initialize SnapCapture client with verbose debugging
+        error_log('[SNAPCAPTURE DEBUG] Starting SnapCapture client initialization');
+        error_log('[SNAPCAPTURE DEBUG] Checking for SNAPCAPTURE_API_KEY constant: ' . (defined('SNAPCAPTURE_API_KEY') ? 'DEFINED' : 'NOT DEFINED'));
+
         $snapcapture_key = TP_Link_Shortener::get_snapcapture_api_key();
+        error_log('[SNAPCAPTURE DEBUG] Retrieved API key: ' . (empty($snapcapture_key) ? 'EMPTY' : 'Present (length: ' . strlen($snapcapture_key) . ')'));
+        error_log('[SNAPCAPTURE DEBUG] API key first 10 chars: ' . (empty($snapcapture_key) ? 'N/A' : substr($snapcapture_key, 0, 10) . '...'));
+
         if (!empty($snapcapture_key)) {
-            $this->screenshotClient = new SnapCaptureClient($snapcapture_key);
+            try {
+                error_log('[SNAPCAPTURE DEBUG] Attempting to create SnapCaptureClient instance');
+                $this->screenshotClient = new SnapCaptureClient($snapcapture_key);
+                error_log('[SNAPCAPTURE DEBUG] SnapCaptureClient created successfully');
+                error_log('[SNAPCAPTURE DEBUG] Client class: ' . get_class($this->screenshotClient));
+            } catch (Exception $e) {
+                error_log('[SNAPCAPTURE DEBUG] Failed to create SnapCaptureClient: ' . $e->getMessage());
+                error_log('[SNAPCAPTURE DEBUG] Exception class: ' . get_class($e));
+                error_log('[SNAPCAPTURE DEBUG] Stack trace: ' . $e->getTraceAsString());
+                $this->screenshotClient = null;
+            }
+        } else {
+            error_log('[SNAPCAPTURE DEBUG] API key is empty, client NOT initialized');
         }
+
+        error_log('[SNAPCAPTURE DEBUG] Final client state: ' . ($this->screenshotClient ? 'INITIALIZED' : 'NULL'));
     }
 
     /**
@@ -524,96 +544,187 @@ class TP_API_Handler {
      * AJAX handler for capturing website screenshots
      */
     public function ajax_capture_screenshot() {
-        error_log('[DEBUG] ajax_capture_screenshot called');
+        error_log('[SCREENSHOT] ========== AJAX SCREENSHOT REQUEST STARTED ==========');
+        error_log('[SCREENSHOT] Timestamp: ' . date('Y-m-d H:i:s'));
+        error_log('[SCREENSHOT] Request URI: ' . $_SERVER['REQUEST_URI']);
+        error_log('[SCREENSHOT] HTTP Method: ' . $_SERVER['REQUEST_METHOD']);
+
+        // Collect debug info
+        $debug_info = array(
+            'timestamp' => date('Y-m-d H:i:s'),
+            'php_version' => PHP_VERSION,
+            'wordpress_version' => get_bloginfo('version'),
+            'plugin_version' => '1.0.0',
+            'server_software' => $_SERVER['SERVER_SOFTWARE'] ?? 'unknown',
+            'api_key_defined' => defined('SNAPCAPTURE_API_KEY'),
+            'api_key_length' => defined('SNAPCAPTURE_API_KEY') ? strlen(SNAPCAPTURE_API_KEY) : 0,
+            'api_key_prefix' => defined('SNAPCAPTURE_API_KEY') ? substr(SNAPCAPTURE_API_KEY, 0, 10) . '...' : 'N/A',
+            'client_initialized' => !is_null($this->screenshotClient),
+            'client_class' => $this->screenshotClient ? get_class($this->screenshotClient) : 'null',
+        );
+
+        error_log('[SCREENSHOT] Debug Info: ' . json_encode($debug_info, JSON_PRETTY_PRINT));
 
         // Verify nonce
         try {
             check_ajax_referer('tp_link_shortener_nonce', 'nonce');
-            error_log('[DEBUG] Nonce verified successfully');
+            error_log('[SCREENSHOT] ✓ Nonce verified successfully');
+            $debug_info['nonce_verified'] = true;
         } catch (Exception $e) {
-            error_log('[DEBUG] Nonce verification failed: ' . $e->getMessage());
+            error_log('[SCREENSHOT] ✗ Nonce verification failed: ' . $e->getMessage());
+            $debug_info['nonce_verified'] = false;
+            $debug_info['nonce_error'] = $e->getMessage();
             wp_send_json_error(array(
                 'message' => __('Security check failed', 'tp-link-shortener'),
-                'debug' => 'Nonce verification failed'
+                'debug' => $debug_info
             ));
             return;
         }
 
         // Check if screenshot client is initialized
-        error_log('[DEBUG] Checking if screenshot client is initialized');
+        error_log('[SCREENSHOT] Checking screenshot client initialization...');
         if (!$this->screenshotClient) {
-            error_log('[DEBUG] Screenshot client NOT initialized - API key missing or invalid');
+            error_log('[SCREENSHOT] ✗ Screenshot client NOT initialized');
+            error_log('[SCREENSHOT] API Key Status:');
+            error_log('[SCREENSHOT]   - Constant defined: ' . (defined('SNAPCAPTURE_API_KEY') ? 'YES' : 'NO'));
+            error_log('[SCREENSHOT]   - Retrieved value: ' . (TP_Link_Shortener::get_snapcapture_api_key() ? 'HAS VALUE' : 'EMPTY'));
+
+            $debug_info['error'] = 'Screenshot client is NULL';
+            $debug_info['possible_causes'] = array(
+                'SNAPCAPTURE_API_KEY constant not defined in wp-config.php',
+                'API key is empty or whitespace only',
+                'Exception thrown during SnapCaptureClient construction',
+                'Class SnapCaptureClient not found or autoload failed'
+            );
+            $debug_info['solution'] = 'Add define(\'SNAPCAPTURE_API_KEY\', \'your-key-here\'); to wp-config.php';
+
             wp_send_json_error(array(
                 'message' => __('Screenshot service not configured', 'tp-link-shortener'),
-                'debug' => 'SnapCapture client not initialized. Check SNAPCAPTURE_API_KEY in wp-config.php'
+                'debug' => $debug_info
             ));
             return;
         }
-        error_log('[DEBUG] Screenshot client IS initialized');
+        error_log('[SCREENSHOT] ✓ Screenshot client IS initialized');
+        error_log('[SCREENSHOT] Client class: ' . get_class($this->screenshotClient));
 
         // Get URL from POST data
         $url = isset($_POST['url']) ? esc_url_raw($_POST['url']) : '';
-        error_log('[DEBUG] URL from POST: ' . $url);
+        error_log('[SCREENSHOT] Target URL: ' . $url);
+        $debug_info['target_url'] = $url;
 
         if (empty($url)) {
-            error_log('[DEBUG] URL is empty');
+            error_log('[SCREENSHOT] ✗ URL is empty or invalid');
+            $debug_info['error'] = 'URL is required but was empty';
             wp_send_json_error(array(
                 'message' => __('URL is required', 'tp-link-shortener'),
-                'debug' => 'No URL provided in request'
+                'debug' => $debug_info
             ));
             return;
         }
 
         try {
-            error_log('[DEBUG] Creating screenshot request for URL: ' . $url);
+            error_log('[SCREENSHOT] Creating screenshot request...');
+            $debug_info['request_format'] = 'jpeg';
+            $debug_info['request_quality'] = 75;
+            $debug_info['request_type'] = 'desktop';
+
             // Create screenshot request
             $request = ScreenshotRequest::desktop($url, 'jpeg', 75);
-            error_log('[DEBUG] Screenshot request created');
+            error_log('[SCREENSHOT] ✓ Screenshot request object created');
+            error_log('[SCREENSHOT] Request class: ' . get_class($request));
 
             // Capture screenshot
-            error_log('[DEBUG] Calling SnapCapture API...');
+            error_log('[SCREENSHOT] Calling SnapCapture API...');
+            $api_call_start = microtime(true);
             $response = $this->screenshotClient->captureScreenshot($request);
-            error_log('[DEBUG] SnapCapture API response received');
-            error_log('[DEBUG] Cached: ' . ($response->isCached() ? 'yes' : 'no'));
-            error_log('[DEBUG] Response time: ' . $response->getResponseTimeMs() . 'ms');
+            $api_call_duration = (microtime(true) - $api_call_start) * 1000;
+
+            error_log('[SCREENSHOT] ✓ SnapCapture API response received');
+            error_log('[SCREENSHOT] Response class: ' . get_class($response));
+            error_log('[SCREENSHOT] Response cached: ' . ($response->isCached() ? 'YES' : 'NO'));
+            error_log('[SCREENSHOT] Response time: ' . $response->getResponseTimeMs() . 'ms');
+            error_log('[SCREENSHOT] Total call duration: ' . round($api_call_duration, 2) . 'ms');
+
+            $debug_info['api_call_success'] = true;
+            $debug_info['response_cached'] = $response->isCached();
+            $debug_info['response_time_ms'] = $response->getResponseTimeMs();
+            $debug_info['total_duration_ms'] = round($api_call_duration, 2);
+            $debug_info['image_data_length'] = strlen($response->getBase64());
 
             // Return base64 encoded image
-            error_log('[DEBUG] Sending success response to client');
+            error_log('[SCREENSHOT] ✓ Sending success response to client');
+            error_log('[SCREENSHOT] ========== AJAX SCREENSHOT REQUEST COMPLETED ==========');
+
             wp_send_json_success(array(
                 'image' => $response->getBase64(),
                 'cached' => $response->isCached(),
                 'response_time' => $response->getResponseTimeMs(),
                 'data_uri' => $response->getDataUri(),
-                'debug' => 'Screenshot captured successfully'
+                'debug' => $debug_info
             ));
 
         } catch (\SnapCapture\Exception\AuthenticationException $e) {
-            error_log('[DEBUG] SnapCapture Auth Error: ' . $e->getMessage());
+            error_log('[SCREENSHOT] ✗ Authentication Error: ' . $e->getMessage());
+            error_log('[SCREENSHOT] Exception class: ' . get_class($e));
+            error_log('[SCREENSHOT] Stack trace: ' . $e->getTraceAsString());
+
+            $debug_info['exception_type'] = 'AuthenticationException';
+            $debug_info['exception_message'] = $e->getMessage();
+            $debug_info['exception_code'] = $e->getCode();
+            $debug_info['exception_file'] = $e->getFile() . ':' . $e->getLine();
+            $debug_info['stack_trace'] = $e->getTraceAsString();
+
             wp_send_json_error(array(
                 'message' => __('Screenshot authentication failed', 'tp-link-shortener'),
-                'debug' => 'API key invalid or expired: ' . $e->getMessage()
+                'debug' => $debug_info
             ));
 
         } catch (\SnapCapture\Exception\NetworkException $e) {
-            error_log('[DEBUG] SnapCapture Network Error: ' . $e->getMessage());
+            error_log('[SCREENSHOT] ✗ Network Error: ' . $e->getMessage());
+            error_log('[SCREENSHOT] Exception class: ' . get_class($e));
+            error_log('[SCREENSHOT] Stack trace: ' . $e->getTraceAsString());
+
+            $debug_info['exception_type'] = 'NetworkException';
+            $debug_info['exception_message'] = $e->getMessage();
+            $debug_info['exception_code'] = $e->getCode();
+            $debug_info['exception_file'] = $e->getFile() . ':' . $e->getLine();
+            $debug_info['stack_trace'] = $e->getTraceAsString();
+
             wp_send_json_error(array(
                 'message' => __('Network error while capturing screenshot', 'tp-link-shortener'),
-                'debug' => 'Network error: ' . $e->getMessage()
+                'debug' => $debug_info
             ));
 
         } catch (\SnapCapture\Exception\ApiException $e) {
-            error_log('[DEBUG] SnapCapture API Error: ' . $e->getMessage());
+            error_log('[SCREENSHOT] ✗ API Error: ' . $e->getMessage());
+            error_log('[SCREENSHOT] Exception class: ' . get_class($e));
+            error_log('[SCREENSHOT] Stack trace: ' . $e->getTraceAsString());
+
+            $debug_info['exception_type'] = 'ApiException';
+            $debug_info['exception_message'] = $e->getMessage();
+            $debug_info['exception_code'] = $e->getCode();
+            $debug_info['exception_file'] = $e->getFile() . ':' . $e->getLine();
+            $debug_info['stack_trace'] = $e->getTraceAsString();
+
             wp_send_json_error(array(
                 'message' => __('Failed to capture screenshot', 'tp-link-shortener'),
-                'debug' => 'API error: ' . $e->getMessage()
+                'debug' => $debug_info
             ));
 
         } catch (Exception $e) {
-            error_log('[DEBUG] Screenshot Error: ' . $e->getMessage());
-            error_log('[DEBUG] Stack trace: ' . $e->getTraceAsString());
+            error_log('[SCREENSHOT] ✗ Unexpected Error: ' . $e->getMessage());
+            error_log('[SCREENSHOT] Exception class: ' . get_class($e));
+            error_log('[SCREENSHOT] Stack trace: ' . $e->getTraceAsString());
+
+            $debug_info['exception_type'] = get_class($e);
+            $debug_info['exception_message'] = $e->getMessage();
+            $debug_info['exception_code'] = $e->getCode();
+            $debug_info['exception_file'] = $e->getFile() . ':' . $e->getLine();
+            $debug_info['stack_trace'] = $e->getTraceAsString();
+
             wp_send_json_error(array(
                 'message' => __('An error occurred while capturing screenshot', 'tp-link-shortener'),
-                'debug' => 'Unexpected error: ' . $e->getMessage()
+                'debug' => $debug_info
             ));
         }
     }

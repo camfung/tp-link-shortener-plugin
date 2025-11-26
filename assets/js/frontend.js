@@ -768,12 +768,22 @@
                     this.updateScreenshotDebug('Sending request to server...');
                 }.bind(this),
                 success: function(response) {
-                    console.log('[DEBUG] AJAX success. Response:', response);
+                    console.log('[DEBUG] ========== AJAX SUCCESS ==========');
+                    console.log('[DEBUG] Full response:', response);
+
+                    // Log debug info if present
+                    if (response.data && response.data.debug) {
+                        console.log('[DEBUG] Server Debug Info:');
+                        console.table(response.data.debug);
+                        console.log('[DEBUG] Full debug object:', response.data.debug);
+                    }
+
                     this.updateScreenshotDebug('Server response received');
 
                     if (response.success && response.data) {
-                        console.log('[DEBUG] Screenshot captured successfully');
+                        console.log('[DEBUG] ✓ Screenshot captured successfully');
                         console.log('[DEBUG] Image data length:', response.data.image ? response.data.image.length : 'N/A');
+                        console.log('[DEBUG] Data URI length:', response.data.data_uri ? response.data.data_uri.length : 'N/A');
                         console.log('[DEBUG] Cached:', response.data.cached);
                         console.log('[DEBUG] Response time:', response.data.response_time);
 
@@ -799,18 +809,55 @@
                         }
 
                         this.updateScreenshotDebug('Screenshot displayed successfully');
+                        console.log('[DEBUG] ========== SCREENSHOT SUCCESS ==========');
                     } else {
-                        console.log('[DEBUG] Screenshot capture failed - response not successful');
-                        console.log('[DEBUG] Response:', response);
+                        console.error('[DEBUG] ✗ Screenshot capture failed');
+                        console.error('[DEBUG] Error response:', response);
+                        console.error('[DEBUG] Error message:', response.data ? response.data.message : 'Unknown error');
+
+                        if (response.data && response.data.debug) {
+                            console.error('[DEBUG] Server error details:');
+                            console.table(response.data.debug);
+
+                            // Show detailed error info
+                            if (response.data.debug.possible_causes) {
+                                console.error('[DEBUG] Possible causes:', response.data.debug.possible_causes);
+                            }
+                            if (response.data.debug.exception_message) {
+                                console.error('[DEBUG] Exception:', response.data.debug.exception_message);
+                            }
+                            if (response.data.debug.stack_trace) {
+                                console.error('[DEBUG] Stack trace:', response.data.debug.stack_trace);
+                            }
+                        }
+
                         this.updateScreenshotDebug('Error: ' + (response.data ? response.data.message : 'Unknown error'));
-                        this.showScreenshotError(response.data ? response.data.message : null);
+                        this.showScreenshotError(response.data ? response.data.message : null, response.data ? response.data.debug : null);
+                        console.log('[DEBUG] ========== SCREENSHOT FAILED ==========');
                     }
                 }.bind(this),
                 error: function(xhr, status, error) {
-                    console.error('[DEBUG] AJAX error:', {xhr: xhr, status: status, error: error});
+                    console.error('[DEBUG] ========== AJAX ERROR ==========');
+                    console.error('[DEBUG] XHR object:', xhr);
+                    console.error('[DEBUG] Status:', status);
+                    console.error('[DEBUG] Error:', error);
                     console.error('[DEBUG] Response text:', xhr.responseText);
+                    console.error('[DEBUG] Status code:', xhr.status);
+
+                    try {
+                        const responseData = JSON.parse(xhr.responseText);
+                        console.error('[DEBUG] Parsed response:', responseData);
+                        if (responseData.data && responseData.data.debug) {
+                            console.error('[DEBUG] Server debug info:');
+                            console.table(responseData.data.debug);
+                        }
+                    } catch (e) {
+                        console.error('[DEBUG] Could not parse response as JSON');
+                    }
+
                     this.updateScreenshotDebug('AJAX Error: ' + status + ' - ' + error);
                     this.showScreenshotError('Network error: ' + status);
+                    console.error('[DEBUG] ========== AJAX ERROR END ==========');
                 }.bind(this),
                 complete: function() {
                     console.log('[DEBUG] AJAX request complete');
@@ -838,15 +885,31 @@
         /**
          * Show screenshot error state
          */
-        showScreenshotError: function(errorMessage) {
-            console.log('[DEBUG] showScreenshotError called with message:', errorMessage);
+        showScreenshotError: function(errorMessage, debugInfo) {
+            console.log('[DEBUG] showScreenshotError called');
+            console.log('[DEBUG] Error message:', errorMessage);
+            console.log('[DEBUG] Debug info:', debugInfo);
+
             this.$screenshotLoading.hide();
             this.$screenshotImage.hide();
             this.$screenshotError.show();
 
+            let errorHtml = '<p class="mb-0">Screenshot not available</p>';
+
             if (errorMessage) {
-                this.$screenshotError.html('<p class="mb-0">Screenshot not available</p><small style="color: #999;">' + errorMessage + '</small>');
+                errorHtml += '<small style="color: #999;">' + errorMessage + '</small>';
             }
+
+            // Add debug info if available (for development)
+            if (debugInfo) {
+                errorHtml += '<details style="margin-top: 10px; font-size: 11px; text-align: left;">';
+                errorHtml += '<summary style="cursor: pointer; color: #666;">Debug Information (click to expand)</summary>';
+                errorHtml += '<pre style="margin-top: 5px; padding: 5px; background: #f5f5f5; border-radius: 3px; overflow-x: auto;">';
+                errorHtml += JSON.stringify(debugInfo, null, 2);
+                errorHtml += '</pre></details>';
+            }
+
+            this.$screenshotError.html(errorHtml);
         },
 
         /**
