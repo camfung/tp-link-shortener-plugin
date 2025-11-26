@@ -183,16 +183,51 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                             </div>
                         </div>
 
-                    <!-- QR Code Section (outside form, below result) -->
+                    <!-- QR Code and Screenshot Section (outside form, below result) -->
                     <div id="tp-qr-section" class="tp-qr-section-wrapper d-none">
-                        <div class="card border-0 shadow-sm rounded-4">
-                            <div class="card-body p-4 text-center">
-                                <div id="tp-qr-code-container" class="tp-qr-code-container rounded-4 d-inline-block"></div>
-                                <div class="mt-3">
-                                    <button type="button" class="btn tp-btn tp-btn-download-qr" id="tp-download-qr-btn">
-                                        <i class="fas fa-download me-2"></i>
-                                        <?php esc_html_e('Download QR Code', 'tp-link-shortener'); ?>
-                                    </button>
+                        <div class="row g-3">
+                            <!-- QR Code Card -->
+                            <div class="col-md-6">
+                                <div class="card border-0 shadow-sm rounded-4 h-100">
+                                    <div class="card-body p-4 text-center">
+                                        <h5 class="card-title mb-3">
+                                            <i class="fas fa-qrcode me-2"></i>
+                                            <?php esc_html_e('QR Code', 'tp-link-shortener'); ?>
+                                        </h5>
+                                        <div id="tp-qr-code-container" class="tp-qr-code-container rounded-4 d-inline-block"></div>
+                                        <div class="mt-3">
+                                            <button type="button" class="btn tp-btn tp-btn-download-qr" id="tp-download-qr-btn">
+                                                <i class="fas fa-download me-2"></i>
+                                                <?php esc_html_e('Download QR Code', 'tp-link-shortener'); ?>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Screenshot Card -->
+                            <div class="col-md-6">
+                                <div class="card border-0 shadow-sm rounded-4 h-100">
+                                    <div class="card-body p-4 text-center">
+                                        <h5 class="card-title mb-3">
+                                            <i class="fas fa-camera me-2"></i>
+                                            <?php esc_html_e('Page Preview', 'tp-link-shortener'); ?>
+                                        </h5>
+                                        <div id="tp-screenshot-container" class="tp-screenshot-container rounded-4 d-inline-block">
+                                            <div id="tp-screenshot-loading" class="d-flex align-items-center justify-content-center" style="min-height: 200px;">
+                                                <div class="spinner-border text-primary" role="status">
+                                                    <span class="visually-hidden"><?php esc_html_e('Loading screenshot...', 'tp-link-shortener'); ?></span>
+                                                </div>
+                                            </div>
+                                            <img id="tp-screenshot-image" class="rounded-4" style="display:none; max-width: 100%; height: auto;" alt="<?php esc_attr_e('Page screenshot', 'tp-link-shortener'); ?>" />
+                                            <div id="tp-screenshot-error" class="text-danger" style="display:none; min-height: 200px; display: flex; align-items: center; justify-content: center;">
+                                                <p class="mb-0"><?php esc_html_e('Screenshot not available', 'tp-link-shortener'); ?></p>
+                                            </div>
+                                        </div>
+                                        <div class="mt-3" id="tp-screenshot-actions" style="display:none;">
+                                            <small class="text-muted d-block mb-2" id="tp-screenshot-info"></small>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>

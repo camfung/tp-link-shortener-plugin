@@ -17,6 +17,8 @@ use TrafficPortal\Exception\ValidationException;
 use TrafficPortal\Exception\NetworkException;
 use TrafficPortal\Exception\RateLimitException;
 use TrafficPortal\Exception\ApiException;
+use SnapCapture\SnapCaptureClient;
+use SnapCapture\DTO\ScreenshotRequest;
 
 class TP_API_Handler {
 
@@ -24,6 +26,11 @@ class TP_API_Handler {
      * API Client instance
      */
     private $client;
+
+    /**
+     * SnapCapture Client instance
+     */
+    private $screenshotClient;
 
     /**
      * Constructor
@@ -49,6 +56,12 @@ class TP_API_Handler {
             $api_key,
             30
         );
+
+        // Initialize SnapCapture client
+        $snapcapture_key = TP_Link_Shortener::get_snapcapture_api_key();
+        if (!empty($snapcapture_key)) {
+            $this->screenshotClient = new SnapCaptureClient($snapcapture_key);
+        }
     }
 
     /**
@@ -59,11 +72,13 @@ class TP_API_Handler {
         add_action('wp_ajax_tp_create_link', array($this, 'ajax_create_link'));
         add_action('wp_ajax_tp_validate_key', array($this, 'ajax_validate_key'));
         add_action('wp_ajax_tp_validate_url', array($this, 'ajax_validate_url'));
+        add_action('wp_ajax_tp_capture_screenshot', array($this, 'ajax_capture_screenshot'));
 
         // For non-logged-in users
         add_action('wp_ajax_nopriv_tp_create_link', array($this, 'ajax_create_link'));
         add_action('wp_ajax_nopriv_tp_validate_key', array($this, 'ajax_validate_key'));
         add_action('wp_ajax_nopriv_tp_validate_url', array($this, 'ajax_validate_url'));
+        add_action('wp_ajax_nopriv_tp_capture_screenshot', array($this, 'ajax_capture_screenshot'));
     }
 
     /**
@@ -503,5 +518,71 @@ class TP_API_Handler {
             'headers' => $headers_array
         ));
         wp_die();
+    }
+
+    /**
+     * AJAX handler for capturing website screenshots
+     */
+    public function ajax_capture_screenshot() {
+        // Verify nonce
+        check_ajax_referer('tp_link_shortener_nonce', 'nonce');
+
+        // Check if screenshot client is initialized
+        if (!$this->screenshotClient) {
+            wp_send_json_error(array(
+                'message' => __('Screenshot service not configured', 'tp-link-shortener')
+            ));
+            return;
+        }
+
+        // Get URL from POST data
+        $url = isset($_POST['url']) ? esc_url_raw($_POST['url']) : '';
+
+        if (empty($url)) {
+            wp_send_json_error(array(
+                'message' => __('URL is required', 'tp-link-shortener')
+            ));
+            return;
+        }
+
+        try {
+            // Create screenshot request
+            $request = ScreenshotRequest::desktop($url, 'jpeg', 75);
+
+            // Capture screenshot
+            $response = $this->screenshotClient->captureScreenshot($request);
+
+            // Return base64 encoded image
+            wp_send_json_success(array(
+                'image' => $response->getBase64(),
+                'cached' => $response->isCached(),
+                'response_time' => $response->getResponseTimeMs(),
+                'data_uri' => $response->getDataUri()
+            ));
+
+        } catch (\SnapCapture\Exception\AuthenticationException $e) {
+            error_log('SnapCapture Auth Error: ' . $e->getMessage());
+            wp_send_json_error(array(
+                'message' => __('Screenshot authentication failed', 'tp-link-shortener')
+            ));
+
+        } catch (\SnapCapture\Exception\NetworkException $e) {
+            error_log('SnapCapture Network Error: ' . $e->getMessage());
+            wp_send_json_error(array(
+                'message' => __('Network error while capturing screenshot', 'tp-link-shortener')
+            ));
+
+        } catch (\SnapCapture\Exception\ApiException $e) {
+            error_log('SnapCapture API Error: ' . $e->getMessage());
+            wp_send_json_error(array(
+                'message' => __('Failed to capture screenshot', 'tp-link-shortener')
+            ));
+
+        } catch (Exception $e) {
+            error_log('Screenshot Error: ' . $e->getMessage());
+            wp_send_json_error(array(
+                'message' => __('An error occurred while capturing screenshot', 'tp-link-shortener')
+            ));
+        }
     }
 }

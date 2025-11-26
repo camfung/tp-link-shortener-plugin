@@ -26,10 +26,17 @@
         $suggestBtn: null,
         $returningVisitorMessage: null,
         $validationMessage: null,
+        $screenshotContainer: null,
+        $screenshotLoading: null,
+        $screenshotImage: null,
+        $screenshotError: null,
+        $screenshotInfo: null,
+        $screenshotActions: null,
 
         // State
         qrCode: null,
         lastShortUrl: '',
+        currentDestinationUrl: '',
         isValid: false,
         isReturningVisitor: false,
         countdownTimer: null,
@@ -85,6 +92,14 @@
             // Get validation message element (now exists in template)
             this.$validationMessage = $('#tp-url-validation-message');
             this.$tryItMessage = $('#tp-try-it-message');
+
+            // Screenshot elements
+            this.$screenshotContainer = $('#tp-screenshot-container');
+            this.$screenshotLoading = $('#tp-screenshot-loading');
+            this.$screenshotImage = $('#tp-screenshot-image');
+            this.$screenshotError = $('#tp-screenshot-error');
+            this.$screenshotInfo = $('#tp-screenshot-info');
+            this.$screenshotActions = $('#tp-screenshot-actions');
         },
 
         /**
@@ -274,8 +289,14 @@
                 this.$shortUrlOutput.val(shortUrl);
                 this.showResult();
 
+                // Store current destination URL
+                this.currentDestinationUrl = destination;
+
                 // Generate QR code
                 this.generateQRCode(shortUrl);
+
+                // Capture screenshot
+                this.captureScreenshot(destination);
 
                 // Show "Try It Now" message for non-logged-in users
                 if (this.$tryItMessage && this.$tryItMessage.length) {
@@ -712,6 +733,65 @@
             } catch (e) {
                 console.error('QR Code generation failed:', e);
             }
+        },
+
+        /**
+         * Capture screenshot of destination URL
+         */
+        captureScreenshot: function(url) {
+            // Reset screenshot UI
+            this.$screenshotLoading.show();
+            this.$screenshotImage.hide();
+            this.$screenshotError.hide();
+            this.$screenshotActions.hide();
+
+            // Make AJAX request to capture screenshot
+            $.ajax({
+                url: tpLinkShortener.ajaxUrl,
+                type: 'POST',
+                data: {
+                    action: 'tp_capture_screenshot',
+                    nonce: tpLinkShortener.nonce,
+                    url: url
+                },
+                success: function(response) {
+                    if (response.success && response.data) {
+                        // Hide loading, show image
+                        this.$screenshotLoading.hide();
+                        this.$screenshotImage.attr('src', response.data.data_uri);
+                        this.$screenshotImage.show();
+
+                        // Show info
+                        if (response.data.cached || response.data.response_time) {
+                            let info = '';
+                            if (response.data.cached) {
+                                info += 'Cached';
+                            }
+                            if (response.data.response_time) {
+                                if (info) info += ' • ';
+                                info += response.data.response_time + 'ms';
+                            }
+                            this.$screenshotInfo.text(info);
+                            this.$screenshotActions.show();
+                        }
+                    } else {
+                        this.showScreenshotError();
+                    }
+                }.bind(this),
+                error: function(xhr, status, error) {
+                    console.error('Screenshot capture failed:', error);
+                    this.showScreenshotError();
+                }.bind(this)
+            });
+        },
+
+        /**
+         * Show screenshot error state
+         */
+        showScreenshotError: function() {
+            this.$screenshotLoading.hide();
+            this.$screenshotImage.hide();
+            this.$screenshotError.show();
         },
 
         /**

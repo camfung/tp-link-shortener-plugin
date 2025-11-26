@@ -120,4 +120,17 @@ class TP_Link_Shortener {
     public static function is_premium_only(): bool {
         return (bool) get_option('tp_link_shortener_premium_only', false);
     }
+
+    /**
+     * Get SnapCapture API key from WordPress config
+     */
+    public static function get_snapcapture_api_key(): string {
+        // Try to get from wp-config.php constant
+        if (defined('SNAPCAPTURE_API_KEY')) {
+            return SNAPCAPTURE_API_KEY;
+        }
+
+        // Fallback to empty string
+        return '';
+    }
 }
