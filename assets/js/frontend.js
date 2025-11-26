@@ -26,6 +26,7 @@
         $suggestBtn: null,
         $returningVisitorMessage: null,
         $validationMessage: null,
+        $saveLinkReminder: null,
 
         // State
         qrCode: null,
@@ -82,6 +83,7 @@
             this.$downloadQrBtn = $('#tp-download-qr-btn');
             this.$pasteBtn = $('#tp-paste-btn');
             this.$suggestBtn = $('#tp-suggest-btn');
+            this.$saveLinkReminder = $('#tp-save-link-reminder');
 
             // Get validation message element (now exists in template)
             this.$validationMessage = $('#tp-url-validation-message');
@@ -228,6 +230,7 @@
             this.setLoadingState(true);
             this.hideError();
             this.hideResult();
+            this.showSaveLinkReminder();
 
             // Prepare data
             const data = {
@@ -702,6 +705,18 @@
             }.bind(this), 500);
         },
 
+        showSaveLinkReminder: function() {
+            if (this.$saveLinkReminder && this.$saveLinkReminder.length) {
+                this.$saveLinkReminder.removeClass('d-none');
+            }
+        },
+
+        hideSaveLinkReminder: function() {
+            if (this.$saveLinkReminder && this.$saveLinkReminder.length) {
+                this.$saveLinkReminder.addClass('d-none');
+            }
+        },
+
         /**
          * Generate QR Code
          */
@@ -947,6 +962,7 @@
             this.stopCountdown();
             window.TPStorageService.clearShortcodeData();
             this.hideReturningVisitorMessage();
+            this.hideSaveLinkReminder();
             this.hideResult();
             this.enableForm();
             this.isReturningVisitor = false;

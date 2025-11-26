@@ -70,6 +70,9 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                                     </button>
                                 </div>
                             </div>
+                            <div id="tp-save-link-reminder" class="tp-save-link-reminder d-none mt-3" role="status">
+                                <span class="fw-semibold">SAVE THE LINK AND IT NEVER EXPIRES</span>
+                            </div>
                             <div id="tp-url-validation-message" class="form-text mt-2" style="display: none;"></div>
                         </div>
 

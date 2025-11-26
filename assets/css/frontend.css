@@ -39,6 +39,17 @@
     width: 100%;
 }
 
+.tp-save-link-reminder {
+    background: var(--tp-secondary);
+    color: #fff;
+    border: 1px solid var(--tp-secondary-dark);
+    border-radius: 1rem;
+    padding: 0.9rem 1.1rem;
+    text-align: center;
+    letter-spacing: 0.02em;
+    box-shadow: 0 10px 20px -15px rgba(51, 122, 183, 0.8);
+}
+
 .tp-card {
     border-radius: 1.5rem;
     background: var(--tp-surface);
