@@ -220,7 +220,7 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                                                 </div>
                                             </div>
                                             <img id="tp-screenshot-image" class="rounded-4" style="display:none; max-width: 100%; height: auto;" alt="<?php esc_attr_e('Page screenshot', 'tp-link-shortener'); ?>" />
-                                            <div id="tp-screenshot-error" class="text-danger" style="display:none; min-height: 200px; display: flex; align-items: center; justify-content: center;">
+                                            <div id="tp-screenshot-error" class="text-danger" style="display:none; min-height: 200px; align-items: center; justify-content: center;">
                                                 <p class="mb-0"><?php esc_html_e('Screenshot not available', 'tp-link-shortener'); ?></p>
                                             </div>
                                         </div>

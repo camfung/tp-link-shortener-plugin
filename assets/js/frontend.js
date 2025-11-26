@@ -945,6 +945,9 @@
             // Generate QR code
             this.generateQRCode(shortUrl);
 
+            // Capture screenshot
+            this.captureScreenshot(storedData.destination);
+
             // Only disable the form for non-logged-in users (trial users)
             if (!tpLinkShortener.isLoggedIn) {
                 this.disableForm();
