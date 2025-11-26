@@ -70,6 +70,7 @@
             this.$submitBtn = $('#tp-submit-btn');
             this.$destinationInput = $('#tp-destination');
             this.$customKeyInput = $('#tp-custom-key');
+            this.$customKeyGroup = $('.tp-custom-key-group');
             this.$loading = $('#tp-loading');
             this.$errorMessage = $('#tp-error-message');
             this.$successMessage = $('#tp-success-message');
@@ -126,6 +127,10 @@
                 // Disable submit button
                 this.$submitBtn.prop('disabled', true);
                 this.$submitBtn.addClass('disabled');
+                // Hide custom key group on error
+                if (this.$customKeyGroup && this.$customKeyGroup.length) {
+                    this.$customKeyGroup.slideUp(300);
+                }
             } else if (result.isWarning) {
                 // Warnings still allow submission but show warning message
                 this.isValid = true;
@@ -137,6 +142,10 @@
                 // Enable submit button (warnings are allowed)
                 this.$submitBtn.prop('disabled', false);
                 this.$submitBtn.removeClass('disabled');
+                // Show custom key group on warning (still valid for submission)
+                if (this.$customKeyGroup && this.$customKeyGroup.length) {
+                    this.$customKeyGroup.slideDown(300);
+                }
             } else {
                 this.isValid = true;
                 this.$destinationInput.removeClass('is-invalid').addClass('is-valid');
@@ -147,6 +156,10 @@
                 // Enable submit button
                 this.$submitBtn.prop('disabled', false);
                 this.$submitBtn.removeClass('disabled');
+                // Show custom key group on success
+                if (this.$customKeyGroup && this.$customKeyGroup.length) {
+                    this.$customKeyGroup.slideDown(300);
+                }
             }
         },
 
@@ -285,6 +298,12 @@
                 // Reset form
                 this.$destinationInput.val('');
                 this.$customKeyInput.val('');
+                this.$destinationInput.removeClass('is-valid is-invalid');
+
+                // Hide custom key group after successful submission
+                if (this.$customKeyGroup && this.$customKeyGroup.length) {
+                    this.$customKeyGroup.hide();
+                }
             } else {
                 // Check if this is a rate limit error (429)
                 if (response.data && response.data.error_type === 'rate_limit') {
@@ -374,6 +393,10 @@
                 // If empty, disable submit button
                 this.$submitBtn.prop('disabled', true);
                 this.$submitBtn.addClass('disabled');
+                // Hide custom key group when input is empty
+                if (this.$customKeyGroup && this.$customKeyGroup.length) {
+                    this.$customKeyGroup.slideUp(300);
+                }
             }
 
             // Trigger online validation if URLValidator is available
@@ -798,6 +821,10 @@
             this.$destinationInput.val(storedData.destination);
             if (this.$customKeyInput.length) {
                 this.$customKeyInput.val(storedData.shortcode);
+                // Show custom key group for returning visitors
+                if (this.$customKeyGroup && this.$customKeyGroup.length) {
+                    this.$customKeyGroup.show();
+                }
             }
 
             // Display the short URL

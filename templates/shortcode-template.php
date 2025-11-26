@@ -75,7 +75,7 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
 
                         <!-- Custom Shortcode Input (only show if not premium-only OR user is premium) -->
                         <?php if (!$is_premium_only || is_user_logged_in()): ?>
-                        <div class="tp-form-group tp-custom-key-group mb-4">
+                        <div class="tp-form-group tp-custom-key-group mb-4" style="display: none;">
                             <label for="tp-custom-key" class="tp-label mb-2">
                                 <i class="fas fa-edit me-2"></i>
                                 <?php esc_html_e('Custom Shortcode (Optional)', 'tp-link-shortener'); ?>
