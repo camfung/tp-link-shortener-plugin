@@ -34,6 +34,7 @@
         isValid: false,
         isReturningVisitor: false,
         countdownTimer: null,
+        expiryTimer: null,
         urlValidator: null,
         debouncedValidate: null,
 
@@ -296,6 +297,11 @@
                 // Show "Try It Now" message for non-logged-in users
                 if (this.$tryItMessage && this.$tryItMessage.length) {
                     this.$tryItMessage.removeClass('d-none');
+                }
+
+                // Start expiry countdown for non-logged-in users
+                if (!tpLinkShortener.isLoggedIn) {
+                    this.startExpiryCountdown();
                 }
 
                 // Reset form
@@ -678,6 +684,7 @@
             this.hideSuccessMessage();
             this.$resultSection.addClass('d-none');
             this.hideQRSection();
+            this.stopExpiryCountdown();
             // Hide "Try It Now" message
             if (this.$tryItMessage && this.$tryItMessage.length) {
                 this.$tryItMessage.addClass('d-none');
@@ -863,8 +870,11 @@
                     '<a href="#" id="tp-register-link">Register to keep it active</a>.'
                 );
 
-                // Start countdown
+                // Start countdown (for returning visitor message)
                 this.startCountdown();
+
+                // Start expiry countdown (for expiry counter in result section)
+                this.startExpiryCountdown();
             }
         },
 
@@ -926,6 +936,57 @@
         },
 
         /**
+         * Start expiry countdown timer for new links
+         */
+        startExpiryCountdown: function() {
+            const updateExpiry = function() {
+                if (!window.TPStorageService || !window.TPStorageService.isAvailable()) {
+                    this.stopExpiryCountdown();
+                    return;
+                }
+
+                const timeRemaining = window.TPStorageService.getTimeRemaining();
+                if (timeRemaining === null || timeRemaining <= 0) {
+                    // Expired
+                    $('.tp-expiry-counter').text('Expired');
+                    this.stopExpiryCountdown();
+                    return;
+                }
+
+                // Format time as HH:MM:SS
+                const hours = Math.floor(timeRemaining / (1000 * 60 * 60));
+                const minutes = Math.floor((timeRemaining % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((timeRemaining % (1000 * 60)) / 1000);
+
+                const formatted =
+                    String(hours).padStart(2, '0') + ':' +
+                    String(minutes).padStart(2, '0') + ':' +
+                    String(seconds).padStart(2, '0');
+
+                $('.tp-expiry-counter').text(formatted);
+            }.bind(this);
+
+            // Update immediately
+            updateExpiry();
+
+            // Stop any existing timer
+            this.stopExpiryCountdown();
+
+            // Update every second
+            this.expiryTimer = setInterval(updateExpiry, 1000);
+        },
+
+        /**
+         * Stop expiry countdown timer
+         */
+        stopExpiryCountdown: function() {
+            if (this.expiryTimer) {
+                clearInterval(this.expiryTimer);
+                this.expiryTimer = null;
+            }
+        },
+
+        /**
          * Disable form inputs
          */
         disableForm: function() {
@@ -960,6 +1021,7 @@
          */
         clearStoredKey: function() {
             this.stopCountdown();
+            this.stopExpiryCountdown();
             window.TPStorageService.clearShortcodeData();
             this.hideReturningVisitorMessage();
             this.hideSaveLinkReminder();
