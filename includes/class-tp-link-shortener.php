@@ -38,6 +38,11 @@ class TP_Link_Shortener {
     private $api_handler;
 
     /**
+     * Screenshot handler
+     */
+    private $screenshot_handler;
+
+    /**
      * Get plugin instance
      */
     public static function get_instance() {
@@ -54,6 +59,7 @@ class TP_Link_Shortener {
         // Initialize components
         $this->assets = new TP_Assets();
         $this->api_handler = new TP_API_Handler();
+        $this->screenshot_handler = new TP_Screenshot_Handler();
         $this->shortcode = new TP_Shortcode($this->assets);
         $this->admin = new TP_Admin_Settings();
 
