@@ -622,6 +622,13 @@
     font-size: 1.2rem;
 }
 
+.tp-screenshot-preview img {
+    display: block;
+    width: 100%;
+    height: auto;
+    object-fit: cover;
+}
+
 /* Keyframe animation for initial slide */
 @keyframes slideDown {
     from {
