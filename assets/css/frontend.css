@@ -410,6 +410,10 @@
     padding: 1.25rem;
     box-shadow: 0 16px 40px -32px rgba(30, 79, 159, 0.5);
     min-width: 240px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
 }
 
 .tp-qr-code-container {
@@ -430,10 +434,10 @@
 
 /* Screenshot Preview Styles */
 .tp-qr-and-preview-container {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 1.5rem;
-    width: 100%;
+    padding-top: 1em;
 }
 
 .tp-screenshot-card {
@@ -442,6 +446,11 @@
     border-radius: 1.25rem;
     padding: 1.25rem;
     box-shadow: 0 16px 40px -32px rgba(30, 79, 159, 0.5);
+    min-width: 240px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
 }
 
 .tp-screenshot-preview {
@@ -492,20 +501,6 @@
     border-radius: 999px;
     font-size: 0.85rem;
     font-weight: 600;
-}
-
-@media (min-width: 768px) {
-    .tp-qr-and-preview-container {
-        flex-direction: row;
-        justify-content: center;
-        align-items: flex-start;
-    }
-
-    .tp-qr-card,
-    .tp-screenshot-card {
-        flex: 0 0 auto;
-        min-width: 240px;
-    }
 }
 
 .tp-success-message {
