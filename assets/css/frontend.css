@@ -458,7 +458,6 @@
 
 .tp-screenshot-img {
     width: 100%;
-    max-width: 240px;
     height: auto;
     border-radius: 0.75rem;
     border: 1px solid #dce9ff;
