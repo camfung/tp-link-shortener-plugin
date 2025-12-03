@@ -85,10 +85,6 @@ class TP_Shortcode {
 
         echo '<div class="tp-screenshot-preview">';
         echo '<img src="' . esc_url($image_url) . '" alt="URL Preview" class="tp-screenshot-img" />';
-        echo '<div class="tp-screenshot-meta">';
-        echo '<span class="tp-screenshot-badge">' . esc_html($cached_text) . '</span>';
-        echo '<span class="tp-screenshot-time">' . esc_html($response_time) . '</span>';
-        echo '</div>';
         echo '</div>';
     }
 }
