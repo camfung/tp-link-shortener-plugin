@@ -91,7 +91,11 @@ class TP_API_Handler {
             return;
         }
 
-        $this->snapcapture_client = new SnapCaptureClient($snapcapture_api_key);
+        // Initialize logger
+        $log_file = TP_LINK_SHORTENER_PLUGIN_DIR . 'logs/snapcapture.log';
+        $logger = new \SnapCapture\Logger($log_file, true, \SnapCapture\Logger::LEVEL_DEBUG);
+
+        $this->snapcapture_client = new SnapCaptureClient($snapcapture_api_key, null, 30, $logger);
     }
 
     /**
@@ -554,6 +558,7 @@ class TP_API_Handler {
      * AJAX handler for capturing screenshots
      */
     public function ajax_capture_screenshot() {
+        $start_time = microtime(true);
         error_log('TP Link Shortener: ajax_capture_screenshot called');
 
         // Verify nonce
@@ -563,6 +568,7 @@ class TP_API_Handler {
         $url = isset($_POST['url']) ? sanitize_url($_POST['url']) : '';
 
         error_log('TP Link Shortener: Capturing screenshot for URL: ' . $url);
+        error_log('TP Link Shortener: Request details - IP: ' . $_SERVER['REMOTE_ADDR'] . ', User Agent: ' . $_SERVER['HTTP_USER_AGENT']);
 
         // Validate URL
         if (empty($url) || !filter_var($url, FILTER_VALIDATE_URL)) {
@@ -575,19 +581,27 @@ class TP_API_Handler {
         // Check if SnapCapture client is initialized
         if (!isset($this->snapcapture_client)) {
             error_log('TP Link Shortener: SnapCapture client not initialized');
+            error_log('TP Link Shortener: Check that SNAPCAPTURE_API_KEY is configured');
             wp_send_json_error(array(
                 'message' => __('Screenshot service not configured. Please contact administrator.', 'tp-link-shortener')
             ));
         }
 
+        error_log('TP Link Shortener: Starting screenshot capture process...');
+
         // Capture screenshot
         $result = $this->capture_screenshot($url);
 
+        $elapsed_time = round((microtime(true) - $start_time) * 1000, 2);
+        error_log('TP Link Shortener: Total request time: ' . $elapsed_time . 'ms');
+
         if ($result['success']) {
             error_log('TP Link Shortener: Screenshot captured successfully');
+            error_log('TP Link Shortener: Data URI length: ' . strlen($result['data']['data_uri'] ?? ''));
             wp_send_json_success($result['data']);
         } else {
             error_log('TP Link Shortener: Screenshot capture failed: ' . $result['message']);
+            error_log('TP Link Shortener: Error details: ' . json_encode($result));
             wp_send_json_error(array(
                 'message' => $result['message']
             ));

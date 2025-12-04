@@ -27,6 +27,7 @@ class SnapCaptureClient
 
     private string $apiKey;
     private HttpClientInterface $httpClient;
+    private ?Logger $logger;
 
     /**
      * Constructor
@@ -34,14 +35,17 @@ class SnapCaptureClient
      * @param string $apiKey RapidAPI key for authentication
      * @param HttpClientInterface|null $httpClient HTTP client (defaults to CurlHttpClient)
      * @param int $timeout Request timeout in seconds (default: 30)
+     * @param Logger|null $logger Optional logger for debugging
      */
     public function __construct(
         string $apiKey,
         ?HttpClientInterface $httpClient = null,
-        int $timeout = 30
+        int $timeout = 30,
+        ?Logger $logger = null
     ) {
         $this->apiKey = $apiKey;
         $this->httpClient = $httpClient ?? new CurlHttpClient($timeout);
+        $this->logger = $logger;
     }
 
     /**
@@ -66,29 +70,103 @@ class SnapCaptureClient
 
         $payload = $request->toArray();
 
-        $response = $this->httpClient->request('POST', $url, [
-            'headers' => [
-                'Content-Type: application/json',
-                'X-RapidAPI-Key: ' . $this->apiKey,
-                'X-RapidAPI-Host: ' . self::API_HOST,
-            ],
-            'body' => json_encode($payload),
-        ]);
-
-        $httpCode = $response->getStatusCode();
-        $headers = $response->getHeaders();
-        $body = $response->getBody();
-
-        // Handle HTTP errors
-        if ($httpCode >= 400) {
-            $this->handleHttpErrors($httpCode, $body);
+        if ($this->logger) {
+            $this->logger->info('Capturing screenshot', [
+                'url' => $payload['url'] ?? 'unknown',
+                'format' => $payload['format'] ?? 'jpeg',
+                'returnJson' => $returnJson,
+            ]);
         }
 
-        // Parse response based on format
-        if ($returnJson) {
-            return $this->parseJsonResponse($body, $headers);
-        } else {
-            return $this->parseBinaryResponse($body, $headers, $request->getFormat());
+        try {
+            $response = $this->httpClient->request('POST', $url, [
+                'headers' => [
+                    'Content-Type: application/json',
+                    'X-RapidAPI-Key: ' . $this->apiKey,
+                    'X-RapidAPI-Host: ' . self::API_HOST,
+                ],
+                'body' => json_encode($payload),
+            ]);
+
+            $httpCode = $response->getStatusCode();
+            $headers = $response->getHeaders();
+            $body = $response->getBody();
+
+            if ($this->logger) {
+                $this->logger->debug('Received response', [
+                    'http_code' => $httpCode,
+                    'body_length' => strlen($body),
+                    'headers' => array_keys($headers),
+                ]);
+            }
+
+            // Handle HTTP errors
+            if ($httpCode >= 400) {
+                if ($this->logger) {
+                    $this->logger->error('HTTP error response', [
+                        'http_code' => $httpCode,
+                        'body' => substr($body, 0, 500), // First 500 chars
+                    ]);
+                }
+                $this->handleHttpErrors($httpCode, $body);
+            }
+
+            // Parse response based on format
+            $result = $returnJson
+                ? $this->parseJsonResponse($body, $headers)
+                : $this->parseBinaryResponse($body, $headers, $request->getFormat());
+
+            if ($this->logger) {
+                $this->logger->info('Screenshot captured successfully', [
+                    'cached' => $result->isCached(),
+                    'response_time_ms' => $result->getResponseTimeMs(),
+                    'content_type' => $result->getContentType(),
+                ]);
+            }
+
+            return $result;
+
+        } catch (AuthenticationException $e) {
+            if ($this->logger) {
+                $this->logger->error('Authentication failed', [
+                    'message' => $e->getMessage(),
+                    'code' => $e->getCode(),
+                ]);
+            }
+            throw $e;
+        } catch (ValidationException $e) {
+            if ($this->logger) {
+                $this->logger->error('Validation failed', [
+                    'message' => $e->getMessage(),
+                    'code' => $e->getCode(),
+                ]);
+            }
+            throw $e;
+        } catch (NetworkException $e) {
+            if ($this->logger) {
+                $this->logger->error('Network error', [
+                    'message' => $e->getMessage(),
+                    'code' => $e->getCode(),
+                ]);
+            }
+            throw $e;
+        } catch (ApiException $e) {
+            if ($this->logger) {
+                $this->logger->error('API error', [
+                    'message' => $e->getMessage(),
+                    'code' => $e->getCode(),
+                ]);
+            }
+            throw $e;
+        } catch (\Exception $e) {
+            if ($this->logger) {
+                $this->logger->error('Unexpected error', [
+                    'message' => $e->getMessage(),
+                    'code' => $e->getCode(),
+                    'type' => get_class($e),
+                ]);
+            }
+            throw $e;
         }
     }
 
