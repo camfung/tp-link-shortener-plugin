@@ -277,7 +277,7 @@
                     // Ignore
                 }
 
-                // Save to local storage
+                // Save to local storage (screenshot will be added later when captured)
                 if (window.TPStorageService && window.TPStorageService.isAvailable()) {
                     window.TPStorageService.saveShortcodeData({
                         shortcode: key,
@@ -285,6 +285,7 @@
                         expiresInHours: 24,
                         uid: uid
                     });
+                    console.log('TP Link Shortener: Shortcode data saved to localStorage (screenshot pending)');
                 }
 
                 // Display result
@@ -804,16 +805,26 @@
                         // Save screenshot to localStorage for returning visitors
                         if (window.TPStorageService && window.TPStorageService.isAvailable()) {
                             const storedData = window.TPStorageService.getShortcodeData();
-                            if (storedData) {
+                            if (storedData && !storedData.isExpired) {
+                                // Calculate remaining hours until expiration
+                                const remainingMs = storedData.expiration - Date.now();
+                                const remainingHours = Math.max(0, remainingMs / (1000 * 60 * 60));
+
                                 // Update existing stored data with screenshot
                                 window.TPStorageService.saveShortcodeData({
                                     shortcode: storedData.shortcode,
                                     destination: storedData.destination,
-                                    expiresInHours: (storedData.expiration - Date.now()) / (1000 * 60 * 60),
+                                    expiresInHours: remainingHours,
                                     uid: storedData.uid,
                                     screenshot: response.data.data_uri
                                 });
-                                console.log('TP Link Shortener: Screenshot saved to localStorage');
+
+                                console.log('TP Link Shortener: Screenshot saved to localStorage', {
+                                    screenshotLength: response.data.data_uri.length,
+                                    remainingHours: remainingHours.toFixed(2)
+                                });
+                            } else {
+                                console.warn('TP Link Shortener: No valid stored data found to update with screenshot');
                             }
                         }
 

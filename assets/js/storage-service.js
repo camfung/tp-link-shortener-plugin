@@ -63,7 +63,16 @@ export const StorageService = {
 
       // Store screenshot if provided
       if (screenshot) {
-        localStorage.setItem(this.KEYS.SCREENSHOT, screenshot);
+        try {
+          localStorage.setItem(this.KEYS.SCREENSHOT, screenshot);
+          console.log('StorageService: Screenshot saved to localStorage', {
+            length: screenshot.length,
+            preview: screenshot.substring(0, 50) + '...'
+          });
+        } catch (screenshotError) {
+          console.error('Failed to save screenshot to localStorage (may be too large):', screenshotError);
+          // Continue without screenshot if it fails
+        }
       }
 
       return true;
@@ -92,7 +101,7 @@ export const StorageService = {
         return null;
       }
 
-      return {
+      const data = {
         shortcode,
         destination,
         expiration: parseInt(expiration, 10),
@@ -102,6 +111,15 @@ export const StorageService = {
         screenshot,
         isExpired: this.isExpired()
       };
+
+      console.log('StorageService: Retrieved data from localStorage', {
+        shortcode: data.shortcode,
+        hasScreenshot: !!screenshot,
+        screenshotLength: screenshot ? screenshot.length : 0,
+        isExpired: data.isExpired
+      });
+
+      return data;
     } catch (error) {
       console.error('Failed to get shortcode data:', error);
       return null;
