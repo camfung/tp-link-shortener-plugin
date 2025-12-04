@@ -65,29 +65,32 @@ class TP_API_Handler {
      * Initialize SnapCapture API client
      */
     private function init_snapcapture_client() {
-        // Try to load API key from .env.snapcapture file
-        $env_file = TP_LINK_SHORTENER_PLUGIN_DIR . '.env.snapcapture';
         $snapcapture_api_key = '';
 
-        if (file_exists($env_file)) {
-            $env = parse_ini_file($env_file);
-            if (isset($env['SNAPCAPTURE_API_KEY'])) {
-                $snapcapture_api_key = $env['SNAPCAPTURE_API_KEY'];
+        // Priority 1: WordPress constant (recommended)
+        if (defined('SNAPCAPTURE_API_KEY')) {
+            $snapcapture_api_key = SNAPCAPTURE_API_KEY;
+            error_log('TP Link Shortener: Using SNAPCAPTURE_API_KEY from WordPress constant');
+        }
+        // Priority 2: Environment variable
+        elseif (getenv('SNAPCAPTURE_API_KEY')) {
+            $snapcapture_api_key = getenv('SNAPCAPTURE_API_KEY');
+            error_log('TP Link Shortener: Using SNAPCAPTURE_API_KEY from environment variable');
+        }
+        // Priority 3: .env.snapcapture file (fallback for development)
+        else {
+            $env_file = TP_LINK_SHORTENER_PLUGIN_DIR . '.env.snapcapture';
+            if (file_exists($env_file)) {
+                $env = parse_ini_file($env_file);
+                if (isset($env['SNAPCAPTURE_API_KEY'])) {
+                    $snapcapture_api_key = $env['SNAPCAPTURE_API_KEY'];
+                    error_log('TP Link Shortener: Using SNAPCAPTURE_API_KEY from .env.snapcapture file');
+                }
             }
         }
 
-        // Fallback to environment variable
         if (empty($snapcapture_api_key)) {
-            $snapcapture_api_key = getenv('SNAPCAPTURE_API_KEY');
-        }
-
-        // Fallback to WordPress constant
-        if (empty($snapcapture_api_key) && defined('SNAPCAPTURE_API_KEY')) {
-            $snapcapture_api_key = SNAPCAPTURE_API_KEY;
-        }
-
-        if (empty($snapcapture_api_key)) {
-            error_log('TP Link Shortener: SNAPCAPTURE_API_KEY not configured');
+            error_log('TP Link Shortener: SNAPCAPTURE_API_KEY not configured. Add it to wp-config.php: define(\'SNAPCAPTURE_API_KEY\', \'your-api-key\');');
             return;
         }
 
