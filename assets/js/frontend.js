@@ -801,6 +801,22 @@
                         $screenshotImg.show();
                         $screenshotPreview.removeClass('tp-screenshot-loading').addClass('tp-screenshot-loaded');
 
+                        // Save screenshot to localStorage for returning visitors
+                        if (window.TPStorageService && window.TPStorageService.isAvailable()) {
+                            const storedData = window.TPStorageService.getShortcodeData();
+                            if (storedData) {
+                                // Update existing stored data with screenshot
+                                window.TPStorageService.saveShortcodeData({
+                                    shortcode: storedData.shortcode,
+                                    destination: storedData.destination,
+                                    expiresInHours: (storedData.expiration - Date.now()) / (1000 * 60 * 60),
+                                    uid: storedData.uid,
+                                    screenshot: response.data.data_uri
+                                });
+                                console.log('TP Link Shortener: Screenshot saved to localStorage');
+                            }
+                        }
+
                         // Log additional info
                         if (response.data.cached) {
                             console.log('TP Link Shortener: Screenshot loaded from cache');
@@ -926,6 +942,9 @@
             // Generate QR code
             this.generateQRCode(shortUrl);
 
+            // Restore screenshot if available
+            this.restoreScreenshot(storedData.screenshot);
+
             // Only disable the form for non-logged-in users (trial users)
             if (!tpLinkShortener.isLoggedIn) {
                 this.disableForm();
@@ -943,6 +962,36 @@
                 // Start expiry countdown (for expiry counter in result section)
                 this.startExpiryCountdown();
             }
+        },
+
+        /**
+         * Restore screenshot from localStorage
+         */
+        restoreScreenshot: function(screenshotDataUri) {
+            if (!screenshotDataUri) {
+                console.log('TP Link Shortener: No cached screenshot found');
+                return;
+            }
+
+            console.log('TP Link Shortener: Restoring screenshot from localStorage');
+
+            const $screenshotPreview = $('.tp-screenshot-preview');
+            const $screenshotImg = $screenshotPreview.find('.tp-screenshot-img');
+
+            if (!$screenshotImg.length) {
+                console.warn('TP Link Shortener: Screenshot preview element not found');
+                return;
+            }
+
+            // Set the cached screenshot
+            $screenshotImg.attr('src', screenshotDataUri);
+            $screenshotImg.attr('alt', 'Cached screenshot');
+
+            // Show the image and hide spinner
+            $screenshotImg.show();
+            $screenshotPreview.removeClass('tp-screenshot-loading').addClass('tp-screenshot-loaded');
+
+            console.log('TP Link Shortener: Screenshot restored from cache');
         },
 
         /**
