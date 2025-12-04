@@ -1,0 +1,22 @@
+{
+    "name": "tp-bloomland/link-shortener-plugin",
+    "description": "WordPress plugin for Traffic Portal link shortening with SnapCapture integration",
+    "type": "wordpress-plugin",
+    "require": {
+        "php": ">=8.1"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^9.5"
+    },
+    "autoload": {
+        "psr-4": {
+            "SnapCapture\\": "includes/SnapCapture/",
+            "TrafficPortal\\": "includes/TrafficPortal/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
+    }
+}
