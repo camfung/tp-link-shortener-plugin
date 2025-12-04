@@ -37,6 +37,23 @@ spl_autoload_register(function ($class) use ($includes_path) {
     }
 });
 
+// Register PSR-4 autoloader for ShortCode namespace
+spl_autoload_register(function ($class) use ($includes_path) {
+    $prefix = 'ShortCode\\';
+    $len = strlen($prefix);
+
+    if (strncmp($prefix, $class, $len) !== 0) {
+        return;
+    }
+
+    $relative_class = substr($class, $len);
+    $file = $includes_path . '/ShortCode/' . str_replace('\\', '/', $relative_class) . '.php';
+
+    if (file_exists($file)) {
+        require $file;
+    }
+});
+
 // Register PSR-4 autoloader for SnapCapture namespace
 spl_autoload_register(function ($class) use ($includes_path) {
     // Check if class is in SnapCapture namespace

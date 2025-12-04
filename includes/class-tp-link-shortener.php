@@ -120,4 +120,11 @@ class TP_Link_Shortener {
     public static function is_premium_only(): bool {
         return (bool) get_option('tp_link_shortener_premium_only', false);
     }
+
+    /**
+     * Check if Gemini-powered short code generation is enabled
+     */
+    public static function use_gemini_generation(): bool {
+        return (bool) get_option('tp_link_shortener_use_gemini', false);
+    }
 }

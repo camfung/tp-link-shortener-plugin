@@ -19,6 +19,11 @@ use TrafficPortal\Exception\RateLimitException;
 use TrafficPortal\Exception\ApiException;
 use SnapCapture\SnapCaptureClient;
 use SnapCapture\DTO\ScreenshotRequest;
+use ShortCode\GenerateShortCodeClient;
+use ShortCode\DTO\GenerateShortCodeRequest;
+use ShortCode\Exception\ApiException as ShortCodeApiException;
+use ShortCode\Exception\ValidationException as ShortCodeValidationException;
+use ShortCode\Exception\NetworkException as ShortCodeNetworkException;
 
 class TP_API_Handler {
 
@@ -31,6 +36,11 @@ class TP_API_Handler {
      * SnapCapture Client instance
      */
     private $snapcapture_client;
+
+    /**
+     * AI Short Code Client instance
+     */
+    private $shortcode_client;
 
     /**
      * Constructor
@@ -57,8 +67,18 @@ class TP_API_Handler {
             30
         );
 
+        // Initialize AI shortcode client
+        $this->init_shortcode_client();
+
         // Initialize SnapCapture client
         $this->init_snapcapture_client();
+    }
+
+    /**
+     * Initialize Gemini-powered short code client
+     */
+    private function init_shortcode_client() {
+        $this->shortcode_client = new GenerateShortCodeClient();
     }
 
     /**
@@ -167,8 +187,8 @@ class TP_API_Handler {
 
         // Generate random key if custom key not provided
         if (empty($custom_key)) {
-            $custom_key = $this->generate_random_key();
-            error_log('TP Link Shortener: Generated random key: ' . $custom_key);
+            $custom_key = $this->generate_short_code($destination);
+            error_log('TP Link Shortener: Generated key: ' . $custom_key);
         } else {
             error_log('TP Link Shortener: Using custom key: ' . $custom_key);
         }
@@ -325,6 +345,34 @@ class TP_API_Handler {
         }
 
         return $key;
+    }
+
+    /**
+     * Generate shortcode using Gemini API (when enabled) with random fallback
+     */
+    private function generate_short_code(string $destination): string {
+        if (TP_Link_Shortener::use_gemini_generation() && $this->shortcode_client instanceof GenerateShortCodeClient) {
+            try {
+                $request = new GenerateShortCodeRequest($destination, TP_Link_Shortener::get_domain());
+                $response = $this->shortcode_client->generateShortCode($request);
+                $shortcode = trim($response->getShortCode());
+
+                if (!empty($shortcode)) {
+                    error_log('TP Link Shortener: Gemini generated shortcode: ' . $shortcode);
+                    return $shortcode;
+                }
+            } catch (ShortCodeValidationException $e) {
+                error_log('TP Link Shortener: Gemini validation error, falling back to random key - ' . $e->getMessage());
+            } catch (ShortCodeNetworkException $e) {
+                error_log('TP Link Shortener: Gemini network error, falling back to random key - ' . $e->getMessage());
+            } catch (ShortCodeApiException $e) {
+                error_log('TP Link Shortener: Gemini API error, falling back to random key - ' . $e->getMessage());
+            } catch (\Exception $e) {
+                error_log('TP Link Shortener: Unexpected Gemini error, falling back to random key - ' . $e->getMessage());
+            }
+        }
+
+        return $this->generate_random_key();
     }
 
     /**

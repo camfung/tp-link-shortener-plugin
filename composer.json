@@ -10,6 +10,7 @@
     },
     "autoload": {
         "psr-4": {
+            "ShortCode\\": "includes/ShortCode/",
             "SnapCapture\\": "includes/SnapCapture/",
             "TrafficPortal\\": "includes/TrafficPortal/"
         }

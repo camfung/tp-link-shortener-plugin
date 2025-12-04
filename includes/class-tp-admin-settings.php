@@ -40,6 +40,7 @@ class TP_Admin_Settings {
         register_setting('tp_link_shortener_settings', 'tp_link_shortener_premium_only');
         register_setting('tp_link_shortener_settings', 'tp_link_shortener_user_id');
         register_setting('tp_link_shortener_settings', 'tp_link_shortener_domain');
+        register_setting('tp_link_shortener_settings', 'tp_link_shortener_use_gemini');
 
         // Add settings section
         add_settings_section(
@@ -54,6 +55,15 @@ class TP_Admin_Settings {
             'tp_link_shortener_premium_only',
             __('Premium-Only Custom Shortcodes', 'tp-link-shortener'),
             array($this, 'render_premium_only_field'),
+            'tp-link-shortener',
+            'tp_link_shortener_main_section'
+        );
+
+        // Gemini toggle field
+        add_settings_field(
+            'tp_link_shortener_use_gemini',
+            __('AI-Powered Short Codes (Gemini)', 'tp-link-shortener'),
+            array($this, 'render_use_gemini_field'),
             'tp-link-shortener',
             'tp_link_shortener_main_section'
         );
@@ -191,6 +201,27 @@ class TP_Admin_Settings {
         </label>
         <p class="description">
             <?php esc_html_e('When enabled, only logged-in premium members can enter custom shortcodes. Non-premium users will get automatically generated random codes.', 'tp-link-shortener'); ?>
+        </p>
+        <?php
+    }
+
+    /**
+     * Render Gemini toggle field
+     */
+    public function render_use_gemini_field() {
+        $value = get_option('tp_link_shortener_use_gemini', '0');
+        ?>
+        <label>
+            <input
+                type="checkbox"
+                name="tp_link_shortener_use_gemini"
+                value="1"
+                <?php checked('1', $value); ?>
+            />
+            <?php esc_html_e('Enable AI-powered short code suggestions using Google Gemini', 'tp-link-shortener'); ?>
+        </label>
+        <p class="description">
+            <?php esc_html_e('When enabled, the plugin will call the Gemini-powered Generate Short Code API to suggest memorable keys. Falls back to random keys if the service is unavailable.', 'tp-link-shortener'); ?>
         </p>
         <?php
     }
