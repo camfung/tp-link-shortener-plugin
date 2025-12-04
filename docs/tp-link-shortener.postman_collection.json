@@ -1,0 +1,431 @@
+{
+	"info": {
+		"_postman_id": "tp-link-shortener-api",
+		"name": "TP Link Shortener API",
+		"description": "API collection for testing TP Link Shortener WordPress plugin endpoints including screenshot capture",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8000",
+			"type": "string"
+		},
+		{
+			"key": "nonce",
+			"value": "",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "1. Get Nonce",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"// Extract nonce from HTML response",
+							"const responseText = pm.response.text();",
+							"const nonceMatch = responseText.match(/tp_link_shortener_nonce[\"']\\s*value=[\"']([^\"']+)[\"']/);",
+							"",
+							"if (nonceMatch && nonceMatch[1]) {",
+							"    const nonce = nonceMatch[1];",
+							"    pm.collectionVariables.set('nonce', nonce);",
+							"    console.log('Nonce extracted:', nonce);",
+							"    pm.test('Nonce extracted successfully', function() {",
+							"        pm.expect(nonce).to.be.a('string');",
+							"        pm.expect(nonce.length).to.be.greaterThan(0);",
+							"    });",
+							"} else {",
+							"    console.log('Could not extract nonce from response');",
+							"    pm.test('Nonce extraction failed', function() {",
+							"        pm.expect.fail('Could not find nonce in HTML');",
+							"    });",
+							"}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/wp-admin/admin.php?page=tp-link-shortener",
+					"host": ["{{base_url}}"],
+					"path": ["wp-admin", "admin.php"],
+					"query": [
+						{
+							"key": "page",
+							"value": "tp-link-shortener"
+						}
+					]
+				},
+				"description": "Load the plugin page to extract the WordPress nonce for API authentication"
+			},
+			"response": []
+		},
+		{
+			"name": "2. Create Short Link",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test('Status code is 200', function() {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test('Response is successful', function() {",
+							"    const jsonData = pm.response.json();",
+							"    pm.expect(jsonData.success).to.be.true;",
+							"});",
+							"",
+							"pm.test('Response contains short URL', function() {",
+							"    const jsonData = pm.response.json();",
+							"    pm.expect(jsonData.data).to.have.property('short_url');",
+							"    pm.expect(jsonData.data).to.have.property('key');",
+							"    pm.expect(jsonData.data).to.have.property('domain');",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/x-www-form-urlencoded"
+					}
+				],
+				"body": {
+					"mode": "urlencoded",
+					"urlencoded": [
+						{
+							"key": "action",
+							"value": "tp_create_link",
+							"type": "text"
+						},
+						{
+							"key": "nonce",
+							"value": "{{nonce}}",
+							"type": "text"
+						},
+						{
+							"key": "destination",
+							"value": "https://example.com",
+							"type": "text"
+						},
+						{
+							"key": "custom_key",
+							"value": "",
+							"type": "text",
+							"disabled": true
+						}
+					]
+				},
+				"url": {
+					"raw": "{{base_url}}/wp-admin/admin-ajax.php",
+					"host": ["{{base_url}}"],
+					"path": ["wp-admin", "admin-ajax.php"]
+				},
+				"description": "Create a new short link with a random key"
+			},
+			"response": []
+		},
+		{
+			"name": "3. Capture Screenshot",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test('Status code is 200', function() {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test('Response is successful', function() {",
+							"    const jsonData = pm.response.json();",
+							"    pm.expect(jsonData.success).to.be.true;",
+							"});",
+							"",
+							"pm.test('Response contains screenshot data', function() {",
+							"    const jsonData = pm.response.json();",
+							"    pm.expect(jsonData.data).to.have.property('screenshot_base64');",
+							"    pm.expect(jsonData.data).to.have.property('data_uri');",
+							"    pm.expect(jsonData.data).to.have.property('content_type');",
+							"    pm.expect(jsonData.data).to.have.property('url');",
+							"});",
+							"",
+							"pm.test('Screenshot base64 is not empty', function() {",
+							"    const jsonData = pm.response.json();",
+							"    pm.expect(jsonData.data.screenshot_base64).to.be.a('string');",
+							"    pm.expect(jsonData.data.screenshot_base64.length).to.be.greaterThan(0);",
+							"});",
+							"",
+							"pm.test('Data URI starts with data:', function() {",
+							"    const jsonData = pm.response.json();",
+							"    pm.expect(jsonData.data.data_uri).to.match(/^data:/);",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/x-www-form-urlencoded"
+					}
+				],
+				"body": {
+					"mode": "urlencoded",
+					"urlencoded": [
+						{
+							"key": "action",
+							"value": "tp_capture_screenshot",
+							"type": "text"
+						},
+						{
+							"key": "nonce",
+							"value": "{{nonce}}",
+							"type": "text"
+						},
+						{
+							"key": "url",
+							"value": "https://example.com",
+							"type": "text"
+						}
+					]
+				},
+				"url": {
+					"raw": "{{base_url}}/wp-admin/admin-ajax.php",
+					"host": ["{{base_url}}"],
+					"path": ["wp-admin", "admin-ajax.php"]
+				},
+				"description": "Capture a desktop screenshot of a URL"
+			},
+			"response": []
+		},
+		{
+			"name": "4. Validate Key",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test('Status code is 200', function() {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test('Response contains status', function() {",
+							"    const jsonData = pm.response.json();",
+							"    if (jsonData.success) {",
+							"        pm.expect(jsonData.data).to.have.property('status');",
+							"    }",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/x-www-form-urlencoded"
+					}
+				],
+				"body": {
+					"mode": "urlencoded",
+					"urlencoded": [
+						{
+							"key": "action",
+							"value": "tp_validate_key",
+							"type": "text"
+						},
+						{
+							"key": "nonce",
+							"value": "{{nonce}}",
+							"type": "text"
+						},
+						{
+							"key": "key",
+							"value": "test123",
+							"type": "text"
+						},
+						{
+							"key": "destination",
+							"value": "https://example.com",
+							"type": "text"
+						}
+					]
+				},
+				"url": {
+					"raw": "{{base_url}}/wp-admin/admin-ajax.php",
+					"host": ["{{base_url}}"],
+					"path": ["wp-admin", "admin-ajax.php"]
+				},
+				"description": "Validate if a key is available"
+			},
+			"response": []
+		},
+		{
+			"name": "5. Validate URL",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test('Status code is 200', function() {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test('Response contains ok status', function() {",
+							"    const jsonData = pm.response.json();",
+							"    pm.expect(jsonData).to.have.property('ok');",
+							"    pm.expect(jsonData).to.have.property('status');",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/wp-admin/admin-ajax.php?action=tp_validate_url&url=https://example.com",
+					"host": ["{{base_url}}"],
+					"path": ["wp-admin", "admin-ajax.php"],
+					"query": [
+						{
+							"key": "action",
+							"value": "tp_validate_url"
+						},
+						{
+							"key": "url",
+							"value": "https://example.com"
+						}
+					]
+				},
+				"description": "Validate if a URL is accessible (CORS proxy)"
+			},
+			"response": []
+		},
+		{
+			"name": "Screenshot - Google",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test('Screenshot captured successfully', function() {",
+							"    const jsonData = pm.response.json();",
+							"    pm.expect(jsonData.success).to.be.true;",
+							"    pm.expect(jsonData.data.url).to.equal('https://www.google.com');",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/x-www-form-urlencoded"
+					}
+				],
+				"body": {
+					"mode": "urlencoded",
+					"urlencoded": [
+						{
+							"key": "action",
+							"value": "tp_capture_screenshot",
+							"type": "text"
+						},
+						{
+							"key": "nonce",
+							"value": "{{nonce}}",
+							"type": "text"
+						},
+						{
+							"key": "url",
+							"value": "https://www.google.com",
+							"type": "text"
+						}
+					]
+				},
+				"url": {
+					"raw": "{{base_url}}/wp-admin/admin-ajax.php",
+					"host": ["{{base_url}}"],
+					"path": ["wp-admin", "admin-ajax.php"]
+				},
+				"description": "Capture screenshot of Google homepage"
+			},
+			"response": []
+		},
+		{
+			"name": "Screenshot - Invalid URL",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test('Request fails with invalid URL', function() {",
+							"    const jsonData = pm.response.json();",
+							"    pm.expect(jsonData.success).to.be.false;",
+							"    pm.expect(jsonData.data.message).to.include('valid URL');",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/x-www-form-urlencoded"
+					}
+				],
+				"body": {
+					"mode": "urlencoded",
+					"urlencoded": [
+						{
+							"key": "action",
+							"value": "tp_capture_screenshot",
+							"type": "text"
+						},
+						{
+							"key": "nonce",
+							"value": "{{nonce}}",
+							"type": "text"
+						},
+						{
+							"key": "url",
+							"value": "not-a-valid-url",
+							"type": "text"
+						}
+					]
+				},
+				"url": {
+					"raw": "{{base_url}}/wp-admin/admin-ajax.php",
+					"host": ["{{base_url}}"],
+					"path": ["wp-admin", "admin-ajax.php"]
+				},
+				"description": "Test screenshot endpoint with invalid URL"
+			},
+			"response": []
+		}
+	]
+}

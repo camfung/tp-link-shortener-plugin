@@ -17,6 +17,8 @@ use TrafficPortal\Exception\ValidationException;
 use TrafficPortal\Exception\NetworkException;
 use TrafficPortal\Exception\RateLimitException;
 use TrafficPortal\Exception\ApiException;
+use SnapCapture\SnapCaptureClient;
+use SnapCapture\DTO\ScreenshotRequest;
 
 class TP_API_Handler {
 
@@ -24,6 +26,11 @@ class TP_API_Handler {
      * API Client instance
      */
     private $client;
+
+    /**
+     * SnapCapture Client instance
+     */
+    private $snapcapture_client;
 
     /**
      * Constructor
@@ -49,6 +56,42 @@ class TP_API_Handler {
             $api_key,
             30
         );
+
+        // Initialize SnapCapture client
+        $this->init_snapcapture_client();
+    }
+
+    /**
+     * Initialize SnapCapture API client
+     */
+    private function init_snapcapture_client() {
+        // Try to load API key from .env.snapcapture file
+        $env_file = TP_LINK_SHORTENER_PLUGIN_DIR . '.env.snapcapture';
+        $snapcapture_api_key = '';
+
+        if (file_exists($env_file)) {
+            $env = parse_ini_file($env_file);
+            if (isset($env['SNAPCAPTURE_API_KEY'])) {
+                $snapcapture_api_key = $env['SNAPCAPTURE_API_KEY'];
+            }
+        }
+
+        // Fallback to environment variable
+        if (empty($snapcapture_api_key)) {
+            $snapcapture_api_key = getenv('SNAPCAPTURE_API_KEY');
+        }
+
+        // Fallback to WordPress constant
+        if (empty($snapcapture_api_key) && defined('SNAPCAPTURE_API_KEY')) {
+            $snapcapture_api_key = SNAPCAPTURE_API_KEY;
+        }
+
+        if (empty($snapcapture_api_key)) {
+            error_log('TP Link Shortener: SNAPCAPTURE_API_KEY not configured');
+            return;
+        }
+
+        $this->snapcapture_client = new SnapCaptureClient($snapcapture_api_key);
     }
 
     /**
@@ -59,11 +102,13 @@ class TP_API_Handler {
         add_action('wp_ajax_tp_create_link', array($this, 'ajax_create_link'));
         add_action('wp_ajax_tp_validate_key', array($this, 'ajax_validate_key'));
         add_action('wp_ajax_tp_validate_url', array($this, 'ajax_validate_url'));
+        add_action('wp_ajax_tp_capture_screenshot', array($this, 'ajax_capture_screenshot'));
 
         // For non-logged-in users
         add_action('wp_ajax_nopriv_tp_create_link', array($this, 'ajax_create_link'));
         add_action('wp_ajax_nopriv_tp_validate_key', array($this, 'ajax_validate_key'));
         add_action('wp_ajax_nopriv_tp_validate_url', array($this, 'ajax_validate_url'));
+        add_action('wp_ajax_nopriv_tp_capture_screenshot', array($this, 'ajax_capture_screenshot'));
     }
 
     /**
@@ -503,5 +548,128 @@ class TP_API_Handler {
             'headers' => $headers_array
         ));
         wp_die();
+    }
+
+    /**
+     * AJAX handler for capturing screenshots
+     */
+    public function ajax_capture_screenshot() {
+        error_log('TP Link Shortener: ajax_capture_screenshot called');
+
+        // Verify nonce
+        check_ajax_referer('tp_link_shortener_nonce', 'nonce');
+
+        // Get POST data
+        $url = isset($_POST['url']) ? sanitize_url($_POST['url']) : '';
+
+        error_log('TP Link Shortener: Capturing screenshot for URL: ' . $url);
+
+        // Validate URL
+        if (empty($url) || !filter_var($url, FILTER_VALIDATE_URL)) {
+            error_log('TP Link Shortener: Invalid URL for screenshot: ' . $url);
+            wp_send_json_error(array(
+                'message' => __('Please enter a valid URL', 'tp-link-shortener')
+            ));
+        }
+
+        // Check if SnapCapture client is initialized
+        if (!isset($this->snapcapture_client)) {
+            error_log('TP Link Shortener: SnapCapture client not initialized');
+            wp_send_json_error(array(
+                'message' => __('Screenshot service not configured. Please contact administrator.', 'tp-link-shortener')
+            ));
+        }
+
+        // Capture screenshot
+        $result = $this->capture_screenshot($url);
+
+        if ($result['success']) {
+            error_log('TP Link Shortener: Screenshot captured successfully');
+            wp_send_json_success($result['data']);
+        } else {
+            error_log('TP Link Shortener: Screenshot capture failed: ' . $result['message']);
+            wp_send_json_error(array(
+                'message' => $result['message']
+            ));
+        }
+    }
+
+    /**
+     * Capture screenshot of URL
+     */
+    private function capture_screenshot(string $url): array {
+        try {
+            error_log('TP Link Shortener: Creating screenshot request for: ' . $url);
+
+            // Create desktop screenshot request
+            $request = ScreenshotRequest::desktop($url);
+
+            // Capture screenshot (returns base64 by default for easier transmission)
+            $response = $this->snapcapture_client->captureScreenshot($request, true);
+
+            error_log('TP Link Shortener: Screenshot captured successfully');
+
+            return array(
+                'success' => true,
+                'data' => array(
+                    'screenshot_base64' => $response->getBase64(),
+                    'data_uri' => $response->getDataUri(),
+                    'content_type' => $response->getContentType(),
+                    'cached' => $response->isCached(),
+                    'response_time_ms' => $response->getResponseTimeMs(),
+                    'url' => $url
+                )
+            );
+
+        } catch (\SnapCapture\Exception\AuthenticationException $e) {
+            error_log('TP Link Shortener SnapCapture Auth Error: ' . $e->getMessage());
+            return array(
+                'success' => false,
+                'message' => __('Screenshot authentication failed. Please check configuration.', 'tp-link-shortener'),
+                'debug_error' => $e->getMessage()
+            );
+
+        } catch (\SnapCapture\Exception\ValidationException $e) {
+            error_log('TP Link Shortener SnapCapture Validation Error: ' . $e->getMessage());
+            return array(
+                'success' => false,
+                'message' => __('Invalid URL for screenshot capture.', 'tp-link-shortener'),
+                'debug_error' => $e->getMessage()
+            );
+
+        } catch (\SnapCapture\Exception\NetworkException $e) {
+            error_log('TP Link Shortener SnapCapture Network Error: ' . $e->getMessage());
+            return array(
+                'success' => false,
+                'message' => __('Network error while capturing screenshot. Please try again.', 'tp-link-shortener'),
+                'debug_error' => $e->getMessage()
+            );
+
+        } catch (\SnapCapture\Exception\ApiException $e) {
+            error_log('TP Link Shortener SnapCapture API Error: ' . $e->getMessage());
+
+            // Check for rate limit
+            if (strpos($e->getMessage(), '429') !== false || strpos($e->getMessage(), 'rate limit') !== false) {
+                return array(
+                    'success' => false,
+                    'message' => __('Screenshot rate limit exceeded. Please try again later.', 'tp-link-shortener'),
+                    'debug_error' => $e->getMessage()
+                );
+            }
+
+            return array(
+                'success' => false,
+                'message' => __('Screenshot API error. Please try again.', 'tp-link-shortener'),
+                'debug_error' => $e->getMessage()
+            );
+
+        } catch (Exception $e) {
+            error_log('TP Link Shortener Screenshot Error: ' . $e->getMessage());
+            return array(
+                'success' => false,
+                'message' => __('An unexpected error occurred while capturing screenshot.', 'tp-link-shortener'),
+                'debug_error' => $e->getMessage()
+            );
+        }
     }
 }
