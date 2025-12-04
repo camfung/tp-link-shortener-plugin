@@ -294,6 +294,9 @@
                 // Generate QR code
                 this.generateQRCode(shortUrl);
 
+                // Capture screenshot of destination URL
+                this.captureScreenshot(destination);
+
                 // Show "Try It Now" message for non-logged-in users
                 if (this.$tryItMessage && this.$tryItMessage.length) {
                     this.$tryItMessage.removeClass('d-none');
@@ -757,6 +760,66 @@
             } catch (e) {
                 console.error('QR Code generation failed:', e);
             }
+        },
+
+        /**
+         * Capture screenshot of destination URL
+         */
+        captureScreenshot: function(url) {
+            console.log('TP Link Shortener: Capturing screenshot for:', url);
+
+            // Find the screenshot preview element
+            const $screenshotPreview = $('.tp-screenshot-preview');
+            const $screenshotImg = $screenshotPreview.find('.tp-screenshot-img');
+
+            if (!$screenshotImg.length) {
+                console.warn('TP Link Shortener: Screenshot preview element not found');
+                return;
+            }
+
+            // Show loading state on screenshot
+            $screenshotPreview.addClass('loading');
+            $screenshotImg.css('opacity', '0.5');
+
+            // Send AJAX request to capture screenshot
+            $.ajax({
+                url: tpLinkShortener.ajaxUrl,
+                type: 'POST',
+                data: {
+                    action: 'tp_capture_screenshot',
+                    nonce: tpLinkShortener.nonce,
+                    url: url
+                },
+                success: function(response) {
+                    console.log('TP Link Shortener: Screenshot capture response:', response);
+
+                    if (response.success && response.data && response.data.data_uri) {
+                        // Update the image src with the data URI
+                        $screenshotImg.attr('src', response.data.data_uri);
+                        $screenshotImg.attr('alt', 'Screenshot of ' + url);
+
+                        // Log additional info
+                        if (response.data.cached) {
+                            console.log('TP Link Shortener: Screenshot loaded from cache');
+                        }
+                        if (response.data.response_time_ms) {
+                            console.log('TP Link Shortener: Screenshot response time:', response.data.response_time_ms + 'ms');
+                        }
+                    } else {
+                        console.error('TP Link Shortener: Screenshot capture failed:', response.data ? response.data.message : 'Unknown error');
+                        // Keep the fallback image on error
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('TP Link Shortener: Screenshot AJAX error:', error);
+                    // Keep the fallback image on error
+                },
+                complete: function() {
+                    // Remove loading state
+                    $screenshotPreview.removeClass('loading');
+                    $screenshotImg.css('opacity', '1');
+                }
+            });
         },
 
         /**
