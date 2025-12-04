@@ -70,21 +70,10 @@ class TP_Shortcode {
      * @return void
      */
     public static function render_screenshot_preview($screenshot_data = null): void {
-        // Use default data pointing to Orange-cat.jpg for now
-        if ($screenshot_data === null) {
-            $screenshot_data = array(
-                'screenshot_base64' => '',
-                'cached' => false,
-                'response_time_ms' => 0
-            );
-        }
-
-        $image_url = self::get_screenshot_image($screenshot_data);
-        $cached_text = isset($screenshot_data['cached']) && $screenshot_data['cached'] ? 'Cached' : 'Fresh';
-        $response_time = isset($screenshot_data['response_time_ms']) ? $screenshot_data['response_time_ms'] . 'ms' : 'N/A';
-
-        echo '<div class="tp-screenshot-preview">';
-        echo '<img src="' . esc_url($image_url) . '" alt="URL Preview" class="tp-screenshot-img" />';
+        // Render empty preview container - screenshot will be loaded via AJAX
+        echo '<div class="tp-screenshot-preview tp-screenshot-loading">';
+        echo '<div class="tp-screenshot-spinner"></div>';
+        echo '<img src="" alt="URL Preview" class="tp-screenshot-img" style="display: none;" />';
         echo '</div>';
     }
 }

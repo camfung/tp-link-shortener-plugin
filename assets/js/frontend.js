@@ -777,9 +777,8 @@
                 return;
             }
 
-            // Show loading state on screenshot
-            $screenshotPreview.addClass('loading');
-            $screenshotImg.css('opacity', '0.5');
+            // Keep the initial loading spinner active during capture
+            // No need to add 'loading' class as tp-screenshot-loading is already there
 
             // Send AJAX request to capture screenshot
             $.ajax({
@@ -798,6 +797,10 @@
                         $screenshotImg.attr('src', response.data.data_uri);
                         $screenshotImg.attr('alt', 'Screenshot of ' + url);
 
+                        // Show the image and hide spinner
+                        $screenshotImg.show();
+                        $screenshotPreview.removeClass('tp-screenshot-loading').addClass('tp-screenshot-loaded');
+
                         // Log additional info
                         if (response.data.cached) {
                             console.log('TP Link Shortener: Screenshot loaded from cache');
@@ -807,17 +810,18 @@
                         }
                     } else {
                         console.error('TP Link Shortener: Screenshot capture failed:', response.data ? response.data.message : 'Unknown error');
-                        // Keep the fallback image on error
+                        // Keep spinner on error - no fallback image
+                        $screenshotPreview.addClass('tp-screenshot-error');
                     }
                 },
                 error: function(xhr, status, error) {
                     console.error('TP Link Shortener: Screenshot AJAX error:', error);
-                    // Keep the fallback image on error
+                    // Keep spinner on error - no fallback image
+                    $screenshotPreview.addClass('tp-screenshot-error');
                 },
                 complete: function() {
-                    // Remove loading state
-                    $screenshotPreview.removeClass('loading');
-                    $screenshotImg.css('opacity', '1');
+                    // Complete function intentionally minimal
+                    // Spinner state is managed in success/error handlers
                 }
             });
         },
