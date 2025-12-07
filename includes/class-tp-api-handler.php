@@ -130,12 +130,14 @@ class TP_API_Handler {
         add_action('wp_ajax_tp_validate_key', array($this, 'ajax_validate_key'));
         add_action('wp_ajax_tp_validate_url', array($this, 'ajax_validate_url'));
         add_action('wp_ajax_tp_capture_screenshot', array($this, 'ajax_capture_screenshot'));
+        add_action('wp_ajax_tp_generate_shortcode', array($this, 'ajax_generate_shortcode'));
 
         // For non-logged-in users
         add_action('wp_ajax_nopriv_tp_create_link', array($this, 'ajax_create_link'));
         add_action('wp_ajax_nopriv_tp_validate_key', array($this, 'ajax_validate_key'));
         add_action('wp_ajax_nopriv_tp_validate_url', array($this, 'ajax_validate_url'));
         add_action('wp_ajax_nopriv_tp_capture_screenshot', array($this, 'ajax_capture_screenshot'));
+        add_action('wp_ajax_nopriv_tp_generate_shortcode', array($this, 'ajax_generate_shortcode'));
     }
 
     /**
@@ -219,6 +221,35 @@ class TP_API_Handler {
             }
 
             wp_send_json_error($error_data);
+        }
+    }
+
+    /**
+     * AJAX handler for generating suggested shortcode (Gemini-powered when enabled)
+     */
+    public function ajax_generate_shortcode() {
+        // Verify nonce
+        check_ajax_referer('tp_link_shortener_nonce', 'nonce');
+
+        $destination = isset($_POST['destination']) ? sanitize_url($_POST['destination']) : '';
+
+        if (empty($destination) || !filter_var($destination, FILTER_VALIDATE_URL)) {
+            wp_send_json_error(array(
+                'message' => __('Please enter a valid URL', 'tp-link-shortener')
+            ), 400);
+        }
+
+        try {
+            $key = $this->generate_short_code($destination);
+
+            wp_send_json_success(array(
+                'key' => $key
+            ));
+        } catch (\Throwable $e) {
+            error_log('TP Link Shortener: Failed to generate shortcode suggestion - ' . $e->getMessage());
+            wp_send_json_error(array(
+                'message' => __('Unable to generate a suggestion right now. Please try again.', 'tp-link-shortener')
+            ), 500);
         }
     }
 

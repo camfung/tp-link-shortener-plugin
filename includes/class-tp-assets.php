@@ -98,6 +98,7 @@ class TP_Assets {
             'domain' => TP_Link_Shortener::get_domain(),
             'isPremiumOnly' => TP_Link_Shortener::is_premium_only(),
             'isLoggedIn' => is_user_logged_in(),
+            'useGemini' => TP_Link_Shortener::use_gemini_generation(),
             'strings' => array(
                 'creating' => __('Creating...', 'tp-link-shortener'),
                 'success' => __('Link created successfully!', 'tp-link-shortener'),

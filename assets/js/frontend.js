@@ -33,6 +33,8 @@
         lastShortUrl: '',
         isValid: false,
         isReturningVisitor: false,
+        isFetchingSuggestion: false,
+        originalKeyPlaceholder: '',
         countdownTimer: null,
         expiryTimer: null,
         urlValidator: null,
@@ -89,6 +91,10 @@
             // Get validation message element (now exists in template)
             this.$validationMessage = $('#tp-url-validation-message');
             this.$tryItMessage = $('#tp-try-it-message');
+
+            if (this.$customKeyInput && this.$customKeyInput.length) {
+                this.originalKeyPlaceholder = this.$customKeyInput.attr('placeholder') || '';
+            }
         },
 
         /**
@@ -149,6 +155,7 @@
                 if (this.$customKeyGroup && this.$customKeyGroup.length) {
                     this.$customKeyGroup.slideDown(300);
                 }
+                this.fetchGeminiSuggestion(this.$destinationInput.val());
             } else {
                 this.isValid = true;
                 this.$destinationInput.removeClass('is-invalid').addClass('is-valid');
@@ -163,7 +170,75 @@
                 if (this.$customKeyGroup && this.$customKeyGroup.length) {
                     this.$customKeyGroup.slideDown(300);
                 }
+                this.fetchGeminiSuggestion(this.$destinationInput.val());
             }
+        },
+
+        /**
+         * Request a Gemini-generated shortcode suggestion and populate the keyword field
+         */
+        fetchGeminiSuggestion: function(destination) {
+            if (!tpLinkShortener.useGemini) {
+                return;
+            }
+
+            if (!this.$customKeyInput || !this.$customKeyInput.length) {
+                return;
+            }
+
+            const sanitizedDestination = (destination || '').trim();
+
+            if (sanitizedDestination === '') {
+                return;
+            }
+
+            if (this.$customKeyInput.val().trim() !== '') {
+                // Don't override user input
+                return;
+            }
+
+            if (this.isFetchingSuggestion) {
+                return;
+            }
+
+            this.isFetchingSuggestion = true;
+
+            if (this.$suggestBtn && this.$suggestBtn.length) {
+                this.$suggestBtn.prop('disabled', true).addClass('disabled');
+            }
+
+            // Give the user a hint that we are generating a keyword
+            this.$customKeyInput.attr('placeholder', 'Generating magic keyword...');
+
+            $.ajax({
+                url: tpLinkShortener.ajaxUrl,
+                type: 'POST',
+                data: {
+                    action: 'tp_generate_shortcode',
+                    nonce: tpLinkShortener.nonce,
+                    destination: sanitizedDestination
+                },
+                success: function(response) {
+                    if (response.success && response.data && response.data.key) {
+                        this.$customKeyInput.val(response.data.key);
+                        if (this.$customKeyGroup && this.$customKeyGroup.length) {
+                            this.$customKeyGroup.show();
+                        }
+                    }
+                }.bind(this),
+                error: function(xhr) {
+                    console.warn('TP Link Shortener: Unable to fetch Gemini suggestion', xhr);
+                }.bind(this),
+                complete: function() {
+                    this.isFetchingSuggestion = false;
+
+                    if (this.$suggestBtn && this.$suggestBtn.length) {
+                        this.$suggestBtn.prop('disabled', false).removeClass('disabled');
+                    }
+
+                    this.$customKeyInput.attr('placeholder', this.originalKeyPlaceholder || '');
+                }.bind(this)
+            });
         },
 
         /**
