@@ -37,9 +37,6 @@ class TP_Admin_Settings {
      */
     public function register_settings() {
         // Register settings
-        register_setting('tp_link_shortener_settings', 'tp_link_shortener_premium_only');
-        register_setting('tp_link_shortener_settings', 'tp_link_shortener_user_id');
-        register_setting('tp_link_shortener_settings', 'tp_link_shortener_domain');
         register_setting('tp_link_shortener_settings', 'tp_link_shortener_use_gemini');
 
         // Add settings section
@@ -50,38 +47,11 @@ class TP_Admin_Settings {
             'tp-link-shortener'
         );
 
-        // Premium only field
-        add_settings_field(
-            'tp_link_shortener_premium_only',
-            __('Premium-Only Custom Shortcodes', 'tp-link-shortener'),
-            array($this, 'render_premium_only_field'),
-            'tp-link-shortener',
-            'tp_link_shortener_main_section'
-        );
-
         // Gemini toggle field
         add_settings_field(
             'tp_link_shortener_use_gemini',
             __('AI-Powered Short Codes (Gemini)', 'tp-link-shortener'),
             array($this, 'render_use_gemini_field'),
-            'tp-link-shortener',
-            'tp_link_shortener_main_section'
-        );
-
-        // User ID field
-        add_settings_field(
-            'tp_link_shortener_user_id',
-            __('API User ID', 'tp-link-shortener'),
-            array($this, 'render_user_id_field'),
-            'tp-link-shortener',
-            'tp_link_shortener_main_section'
-        );
-
-        // Domain field
-        add_settings_field(
-            'tp_link_shortener_domain',
-            __('Short Link Domain', 'tp-link-shortener'),
-            array($this, 'render_domain_field'),
             'tp-link-shortener',
             'tp_link_shortener_main_section'
         );
@@ -185,27 +155,6 @@ class TP_Admin_Settings {
     }
 
     /**
-     * Render premium only field
-     */
-    public function render_premium_only_field() {
-        $value = get_option('tp_link_shortener_premium_only', '0');
-        ?>
-        <label>
-            <input
-                type="checkbox"
-                name="tp_link_shortener_premium_only"
-                value="1"
-                <?php checked('1', $value); ?>
-            />
-            <?php esc_html_e('Enable premium-only custom shortcodes', 'tp-link-shortener'); ?>
-        </label>
-        <p class="description">
-            <?php esc_html_e('When enabled, only logged-in premium members can enter custom shortcodes. Non-premium users will get automatically generated random codes.', 'tp-link-shortener'); ?>
-        </p>
-        <?php
-    }
-
-    /**
      * Render Gemini toggle field
      */
     public function render_use_gemini_field() {
@@ -222,44 +171,6 @@ class TP_Admin_Settings {
         </label>
         <p class="description">
             <?php esc_html_e('When enabled, the plugin will call the Gemini-powered Generate Short Code API to suggest memorable keys. Falls back to random keys if the service is unavailable.', 'tp-link-shortener'); ?>
-        </p>
-        <?php
-    }
-
-    /**
-     * Render user ID field
-     */
-    public function render_user_id_field() {
-        $value = get_option('tp_link_shortener_user_id', '125');
-        ?>
-        <input
-            type="number"
-            name="tp_link_shortener_user_id"
-            value="<?php echo esc_attr($value); ?>"
-            class="regular-text"
-            min="1"
-        />
-        <p class="description">
-            <?php esc_html_e('The Traffic Portal user ID to use for API requests.', 'tp-link-shortener'); ?>
-        </p>
-        <?php
-    }
-
-    /**
-     * Render domain field
-     */
-    public function render_domain_field() {
-        $value = get_option('tp_link_shortener_domain', 'dev.trfc.link');
-        ?>
-        <input
-            type="text"
-            name="tp_link_shortener_domain"
-            value="<?php echo esc_attr($value); ?>"
-            class="regular-text"
-            placeholder="dev.trfc.link"
-        />
-        <p class="description">
-            <?php esc_html_e('The domain to use for short links (e.g., dev.trfc.link or trfc.link).', 'tp-link-shortener'); ?>
         </p>
         <?php
     }
