@@ -636,15 +636,6 @@
                     <i class="fas fa-exclamation-triangle fs-5 mt-1 flex-shrink-0"></i>
                     <strong>${message}</strong>
                 </div>
-                <div class="ms-0 ms-md-5">
-                    <p class="mb-2 fw-semibold">Create an account to get:</p>
-                    <ul class="mb-0 ps-3">
-                        <li>Unlimited short URLs</li>
-                        <li>Analytics and tracking</li>
-                        <li>Custom domains</li>
-                        <li>URL management</li>
-                    </ul>
-                </div>
             `;
 
             this.$errorMessage
