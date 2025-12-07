@@ -201,10 +201,6 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                             <?php esc_html_e('Save the link and it never expires', 'tp-link-shortener'); ?>
                         </button>
                     </div>
-
-                    <div id="tp-save-link-reminder" class="tp-save-link-reminder d-none mt-3" role="status">
-                        <span class="fw-semibold"><?php esc_html_e('Save the link and it never expires', 'tp-link-shortener'); ?></span>
-                    </div>
                 </form>
             </div>
         </div>
