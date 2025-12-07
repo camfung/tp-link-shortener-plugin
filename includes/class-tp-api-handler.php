@@ -165,6 +165,10 @@ class TP_API_Handler {
             error_log('TP Link Shortener: Using provided uid: ' . $uid);
         }
 
+        // Anonymous users get intro status; authenticated users stay active
+        $status = ($uid === -1) ? 'intro' : 'active';
+        error_log('TP Link Shortener: Resolved status based on login state: ' . $status);
+
         // Validate destination
         if (empty($destination) || !filter_var($destination, FILTER_VALIDATE_URL)) {
             error_log('TP Link Shortener: Invalid destination URL: ' . $destination);
@@ -194,8 +198,8 @@ class TP_API_Handler {
         }
 
         // Create the short link
-        error_log('TP Link Shortener: Creating short link - destination: ' . $destination . ', key: ' . $custom_key . ', uid: ' . $uid);
-        $result = $this->create_short_link($destination, $custom_key, $uid);
+        error_log('TP Link Shortener: Creating short link - destination: ' . $destination . ', key: ' . $custom_key . ', uid: ' . $uid . ', status: ' . $status);
+        $result = $this->create_short_link($destination, $custom_key, $uid, $status);
 
         if ($result['success']) {
             error_log('TP Link Shortener: Link created successfully: ' . json_encode($result['data']));
@@ -225,16 +229,16 @@ class TP_API_Handler {
     /**
      * Create short link via API
      */
-    private function create_short_link(string $destination, string $key, int $uid): array {
+    private function create_short_link(string $destination, string $key, int $uid, string $status): array {
         try {
-            error_log('TP Link Shortener: Building CreateMapRequest with uid=' . $uid . ', key=' . $key . ', domain=' . TP_Link_Shortener::get_domain());
+            error_log('TP Link Shortener: Building CreateMapRequest with uid=' . $uid . ', key=' . $key . ', status=' . $status . ', domain=' . TP_Link_Shortener::get_domain());
 
             $request = new CreateMapRequest(
                 uid: $uid,
                 tpKey: $key,
                 domain: TP_Link_Shortener::get_domain(),
                 destination: $destination,
-                status: 'active',
+                status: $status,
                 type: 'redirect',
                 isSet: 0,
                 tags: 'wordpress,plugin',
