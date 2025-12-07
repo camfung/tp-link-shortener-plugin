@@ -14,6 +14,7 @@ export const StorageService = {
     UID: 'tp_uid',
     SCREENSHOT: 'tp_screenshot'
   },
+  MAX_SCREENSHOT_BYTES: 5 * 1024 * 1024,
 
   /**
    * Generate a unique session ID
@@ -63,15 +64,24 @@ export const StorageService = {
 
       // Store screenshot if provided
       if (screenshot) {
-        try {
-          localStorage.setItem(this.KEYS.SCREENSHOT, screenshot);
-          console.log('StorageService: Screenshot saved to localStorage', {
-            length: screenshot.length,
-            preview: screenshot.substring(0, 50) + '...'
+        const screenshotSizeBytes = this.getScreenshotSizeBytes(screenshot);
+        if (screenshotSizeBytes > this.MAX_SCREENSHOT_BYTES) {
+          console.warn('StorageService: Screenshot too large for localStorage', {
+            screenshotSizeBytes,
+            maxBytes: this.MAX_SCREENSHOT_BYTES
           });
-        } catch (screenshotError) {
-          console.error('Failed to save screenshot to localStorage (may be too large):', screenshotError);
-          // Continue without screenshot if it fails
+        } else {
+          try {
+            localStorage.setItem(this.KEYS.SCREENSHOT, screenshot);
+            console.log('StorageService: Screenshot saved to localStorage', {
+              length: screenshot.length,
+              bytes: screenshotSizeBytes,
+              preview: screenshot.substring(0, 50) + '...'
+            });
+          } catch (screenshotError) {
+            console.error('Failed to save screenshot to localStorage (may be too large):', screenshotError);
+            // Continue without screenshot if it fails
+          }
         }
       }
 
@@ -196,6 +206,22 @@ export const StorageService = {
       return `${minutes}m ${seconds}s`;
     } else {
       return `${seconds}s`;
+    }
+  },
+
+  /**
+   * Estimate screenshot size in bytes from a data URI
+   * @param {string} screenshotDataUri
+   * @returns {number}
+   */
+  getScreenshotSizeBytes(screenshotDataUri) {
+    try {
+      const base64String = screenshotDataUri.split(',')[1] || screenshotDataUri;
+      const padding = (base64String.match(/=+$/) || [''])[0].length;
+      return Math.max(0, (base64String.length * 3) / 4 - padding);
+    } catch (error) {
+      console.error('Failed to calculate screenshot size:', error);
+      return 0;
     }
   },
 

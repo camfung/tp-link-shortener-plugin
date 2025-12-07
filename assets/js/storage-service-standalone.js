@@ -14,8 +14,10 @@
       EXPIRATION: 'tp_expiration',
       SESSION_ID: 'tp_session_id',
       CREATED_AT: 'tp_created_at',
-      UID: 'tp_uid'
+      UID: 'tp_uid',
+      SCREENSHOT: 'tp_screenshot'
     },
+    MAX_SCREENSHOT_BYTES: 5 * 1024 * 1024,
 
     /**
      * Generate a unique session ID
@@ -33,6 +35,7 @@
         var destination = data.destination;
         var expiresInHours = data.expiresInHours || 24;
         var uid = data.uid;
+        var screenshot = data.screenshot;
 
         if (!shortcode || !destination) {
           throw new Error('Shortcode and destination are required');
@@ -60,6 +63,27 @@
           localStorage.setItem(this.KEYS.UID, uid.toString());
         }
 
+        if (screenshot) {
+          var screenshotSizeBytes = this.getScreenshotSizeBytes(screenshot);
+          if (screenshotSizeBytes > this.MAX_SCREENSHOT_BYTES) {
+            console.warn('StorageService: Screenshot too large for localStorage', {
+              screenshotSizeBytes: screenshotSizeBytes,
+              maxBytes: this.MAX_SCREENSHOT_BYTES
+            });
+          } else {
+            try {
+              localStorage.setItem(this.KEYS.SCREENSHOT, screenshot);
+              console.log('StorageService: Screenshot saved to localStorage', {
+                length: screenshot.length,
+                bytes: screenshotSizeBytes,
+                preview: screenshot.substring(0, 50) + '...'
+              });
+            } catch (screenshotError) {
+              console.error('Failed to save screenshot to localStorage (may be too large):', screenshotError);
+            }
+          }
+        }
+
         return true;
       } catch (error) {
         console.error('Failed to save shortcode data:', error);
@@ -78,6 +102,7 @@
         var sessionId = localStorage.getItem(this.KEYS.SESSION_ID);
         var createdAt = localStorage.getItem(this.KEYS.CREATED_AT);
         var uid = localStorage.getItem(this.KEYS.UID);
+        var screenshot = localStorage.getItem(this.KEYS.SCREENSHOT);
 
         // Return null if essential data is missing
         if (!shortcode || !destination || !expiration) {
@@ -91,6 +116,7 @@
           sessionId: sessionId,
           createdAt: createdAt ? parseInt(createdAt, 10) : null,
           uid: uid,
+          screenshot: screenshot,
           isExpired: this.isExpired()
         };
       } catch (error) {
@@ -124,6 +150,21 @@
         return Date.now() > expirationTime;
       } catch (error) {
         return true;
+      }
+    },
+
+    /**
+     * Estimate screenshot size in bytes from a data URI
+     */
+    getScreenshotSizeBytes: function(screenshotDataUri) {
+      try {
+        var base64String = screenshotDataUri.split(',')[1] || screenshotDataUri;
+        var paddingMatch = base64String.match(/=+$/) || [''];
+        var padding = paddingMatch[0].length;
+        return Math.max(0, (base64String.length * 3) / 4 - padding);
+      } catch (error) {
+        console.error('Failed to calculate screenshot size:', error);
+        return 0;
       }
     },
 
@@ -177,6 +218,7 @@
         localStorage.removeItem(this.KEYS.DESTINATION);
         localStorage.removeItem(this.KEYS.EXPIRATION);
         localStorage.removeItem(this.KEYS.CREATED_AT);
+        localStorage.removeItem(this.KEYS.SCREENSHOT);
         // Note: Keep session ID and UID for tracking purposes
         return true;
       } catch (error) {
