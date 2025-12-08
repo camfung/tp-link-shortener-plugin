@@ -440,6 +440,31 @@ describe('URLValidator - validateURL() with mocked fetch', () => {
     expect(result.message.toLowerCase()).toContain('switched to http');
   });
 
+  it('should retry with HTTP on generic HTTPS fetch failure and warn', async () => {
+    const typeError = new TypeError('Failed to fetch');
+    global.fetch = vi.fn()
+      .mockRejectedValueOnce(typeError) // HTTPS attempt fails generically
+      .mockResolvedValueOnce({ // HTTP fallback succeeds
+        ok: true,
+        status: 200,
+        headers: {
+          get: (key) => {
+            if (key === 'Content-Type') return 'text/html';
+            return null;
+          }
+        }
+      });
+
+    const result = await validator.validateURL('https://example.com');
+    expect(result.valid).toBe(true);
+    expect(result.isWarning).toBe(true);
+    expect(result.errorType).toBe(URLValidator.ErrorTypes.NETWORK_ERROR);
+    expect(result.downgradedToHttp).toBe(true);
+    expect(result.normalizedUrl).toBe('http://example.com');
+    expect(result.message.toLowerCase()).toContain('switched to http');
+    expect(result.fallbackReason).toBe('https_failure');
+  });
+
   it('should reject URLs with invalid/non-existent TLDs like .c', async () => {
     // This URL has a syntactically valid format but an invalid TLD (.c doesn't exist)
     // The network request should fail with DNS resolution error
