@@ -56,7 +56,7 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                                 id="tp-destination"
                                 name="destination"
                                 class="form-control tp-form-control tp-plain-input"
-                                placeholder="http://ce-canada.ca/content/2025-09-15/ads/courses/?id=ERTGHHTTF"
+                                placeholder="<?php esc_attr_e('Paste the destination URL you want to shorten (e.g., https://example.com/your-page)', 'tp-link-shortener'); ?>"
                                 required
                                 autocomplete="off"
                                 maxlength="2000"
