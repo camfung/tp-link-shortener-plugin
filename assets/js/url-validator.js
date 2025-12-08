@@ -60,10 +60,29 @@ class URLValidator {
    * @param {string} options.proxyUrl - Optional proxy URL for CORS handling (e.g., '/api/validate-url')
    * @param {number} options.timeout - Request timeout in milliseconds (default: 10000)
    */
-  constructor(options = {}) {
+   constructor(options = {}) {
     this.isUserRegistered = options.isUserRegistered || false;
     this.proxyUrl = options.proxyUrl || null;
     this.timeout = options.timeout || 10000;
+  }
+
+  /**
+   * Detect if an error is likely SSL/TLS related
+   * @param {Error} error
+   * @returns {boolean}
+   * @private
+   */
+  isSSLError(error) {
+    if (!error || !error.message) {
+      return false;
+    }
+
+    const msg = error.message.toLowerCase();
+    return msg.includes('ssl') ||
+           msg.includes('tls') ||
+           msg.includes('certificate') ||
+           msg.includes('certification') ||
+           msg.includes('handshake');
   }
 
   /**
@@ -99,103 +118,51 @@ class URLValidator {
       );
     }
 
+    const attemptValidation = async (targetUrl) => {
+      const response = await this.fetchHeaders(targetUrl);
+      return this.evaluateResponse(response);
+    };
+
+    const isHttpsUrl = urlString.toLowerCase().startsWith('https://');
+
     try {
-      // Perform HEAD request to get headers
-      const response = await this.fetchHeaders(urlString);
-
-      // Check for authentication/protected resources FIRST
-      if (response.status === 401 || response.status === 403) {
-        if (this.isUserRegistered) {
-          return this.createWarningResult(
-            URLValidator.ErrorTypes.PROTECTED,
-            'This is a protected resource. Ensure you have proper access.',
-            URLValidator.BorderColors.WARNING
-          );
-        } else {
-          return this.createErrorResult(
-            URLValidator.ErrorTypes.PROTECTED,
-            'Protected links are not allowed for guest users. Please log in.',
-            URLValidator.BorderColors.ERROR
-          );
-        }
-      }
-
-      // Check if URL is available (other 4xx errors)
-      if (!response.ok && response.status >= 400) {
-        return this.createErrorResult(
-          URLValidator.ErrorTypes.NOT_AVAILABLE,
-          `URL not available (Status: ${response.status})`,
-          URLValidator.BorderColors.ERROR
-        );
-      }
-
-      // Check for permanent redirects
-      if (URLValidator.StatusCodes.PERMANENT_REDIRECT.includes(response.status)) {
-        const location = response.headers.get('Location');
-        return this.createWarningResult(
-          URLValidator.ErrorTypes.REDIRECT_PERMANENT,
-          `Permanent redirect detected. Consider replacing with: ${location || 'target URL'}`,
-          URLValidator.BorderColors.WARNING,
-          { redirectLocation: location }
-        );
-      }
-
-      // Check for temporary redirects
-      if (URLValidator.StatusCodes.TEMPORARY_REDIRECT.includes(response.status)) {
-        if (!this.isUserRegistered) {
-          return this.createErrorResult(
-            URLValidator.ErrorTypes.REDIRECT_TEMPORARY,
-            'Temporary redirects are not allowed for guest users.',
-            URLValidator.BorderColors.ERROR
-          );
-        }
-      }
-
-      // Check content type
-      const contentType = response.headers.get('Content-Type');
-      const contentTypeValidation = this.validateContentType(contentType);
-      if (!contentTypeValidation.valid) {
-        return contentTypeValidation.result;
-      }
-
-      // All validations passed
-      return this.createSuccessResult(
-        'URL is valid and accessible.',
-        URLValidator.BorderColors.SUCCESS
-      );
-
+      // First attempt: use the provided URL (usually HTTPS)
+      return await attemptValidation(urlString);
     } catch (error) {
-      // Handle SSL/TLS errors
-      if (error.message && error.message.includes('SSL')) {
-        return this.createErrorResult(
-          URLValidator.ErrorTypes.SSL_ERROR,
-          'SSL/TLS certificate error. The URL has an invalid or untrusted certificate.',
-          URLValidator.BorderColors.ERROR
-        );
-      }
+      // If HTTPS request fails with SSL error, retry with HTTP and inform the caller
+      if (isHttpsUrl && this.isSSLError(error)) {
+        const httpUrl = urlString.replace(/^https:\/\//i, 'http://');
+        try {
+          const fallbackResult = await attemptValidation(httpUrl);
 
-      // Handle network errors with user-friendly messages
-      let friendlyMessage = 'Unable to reach this URL. Please check the address and try again.';
+          // Mark that we downgraded to HTTP and propagate the updated URL
+          fallbackResult.downgradedToHttp = true;
+          fallbackResult.normalizedUrl = httpUrl;
+          fallbackResult.originalUrl = urlString;
+          fallbackResult.fallbackReason = 'ssl_error';
 
-      // Check for common error patterns and provide specific messages
-      if (error.message) {
-        const msg = error.message.toLowerCase();
-        if (msg.includes('could not resolve host') || msg.includes('enotfound') || msg.includes('getaddrinfo')) {
-          friendlyMessage = 'This website address doesn\'t exist. Please check for typos.';
-        } else if (msg.includes('connection refused') || msg.includes('econnrefused')) {
-          friendlyMessage = 'Unable to connect to this website. The server may be down.';
-        } else if (msg.includes('timeout') || msg.includes('etimedout')) {
-          friendlyMessage = 'Connection timed out. The website is taking too long to respond.';
-        } else if (msg.includes('reset') || msg.includes('econnreset')) {
-          friendlyMessage = 'Connection was reset. Please try again.';
+          // If the fallback succeeded cleanly, treat it as a warning to highlight the downgrade
+          if (!fallbackResult.isError && !fallbackResult.isWarning) {
+            fallbackResult.isWarning = true;
+            fallbackResult.errorType = URLValidator.ErrorTypes.SSL_ERROR;
+            fallbackResult.message = 'HTTPS certificate error detected. Switched to HTTP and validated successfully.';
+            fallbackResult.borderColor = URLValidator.BorderColors.WARNING;
+          } else {
+            // Preserve existing result type but prepend downgrade notice
+            fallbackResult.message = 'HTTPS certificate error detected. Switched to HTTP. ' + fallbackResult.message;
+            if (!fallbackResult.borderColor) {
+              fallbackResult.borderColor = URLValidator.BorderColors.WARNING;
+            }
+          }
+
+          return fallbackResult;
+        } catch (fallbackError) {
+          // If fallback also fails, return the original SSL/network error
+          return this.createNetworkErrorResult(error);
         }
       }
 
-      return this.createErrorResult(
-        URLValidator.ErrorTypes.NETWORK_ERROR,
-        friendlyMessage,
-        URLValidator.BorderColors.ERROR
-      );
+      return this.createNetworkErrorResult(error);
     }
   }
 
@@ -269,6 +236,115 @@ class URLValidator {
       }
       throw error;
     }
+  }
+
+  /**
+   * Evaluate a fetch response and return a validation result
+   * @param {Response|Object} response - Response-like object
+   * @returns {Object} Validation result
+   * @private
+   */
+  evaluateResponse(response) {
+    // Check for authentication/protected resources FIRST
+    if (response.status === 401 || response.status === 403) {
+      if (this.isUserRegistered) {
+        return this.createWarningResult(
+          URLValidator.ErrorTypes.PROTECTED,
+          'This is a protected resource. Ensure you have proper access.',
+          URLValidator.BorderColors.WARNING
+        );
+      } else {
+        return this.createErrorResult(
+          URLValidator.ErrorTypes.PROTECTED,
+          'Protected links are not allowed for guest users. Please log in.',
+          URLValidator.BorderColors.ERROR
+        );
+      }
+    }
+
+    // Check if URL is available (other 4xx errors)
+    if (!response.ok && response.status >= 400) {
+      return this.createErrorResult(
+        URLValidator.ErrorTypes.NOT_AVAILABLE,
+        `URL not available (Status: ${response.status})`,
+        URLValidator.BorderColors.ERROR
+      );
+    }
+
+    // Check for permanent redirects
+    if (URLValidator.StatusCodes.PERMANENT_REDIRECT.includes(response.status)) {
+      const location = response.headers.get('Location');
+      return this.createWarningResult(
+        URLValidator.ErrorTypes.REDIRECT_PERMANENT,
+        `Permanent redirect detected. Consider replacing with: ${location || 'target URL'}`,
+        URLValidator.BorderColors.WARNING,
+        { redirectLocation: location }
+      );
+    }
+
+    // Check for temporary redirects
+    if (URLValidator.StatusCodes.TEMPORARY_REDIRECT.includes(response.status)) {
+      if (!this.isUserRegistered) {
+        return this.createErrorResult(
+          URLValidator.ErrorTypes.REDIRECT_TEMPORARY,
+          'Temporary redirects are not allowed for guest users.',
+          URLValidator.BorderColors.ERROR
+        );
+      }
+    }
+
+    // Check content type
+    const contentType = response.headers.get('Content-Type');
+    const contentTypeValidation = this.validateContentType(contentType);
+    if (!contentTypeValidation.valid) {
+      return contentTypeValidation.result;
+    }
+
+    // All validations passed
+    return this.createSuccessResult(
+      'URL is valid and accessible.',
+      URLValidator.BorderColors.SUCCESS
+    );
+  }
+
+  /**
+   * Create a network or SSL error result with friendly messaging
+   * @param {Error} error
+   * @returns {Object} Validation result
+   * @private
+   */
+  createNetworkErrorResult(error) {
+    // Handle SSL/TLS errors
+    if (this.isSSLError(error)) {
+      return this.createErrorResult(
+        URLValidator.ErrorTypes.SSL_ERROR,
+        'SSL/TLS certificate error. The URL has an invalid or untrusted certificate.',
+        URLValidator.BorderColors.ERROR
+      );
+    }
+
+    // Handle network errors with user-friendly messages
+    let friendlyMessage = 'Unable to reach this URL. Please check the address and try again.';
+
+    // Check for common error patterns and provide specific messages
+    if (error && error.message) {
+      const msg = error.message.toLowerCase();
+      if (msg.includes('could not resolve host') || msg.includes('enotfound') || msg.includes('getaddrinfo')) {
+        friendlyMessage = 'This website address doesn\'t exist. Please check for typos.';
+      } else if (msg.includes('connection refused') || msg.includes('econnrefused')) {
+        friendlyMessage = 'Unable to connect to this website. The server may be down.';
+      } else if (msg.includes('timeout') || msg.includes('etimedout')) {
+        friendlyMessage = 'Connection timed out. The website is taking too long to respond.';
+      } else if (msg.includes('reset') || msg.includes('econnreset')) {
+        friendlyMessage = 'Connection was reset. Please try again.';
+      }
+    }
+
+    return this.createErrorResult(
+      URLValidator.ErrorTypes.NETWORK_ERROR,
+      friendlyMessage,
+      URLValidator.BorderColors.ERROR
+    );
   }
 
   /**
@@ -456,6 +532,11 @@ class URLValidator {
       timeoutId = setTimeout(async () => {
         try {
           const result = await this.validateURL(urlString);
+
+          // If URL was normalized/downgraded, reflect it in the input element
+          if (result.normalizedUrl && inputElement) {
+            inputElement.value = result.normalizedUrl;
+          }
 
           if (inputElement && messageElement) {
             this.applyValidationToElement(inputElement, result, messageElement);

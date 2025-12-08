@@ -119,6 +119,14 @@
          * Handle URL validation result
          */
         handleValidationResult: function(result, url) {
+            // If validator downgraded to HTTP, reflect it in the input field
+            if (result && result.normalizedUrl && this.$destinationInput && this.$destinationInput.length) {
+                const currentValue = this.$destinationInput.val().trim();
+                if (currentValue !== result.normalizedUrl) {
+                    this.$destinationInput.val(result.normalizedUrl);
+                }
+            }
+
             // Update UI based on validation result
             if (result.isError) {
                 this.isValid = false;

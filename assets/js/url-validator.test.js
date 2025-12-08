@@ -407,12 +407,37 @@ describe('URLValidator - validateURL() with mocked fetch', () => {
   });
 
   it('should handle SSL errors', async () => {
-    global.fetch = vi.fn().mockRejectedValueOnce(new Error('SSL certificate error'));
+    global.fetch = vi.fn()
+      .mockRejectedValueOnce(new Error('SSL certificate error')) // HTTPS attempt
+      .mockRejectedValueOnce(new Error('SSL certificate error')); // HTTP fallback also fails
 
     const result = await validator.validateURL('https://example.com');
     expect(result.valid).toBe(false);
     expect(result.errorType).toBe(URLValidator.ErrorTypes.SSL_ERROR);
     expect(result.message).toContain('SSL');
+  });
+
+  it('should retry with HTTP on SSL error and update URL', async () => {
+    global.fetch = vi.fn()
+      .mockRejectedValueOnce(new Error('SSL certificate error')) // HTTPS attempt fails
+      .mockResolvedValueOnce({ // HTTP fallback succeeds
+        ok: true,
+        status: 200,
+        headers: {
+          get: (key) => {
+            if (key === 'Content-Type') return 'text/html';
+            return null;
+          }
+        }
+      });
+
+    const result = await validator.validateURL('https://example.com');
+    expect(result.valid).toBe(true);
+    expect(result.isWarning).toBe(true);
+    expect(result.errorType).toBe(URLValidator.ErrorTypes.SSL_ERROR);
+    expect(result.downgradedToHttp).toBe(true);
+    expect(result.normalizedUrl).toBe('http://example.com');
+    expect(result.message.toLowerCase()).toContain('switched to http');
   });
 
   it('should reject URLs with invalid/non-existent TLDs like .c', async () => {
