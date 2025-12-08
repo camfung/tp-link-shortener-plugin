@@ -131,6 +131,13 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                         <span class="fw-semibold"><?php esc_html_e('Link created successfully!', 'tp-link-shortener'); ?></span>
                     </div>
 
+                    <div class="tp-submit-row">
+                        <button type="submit" class="btn tp-btn tp-btn-primary tp-cta-button w-100" id="tp-submit-btn">
+                            <i class="fas fa-link me-2"></i>
+                            <?php esc_html_e('Save the link and it never expires', 'tp-link-shortener'); ?>
+                        </button>
+                    </div>
+
                     <!-- Result Section (hidden initially) -->
                     <div id="tp-result-section" class="tp-result-panel mb-4 d-none">
                         <div class="tp-result-grid">
@@ -194,13 +201,6 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
 
                     <!-- Error Message -->
                     <div id="tp-error-message" class="tp-error-message alert alert-danger d-none" role="alert"></div>
-
-                    <div class="tp-submit-row">
-                        <button type="submit" class="btn tp-btn tp-btn-primary tp-cta-button w-100" id="tp-submit-btn">
-                            <i class="fas fa-link me-2"></i>
-                            <?php esc_html_e('Save the link and it never expires', 'tp-link-shortener'); ?>
-                        </button>
-                    </div>
 
                     <div id="tp-save-link-reminder" class="tp-save-link-reminder d-none mt-3" role="status">
                         <span class="fw-semibold"><?php esc_html_e('Save the link and it never expires', 'tp-link-shortener'); ?></span>
