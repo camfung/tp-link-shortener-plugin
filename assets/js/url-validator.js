@@ -86,28 +86,6 @@ class URLValidator {
   }
 
   /**
-   * Detect generic HTTPS failures that merit an HTTP retry (e.g., opaque "Failed to fetch")
-   * @param {Error} error
-   * @returns {boolean}
-   * @private
-   */
-  shouldAttemptHttpFallback(error) {
-    if (!error) return false;
-
-    // Some browsers surface HTTPS handshake failures as TypeError: Failed to fetch
-    if (error.name && error.name.toLowerCase() === 'typeerror') {
-      return true;
-    }
-
-    if (!error.message) return false;
-    const msg = error.message.toLowerCase();
-
-    return msg.includes('failed to fetch') ||
-           msg.includes('networkerror') ||
-           msg.includes('network error');
-  }
-
-  /**
    * Validate if a string is a properly formatted URL
    * @param {string} urlString - The URL string to validate
    * @returns {boolean} True if valid URL format
@@ -151,8 +129,8 @@ class URLValidator {
       // First attempt: use the provided URL (usually HTTPS)
       return await attemptValidation(urlString);
     } catch (error) {
-      // If HTTPS request fails with SSL or generic fetch error, retry with HTTP and inform the caller
-      if (isHttpsUrl && (this.isSSLError(error) || this.shouldAttemptHttpFallback(error))) {
+      // If HTTPS request fails with SSL error, retry with HTTP and inform the caller
+      if (isHttpsUrl && this.isSSLError(error)) {
         const httpUrl = urlString.replace(/^https:\/\//i, 'http://');
         try {
           const fallbackResult = await attemptValidation(httpUrl);
@@ -161,22 +139,17 @@ class URLValidator {
           fallbackResult.downgradedToHttp = true;
           fallbackResult.normalizedUrl = httpUrl;
           fallbackResult.originalUrl = urlString;
-          const sslFailure = this.isSSLError(error);
-          fallbackResult.fallbackReason = sslFailure ? 'ssl_error' : 'https_failure';
-          fallbackResult.fallbackMessage = error.message || '';
+          fallbackResult.fallbackReason = 'ssl_error';
 
           // If the fallback succeeded cleanly, treat it as a warning to highlight the downgrade
           if (!fallbackResult.isError && !fallbackResult.isWarning) {
             fallbackResult.isWarning = true;
-            fallbackResult.errorType = sslFailure ? URLValidator.ErrorTypes.SSL_ERROR : URLValidator.ErrorTypes.NETWORK_ERROR;
-            fallbackResult.message = sslFailure
-              ? 'HTTPS certificate error detected. Switched to HTTP and validated successfully.'
-              : 'HTTPS request failed. Switched to HTTP and validated successfully.';
+            fallbackResult.errorType = URLValidator.ErrorTypes.SSL_ERROR;
+            fallbackResult.message = 'HTTPS certificate error detected. Switched to HTTP and validated successfully.';
             fallbackResult.borderColor = URLValidator.BorderColors.WARNING;
           } else {
             // Preserve existing result type but prepend downgrade notice
-            const prefix = sslFailure ? 'HTTPS certificate error detected. ' : 'HTTPS request failed. ';
-            fallbackResult.message = prefix + fallbackResult.message;
+            fallbackResult.message = 'HTTPS certificate error detected. Switched to HTTP. ' + fallbackResult.message;
             if (!fallbackResult.borderColor) {
               fallbackResult.borderColor = URLValidator.BorderColors.WARNING;
             }
