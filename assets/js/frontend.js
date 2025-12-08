@@ -119,6 +119,13 @@
          * Handle URL validation result
          */
         handleValidationResult: function(result, url) {
+            // Check if protocol was updated (HTTPS -> HTTP fallback)
+            if (result.protocolUpdated && result.updatedUrl) {
+                // Update the input field with the HTTP URL
+                this.$destinationInput.val(result.updatedUrl);
+                console.log('TP Link Shortener: URL protocol updated from HTTPS to HTTP:', result.updatedUrl);
+            }
+
             // Update UI based on validation result
             if (result.isError) {
                 this.isValid = false;

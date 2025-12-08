@@ -763,3 +763,100 @@ describe('URLValidator - Static Constants', () => {
     expect(URLValidator.StatusCodes.SUCCESS).toEqual([200, 201, 202, 203, 204, 205, 206]);
   });
 });
+
+describe('URLValidator - HTTP Fallback for HTTPS SSL Errors', () => {
+  let validator;
+
+  beforeEach(() => {
+    validator = new URLValidator({
+      proxyUrl: '/api/validate-url?action=tp_validate_url'
+    });
+    vi.clearAllMocks();
+  });
+
+  it('should handle protocol update from HTTPS to HTTP', async () => {
+    // Simulate proxy response with protocol update flag
+    global.fetch = vi.fn().mockResolvedValueOnce({
+      json: () => Promise.resolve({
+        ok: true,
+        status: 200,
+        headers: {
+          'content-type': 'text/html'
+        },
+        protocol_updated: true,
+        updated_url: 'http://146.190.120.67/',
+        original_url: 'https://146.190.120.67/',
+        reason: 'HTTPS failed with SSL error, HTTP works'
+      })
+    });
+
+    const result = await validator.validateURL('https://146.190.120.67/');
+
+    expect(result.valid).toBe(true);
+    expect(result.isWarning).toBe(true);
+    expect(result.errorType).toBe(URLValidator.ErrorTypes.REDIRECT_PERMANENT);
+    expect(result.message).toContain('URL changed from HTTPS to HTTP');
+    expect(result.updatedUrl).toBe('http://146.190.120.67/');
+    expect(result.originalUrl).toBe('https://146.190.120.67/');
+    expect(result.protocolUpdated).toBe(true);
+  });
+
+  it('should not show protocol update for normal HTTPS URLs', async () => {
+    global.fetch = vi.fn().mockResolvedValueOnce({
+      json: () => Promise.resolve({
+        ok: true,
+        status: 200,
+        headers: {
+          'content-type': 'text/html'
+        },
+        protocol_updated: false
+      })
+    });
+
+    const result = await validator.validateURL('https://example.com');
+
+    expect(result.valid).toBe(true);
+    expect(result.isWarning).toBe(false);
+    expect(result.protocolUpdated).toBe(undefined);
+  });
+
+  it('should pass through protocol update info from proxy response', async () => {
+    global.fetch = vi.fn().mockResolvedValueOnce({
+      json: () => Promise.resolve({
+        ok: true,
+        status: 200,
+        headers: {
+          'content-type': 'text/html'
+        },
+        protocol_updated: true,
+        updated_url: 'http://test.example/',
+        original_url: 'https://test.example/',
+        reason: 'SSL certificate error'
+      })
+    });
+
+    const result = await validator.validateURL('https://test.example/');
+
+    expect(result.updatedUrl).toBe('http://test.example/');
+    expect(result.originalUrl).toBe('https://test.example/');
+    expect(result.message).toContain('SSL certificate error');
+  });
+
+  it('should handle missing protocol update fields gracefully', async () => {
+    global.fetch = vi.fn().mockResolvedValueOnce({
+      json: () => Promise.resolve({
+        ok: true,
+        status: 200,
+        headers: {
+          'content-type': 'text/html'
+        }
+        // No protocol_updated field
+      })
+    });
+
+    const result = await validator.validateURL('https://example.com');
+
+    expect(result.valid).toBe(true);
+    expect(result.protocolUpdated).toBe(undefined);
+  });
+});
