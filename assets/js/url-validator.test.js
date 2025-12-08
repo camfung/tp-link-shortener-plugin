@@ -412,9 +412,11 @@ describe('URLValidator - validateURL() with mocked fetch', () => {
       .mockRejectedValueOnce(new Error('SSL certificate error')); // HTTP fallback also fails
 
     const result = await validator.validateURL('https://example.com');
-    expect(result.valid).toBe(false);
+    expect(result.valid).toBe(true);
+    expect(result.isWarning).toBe(true);
     expect(result.errorType).toBe(URLValidator.ErrorTypes.SSL_ERROR);
-    expect(result.message).toContain('SSL');
+    expect(result.normalizedUrl).toBe('http://example.com');
+    expect(result.message.toLowerCase()).toContain('certificate');
   });
 
   it('should retry with HTTP on SSL error and update URL', async () => {

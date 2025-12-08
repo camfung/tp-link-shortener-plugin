@@ -157,8 +157,20 @@ class URLValidator {
 
           return fallbackResult;
         } catch (fallbackError) {
-          // If fallback also fails, return the original SSL/network error
-          return this.createNetworkErrorResult(error);
+          // If fallback also fails, allow the user to proceed with a warning and a suggested HTTP URL
+          const warningResult = this.createWarningResult(
+            URLValidator.ErrorTypes.SSL_ERROR,
+            'HTTPS certificate error detected. Unable to validate over HTTP automatically. You can continue with HTTP at your discretion.',
+            URLValidator.BorderColors.WARNING,
+            {
+              downgradedToHttp: true,
+              normalizedUrl: httpUrl,
+              originalUrl: urlString,
+              fallbackReason: 'ssl_error',
+              fallbackMessage: error.message || ''
+            }
+          );
+          return warningResult;
         }
       }
 
