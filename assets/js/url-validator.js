@@ -133,6 +133,7 @@ class URLValidator {
       if (isHttpsUrl && this.isSSLError(error)) {
         const httpUrl = urlString.replace(/^https:\/\//i, 'http://');
         try {
+          console.warn('[URLValidator] HTTPS certificate error detected, retrying with HTTP:', urlString);
           const fallbackResult = await attemptValidation(httpUrl);
 
           // Mark that we downgraded to HTTP and propagate the updated URL
@@ -155,9 +156,20 @@ class URLValidator {
             }
           }
 
+          console.info('[URLValidator] HTTPS validation failed, HTTP fallback succeeded:', {
+            originalUrl: urlString,
+            normalizedUrl: httpUrl,
+            fallbackReason: fallbackResult.fallbackReason
+          });
           return fallbackResult;
         } catch (fallbackError) {
           // If fallback also fails, allow the user to proceed with a warning and a suggested HTTP URL
+          console.warn('[URLValidator] HTTPS certificate error and HTTP fallback failed:', {
+            originalUrl: urlString,
+            fallbackUrl: httpUrl,
+            error: error.message || error,
+            fallbackError: fallbackError && (fallbackError.message || fallbackError)
+          });
           const warningResult = this.createWarningResult(
             URLValidator.ErrorTypes.SSL_ERROR,
             'HTTPS certificate error detected. Unable to validate over HTTP automatically. You can continue with HTTP at your discretion.',
