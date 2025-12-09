@@ -62,9 +62,6 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                                 maxlength="2000"
                                 aria-describedby="tp-destination-hint"
                             />
-                            <span class="tp-input-status" aria-hidden="true">
-                                <i class="fas fa-check"></i>
-                            </span>
                         </div>
                         <small id="tp-destination-hint" class="tp-field-hint">
                             <?php esc_html_e('Enter the full URL where this short link should redirect', 'tp-link-shortener'); ?>

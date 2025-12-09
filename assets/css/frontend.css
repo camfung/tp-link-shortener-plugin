@@ -129,12 +129,14 @@
 }
 
 .tp-plain-input {
+    border-color: transparent;
     border: none;
     background: transparent;
     box-shadow: none;
     padding: 1rem 1rem;
     font-weight: 600;
     font-size: 1.05rem;
+    border-radius: 0 1.1rem 1.1rem 0;
 }
 
 .tp-plain-input:focus {
@@ -210,17 +212,6 @@
     background: rgba(60, 122, 229, 0.08);
 }
 
-.tp-input-status {
-    color: var(--tp-accent);
-    font-size: 1.35rem;
-    padding: 0 1rem;
-    opacity: 0;
-    transition: opacity 0.2s ease;
-}
-
-.tp-input-visual input.is-valid~.tp-input-status {
-    opacity: 1;
-}
 
 .tp-field-hint {
     color: var(--tp-muted);
@@ -667,11 +658,6 @@
     width: 100%;
     height: auto;
     object-fit: cover;
-}
-
-#tp-custom-key {
-    border-color: transparent;
-    border-radius: 0 1.1rem 1.1rem 0;
 }
 
 /* Keyframe animation for initial slide */
