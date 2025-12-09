@@ -669,6 +669,11 @@
     object-fit: cover;
 }
 
+#tp-custom-key {
+    border-color: transparent;
+    border-radius: 1.1rem;
+}
+
 /* Keyframe animation for initial slide */
 @keyframes slideDown {
     from {
