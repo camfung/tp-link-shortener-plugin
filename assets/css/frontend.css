@@ -1,4 +1,4 @@
-/**
+/**assetcss
  * Traffic Portal Link Shortener - Frontend Styles
  * Modernized with Bootstrap 5 utilities while preserving the original palette
  */
@@ -671,7 +671,7 @@
 
 #tp-custom-key {
     border-color: transparent;
-    border-radius: 1.1rem;
+    border-radius: 0 1.1rem 1.1rem 0;
 }
 
 /* Keyframe animation for initial slide */
