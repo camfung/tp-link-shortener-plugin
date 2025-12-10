@@ -1237,7 +1237,7 @@
                     .attr('type', 'button')
                     .attr('id', 'tp-update-btn')
                     .addClass('btn btn-primary mt-3')
-                    .html('<i class="fas fa-edit me-2"></i>' + __('Update Link', 'tp-link-shortener'));
+                    .html('<i class="fas fa-edit me-2"></i>' + 'Update Link');
 
                 this.$resultSection.append(updateBtn);
 
@@ -1253,14 +1253,14 @@
          */
         updateLink: function() {
             if (!this.currentRecord || !this.currentRecord.mid) {
-                this.showError(__('No link to update.', 'tp-link-shortener'));
+                this.showError('No link to update.');
                 return;
             }
 
             const newDestination = this.$destinationInput.val().trim();
 
             if (!newDestination) {
-                this.showError(__('Please enter a destination URL.', 'tp-link-shortener'));
+                this.showError('Please enter a destination URL.');
                 return;
             }
 
@@ -1282,16 +1282,16 @@
                     self.$loading.hide();
 
                     if (response.success) {
-                        self.showSuccess(__('Link updated successfully!', 'tp-link-shortener'));
+                        self.showSuccess('Link updated successfully!');
                         // Update the stored record
                         self.currentRecord.destination = newDestination;
                     } else {
-                        self.showError(response.data.message || __('Failed to update link.', 'tp-link-shortener'));
+                        self.showError(response.data.message || 'Failed to update link.');
                     }
                 },
                 error: function(xhr, status, error) {
                     self.$loading.hide();
-                    self.showError(__('An error occurred while updating the link.', 'tp-link-shortener'));
+                    self.showError('An error occurred while updating the link.');
                 }
             });
         },
@@ -1314,9 +1314,9 @@
                 const timeLeft = expiryDate - now;
 
                 if (timeLeft <= 0) {
-                    $('#tp-expiry-timer').text(__('Expired', 'tp-link-shortener'));
+                    $('#tp-expiry-timer').text('Expired');
                     self.stopExpiryCountdown();
-                    self.showError(__('This link has expired.', 'tp-link-shortener'));
+                    self.showError('This link has expired.');
                     return;
                 }
 
