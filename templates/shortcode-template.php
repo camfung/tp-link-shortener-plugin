@@ -140,7 +140,7 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                         <div class="tp-result-grid">
                             <div class="tp-result-details">
                                 <?php if (!is_user_logged_in()): ?>
-                                <div class="tp-meta-row mb-3" id="tp-expiry-row">
+                                <div class="tp-meta-row mb-3" id="tp-expiry-row" style="display: none;">
                                     <div class="tp-meta-label">
                                         <?php esc_html_e('The link expires in', 'tp-link-shortener'); ?>
                                     </div>
