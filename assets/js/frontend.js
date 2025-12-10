@@ -1212,7 +1212,7 @@
             this.currentRecord = record;
 
             // Show result section
-            this.showSuccess(__('Your most recent link:', 'tp-link-shortener'));
+            this.showSuccess('Your most recent link:');
             this.$resultSection.slideDown(300);
 
             // Generate QR code
