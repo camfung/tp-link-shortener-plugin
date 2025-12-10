@@ -671,6 +671,10 @@ form .tp-plain-input:focus,
     margin: 1em 0;
 }
 
+#tmp-tp-expiry-row {
+    display: none;
+}
+
 /* Keyframe animation for initial slide */
 @keyframes slideDown {
     from {
