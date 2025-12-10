@@ -289,7 +289,7 @@
                     // Ignore
                 }
 
-                // Save to local storage (screenshot will be added later when captured)
+                // Save to local storage (screenshots always fetched fresh from API)
                 if (window.TPStorageService && window.TPStorageService.isAvailable()) {
                     window.TPStorageService.saveShortcodeData({
                         shortcode: key,
@@ -297,7 +297,7 @@
                         expiresInHours: 24,
                         uid: uid
                     });
-                    console.log('TP Link Shortener: Shortcode data saved to localStorage (screenshot pending)');
+                    console.log('TP Link Shortener: Shortcode data saved to localStorage');
                 }
 
                 // Display result
@@ -814,31 +814,7 @@
                         $screenshotImg.show();
                         $screenshotPreview.removeClass('tp-screenshot-loading').addClass('tp-screenshot-loaded');
 
-                        // Save screenshot to localStorage for returning visitors
-                        if (window.TPStorageService && window.TPStorageService.isAvailable()) {
-                            const storedData = window.TPStorageService.getShortcodeData();
-                            if (storedData && !storedData.isExpired) {
-                                // Calculate remaining hours until expiration
-                                const remainingMs = storedData.expiration - Date.now();
-                                const remainingHours = Math.max(0, remainingMs / (1000 * 60 * 60));
-
-                                // Update existing stored data with screenshot
-                                window.TPStorageService.saveShortcodeData({
-                                    shortcode: storedData.shortcode,
-                                    destination: storedData.destination,
-                                    expiresInHours: remainingHours,
-                                    uid: storedData.uid,
-                                    screenshot: response.data.data_uri
-                                });
-
-                                console.log('TP Link Shortener: Screenshot saved to localStorage', {
-                                    screenshotLength: response.data.data_uri.length,
-                                    remainingHours: remainingHours.toFixed(2)
-                                });
-                            } else {
-                                console.warn('TP Link Shortener: No valid stored data found to update with screenshot');
-                            }
-                        }
+                        // Screenshot caching removed - always fetch fresh from API
 
                         // Log additional info
                         if (response.data.cached) {
@@ -965,8 +941,8 @@
             // Generate QR code
             this.generateQRCode(shortUrl);
 
-            // Restore screenshot if available
-            this.restoreScreenshot(storedData.screenshot);
+            // Always capture fresh screenshot from API
+            this.captureScreenshot(storedData.destination);
 
             // Only disable the form for non-logged-in users (trial users)
             if (!tpAjax.isLoggedIn) {
@@ -987,35 +963,6 @@
             }
         },
 
-        /**
-         * Restore screenshot from localStorage
-         */
-        restoreScreenshot: function(screenshotDataUri) {
-            if (!screenshotDataUri) {
-                console.log('TP Link Shortener: No cached screenshot found');
-                return;
-            }
-
-            console.log('TP Link Shortener: Restoring screenshot from localStorage');
-
-            const $screenshotPreview = $('.tp-screenshot-preview');
-            const $screenshotImg = $screenshotPreview.find('.tp-screenshot-img');
-
-            if (!$screenshotImg.length) {
-                console.warn('TP Link Shortener: Screenshot preview element not found');
-                return;
-            }
-
-            // Set the cached screenshot
-            $screenshotImg.attr('src', screenshotDataUri);
-            $screenshotImg.attr('alt', 'Cached screenshot');
-
-            // Show the image and hide spinner
-            $screenshotImg.show();
-            $screenshotPreview.removeClass('tp-screenshot-loading').addClass('tp-screenshot-loaded');
-
-            console.log('TP Link Shortener: Screenshot restored from cache');
-        },
 
         /**
          * Show returning visitor message
