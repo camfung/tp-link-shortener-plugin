@@ -15,7 +15,6 @@
         $customKeyInput: null,
         $loading: null,
         $errorMessage: null,
-        $successMessage: null,
         $resultSection: null,
         $shortUrlOutput: null,
         $copyBtn: null,
@@ -27,6 +26,7 @@
         $returningVisitorMessage: null,
         $validationMessage: null,
         $saveLinkReminder: null,
+        snackbarTimer: null,
 
         // State
         qrCode: null,
@@ -80,7 +80,6 @@
             this.$customKeyGroup = $('.tp-custom-key-group');
             this.$loading = $('#tp-loading');
             this.$errorMessage = $('#tp-error-message');
-            this.$successMessage = $('#tp-success-message');
             this.$resultSection = $('#tp-result-section');
             this.$shortUrlOutput = $('#tp-short-url-output');
             this.$copyBtn = $('#tp-copy-btn');
@@ -672,24 +671,47 @@
         },
 
         /**
-         * Show success message
+         * Show snackbar notification
          */
-        showSuccessMessage: function() {
-            this.$successMessage.removeClass('d-none');
-        },
+        showSnackbar: function(message, duration) {
+            duration = duration || 3000; // Default 3 seconds
 
-        /**
-         * Hide success message
-         */
-        hideSuccessMessage: function() {
-            this.$successMessage.addClass('d-none');
+            // Remove any existing snackbar
+            $('.tp-snackbar').remove();
+
+            // Clear any existing timer
+            if (this.snackbarTimer) {
+                clearTimeout(this.snackbarTimer);
+                this.snackbarTimer = null;
+            }
+
+            // Create snackbar element
+            const $snackbar = $('<div>')
+                .addClass('tp-snackbar')
+                .html('<i class="fas fa-check-circle"></i><span>' + message + '</span>')
+                .appendTo('body');
+
+            // Trigger reflow to ensure animation plays
+            $snackbar[0].offsetHeight;
+
+            // Show snackbar
+            $snackbar.addClass('tp-snackbar-show');
+
+            // Auto-hide after duration
+            this.snackbarTimer = setTimeout(function() {
+                $snackbar.removeClass('tp-snackbar-show');
+                // Remove from DOM after animation completes
+                setTimeout(function() {
+                    $snackbar.remove();
+                }, 400); // Match transition duration
+            }, duration);
         },
 
         /**
          * Show result section
          */
         showResult: function() {
-            this.showSuccessMessage();
+            this.showSnackbar('Link created successfully!');
             this.$resultSection.removeClass('d-none');
         },
 
@@ -697,7 +719,6 @@
          * Hide result section
          */
         hideResult: function() {
-            this.hideSuccessMessage();
             this.$resultSection.addClass('d-none');
             this.hideQRSection();
             this.stopExpiryCountdown();

@@ -122,12 +122,6 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                     </div>
                     <?php endif; ?>
 
-                    <!-- Success Message (hidden initially) -->
-                    <div id="tp-success-message" class="alert alert-success d-flex align-items-center gap-3 mb-4 d-none">
-                        <i class="fas fa-check-circle fs-4"></i>
-                        <span class="fw-semibold"><?php esc_html_e('Link created successfully!', 'tp-link-shortener'); ?></span>
-                    </div>
-
                     <div class="tp-submit-row">
                         <button type="submit" class="btn tp-btn tp-btn-primary tp-cta-button w-100" id="tp-submit-btn">
                             <i class="fas fa-link me-2"></i>

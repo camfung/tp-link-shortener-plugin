@@ -533,11 +533,35 @@ form .tp-plain-input:focus,
     font-weight: 600;
 }
 
-.tp-success-message {
-    border-radius: 1rem;
-    background: rgba(34, 181, 115, 0.12);
-    border: 1px solid rgba(34, 181, 115, 0.3);
-    color: var(--tp-accent);
+/* Snackbar Styles */
+.tp-snackbar {
+    position: fixed;
+    bottom: -100px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(34, 181, 115, 0.95);
+    color: #fff;
+    padding: 1rem 1.5rem;
+    border-radius: 0.75rem;
+    box-shadow: 0 8px 24px rgba(34, 181, 115, 0.4);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    z-index: 9999;
+    transition: bottom 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    font-weight: 600;
+    font-size: 1rem;
+    min-width: 280px;
+    max-width: 90vw;
+}
+
+.tp-snackbar.tp-snackbar-show {
+    bottom: 2rem;
+}
+
+.tp-snackbar i {
+    font-size: 1.25rem;
+    flex-shrink: 0;
 }
 
 .tp-btn {
