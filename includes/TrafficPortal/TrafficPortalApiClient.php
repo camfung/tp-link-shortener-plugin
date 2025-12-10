@@ -234,6 +234,226 @@ class TrafficPortalApiClient
     }
 
     /**
+     * Update a masked record
+     *
+     * @param int $mid The masked record ID to update
+     * @param array $updateData The update data (uid, tpTkn, domain, destination, status, expires_at, etc.)
+     * @return array The response data
+     * @throws AuthenticationException If authentication fails
+     * @throws ValidationException If validation fails
+     * @throws NetworkException If network error occurs
+     * @throws ApiException For other API errors
+     */
+    public function updateMaskedRecord(int $mid, array $updateData): array
+    {
+        $url = $this->apiEndpoint . '/items/' . $mid;
+
+        // Initialize cURL
+        $ch = curl_init($url);
+        if ($ch === false) {
+            throw new NetworkException('Failed to initialize cURL');
+        }
+
+        // Set cURL options
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CUSTOMREQUEST => 'PUT',
+            CURLOPT_POSTFIELDS => json_encode($updateData),
+            CURLOPT_HTTPHEADER => [
+                'Content-Type: application/json',
+                'x-api-key: ' . $this->apiKey,
+            ],
+            CURLOPT_TIMEOUT => $this->timeout,
+            CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_FOLLOWLOCATION => false,
+        ]);
+
+        // Execute request
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($ch);
+        $curlErrno = curl_errno($ch);
+
+        curl_close($ch);
+
+        // Handle cURL errors
+        if ($curlErrno !== 0) {
+            throw new NetworkException(
+                sprintf('cURL error: %s', $curlError),
+                $curlErrno
+            );
+        }
+
+        // Handle empty response
+        if ($response === false || $response === '') {
+            throw new NetworkException('Empty response from API');
+        }
+
+        // Decode JSON response
+        $data = json_decode($response, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new ApiException(
+                sprintf('Invalid JSON response: %s', json_last_error_msg()),
+                $httpCode
+            );
+        }
+
+        // Handle HTTP errors
+        $this->handleHttpErrors($httpCode, $data);
+
+        return $data;
+    }
+
+    /**
+     * Bulk update expiry for multiple records (admin only)
+     *
+     * @param int $uid The admin user ID
+     * @param string $token The admin token
+     * @param array $updates Array of updates with 'mid' and 'expires_at' keys
+     * @return array The response data with 'updated' and 'failed' arrays
+     * @throws AuthenticationException If authentication fails
+     * @throws ValidationException If validation fails
+     * @throws NetworkException If network error occurs
+     * @throws ApiException For other API errors
+     */
+    public function bulkUpdateExpiry(int $uid, string $token, array $updates): array
+    {
+        $url = $this->apiEndpoint . '/items/expiry/bulk';
+
+        $payload = [
+            'uid' => $uid,
+            'tpTkn' => $token,
+            'updates' => $updates,
+        ];
+
+        // Initialize cURL
+        $ch = curl_init($url);
+        if ($ch === false) {
+            throw new NetworkException('Failed to initialize cURL');
+        }
+
+        // Set cURL options
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CUSTOMREQUEST => 'PUT',
+            CURLOPT_POSTFIELDS => json_encode($payload),
+            CURLOPT_HTTPHEADER => [
+                'Content-Type: application/json',
+                'x-api-key: ' . $this->apiKey,
+            ],
+            CURLOPT_TIMEOUT => $this->timeout,
+            CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_FOLLOWLOCATION => false,
+        ]);
+
+        // Execute request
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($ch);
+        $curlErrno = curl_errno($ch);
+
+        curl_close($ch);
+
+        // Handle cURL errors
+        if ($curlErrno !== 0) {
+            throw new NetworkException(
+                sprintf('cURL error: %s', $curlError),
+                $curlErrno
+            );
+        }
+
+        // Handle empty response
+        if ($response === false || $response === '') {
+            throw new NetworkException('Empty response from API');
+        }
+
+        // Decode JSON response
+        $data = json_decode($response, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new ApiException(
+                sprintf('Invalid JSON response: %s', json_last_error_msg()),
+                $httpCode
+            );
+        }
+
+        // Handle HTTP errors
+        $this->handleHttpErrors($httpCode, $data);
+
+        return $data;
+    }
+
+    /**
+     * Search for records by IP address (admin only)
+     *
+     * @param string $ipAddress The IP address to search for
+     * @param int $uid The admin user ID
+     * @param string $token The admin token
+     * @return array The response data with matching records
+     * @throws AuthenticationException If authentication fails
+     * @throws NetworkException If network error occurs
+     * @throws ApiException For other API errors
+     */
+    public function searchByIp(string $ipAddress, int $uid, string $token): array
+    {
+        $url = $this->apiEndpoint . '/items/by-ip/' . urlencode($ipAddress);
+
+        // Initialize cURL
+        $ch = curl_init($url);
+        if ($ch === false) {
+            throw new NetworkException('Failed to initialize cURL');
+        }
+
+        // Set cURL options with uid and tpTkn in headers
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER => [
+                'Content-Type: application/json',
+                'x-api-key: ' . $this->apiKey,
+                'uid: ' . $uid,
+                'tpTkn: ' . $token,
+            ],
+            CURLOPT_TIMEOUT => $this->timeout,
+            CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_FOLLOWLOCATION => false,
+        ]);
+
+        // Execute request
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($ch);
+        $curlErrno = curl_errno($ch);
+
+        curl_close($ch);
+
+        // Handle cURL errors
+        if ($curlErrno !== 0) {
+            throw new NetworkException(
+                sprintf('cURL error: %s', $curlError),
+                $curlErrno
+            );
+        }
+
+        // Handle empty response
+        if ($response === false || $response === '') {
+            throw new NetworkException('Empty response from API');
+        }
+
+        // Decode JSON response
+        $data = json_decode($response, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new ApiException(
+                sprintf('Invalid JSON response: %s', json_last_error_msg()),
+                $httpCode
+            );
+        }
+
+        // Handle HTTP errors
+        $this->handleHttpErrors($httpCode, $data);
+
+        return $data;
+    }
+
+    /**
      * Get the API endpoint
      *
      * @return string

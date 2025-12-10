@@ -120,6 +120,16 @@ class CreateMapResponse
     }
 
     /**
+     * Get the expires_at timestamp from the created record
+     *
+     * @return string|null
+     */
+    public function getExpiresAt(): ?string
+    {
+        return $this->source['expires_at'] ?? null;
+    }
+
+    /**
      * Convert to array
      *
      * @return array

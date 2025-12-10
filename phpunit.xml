@@ -17,10 +17,17 @@
         <include>
             <directory suffix=".php">includes/SnapCapture</directory>
             <directory suffix=".php">includes/ShortCode</directory>
+            <directory suffix=".php">includes/TrafficPortal</directory>
         </include>
     </coverage>
 
     <php>
         <env name="SNAPCAPTURE_API_KEY" value="test-api-key"/>
+        <!-- TrafficPortal Integration Test Environment Variables -->
+        <env name="TP_API_ENDPOINT" value="https://ce7jzbocq1.execute-api.ca-central-1.amazonaws.com/dev"/>
+        <env name="TP_API_KEY" value="q9D7lp99A818aVMcVM9vU1QoY7KM0SZa5lyw8M0d"/>
+        <env name="TP_DOMAIN" value="dev.trfc.link"/>
+        <env name="TP_USER_ID" value="125"/>
+        <env name="TP_USER_TOKEN" value="MkmFJGQJlCyAuFWkkIiG"/>
     </php>
 </phpunit>

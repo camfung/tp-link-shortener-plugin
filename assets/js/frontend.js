@@ -62,6 +62,11 @@
             this.bindEvents();
             this.checkClipboardSupport();
             this.checkReturningVisitor();
+
+            // Search for existing links by IP for anonymous users
+            if (!tpAjax.isLoggedIn) {
+                this.searchByIP();
+            }
         },
 
         /**
@@ -1162,6 +1167,188 @@
             this.hideResult();
             this.enableForm();
             this.isReturningVisitor = false;
+        },
+
+        /**
+         * Search for user's most recent link by IP
+         */
+        searchByIP: function() {
+            const self = this;
+
+            $.ajax({
+                url: tpAjax.ajaxUrl,
+                type: 'POST',
+                data: {
+                    action: 'tp_search_by_ip',
+                    nonce: tpAjax.nonce
+                },
+                success: function(response) {
+                    if (response.success && response.data.record) {
+                        const record = response.data.record;
+                        self.displayExistingLink(record);
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.log('IP search failed:', error);
+                }
+            });
+        },
+
+        /**
+         * Display existing link with countdown
+         */
+        displayExistingLink: function(record) {
+            // Build the short URL
+            const shortUrl = 'https://' + record.domain + '/' + record.tpKey;
+
+            // Store data
+            this.lastShortUrl = shortUrl;
+            this.$shortUrlOutput.val(shortUrl);
+
+            // Set destination in form for updating
+            this.$destinationInput.val(record.destination);
+
+            // Store record details for updates
+            this.currentRecord = record;
+
+            // Show result section
+            this.showSuccess(__('Your most recent link:', 'tp-link-shortener'));
+            this.$resultSection.slideDown(300);
+
+            // Generate QR code
+            this.generateQRCode(shortUrl);
+
+            // If link has expiry, start countdown
+            if (record.expires_at) {
+                this.startExpiryCountdown(record.expires_at);
+            }
+
+            // Show update button for anonymous users
+            if (!tpAjax.isLoggedIn) {
+                this.showUpdateButton();
+            }
+        },
+
+        /**
+         * Show update button for anonymous users
+         */
+        showUpdateButton: function() {
+            if ($('#tp-update-btn').length === 0) {
+                const updateBtn = $('<button>')
+                    .attr('type', 'button')
+                    .attr('id', 'tp-update-btn')
+                    .addClass('btn btn-primary mt-3')
+                    .html('<i class="fas fa-edit me-2"></i>' + __('Update Link', 'tp-link-shortener'));
+
+                this.$resultSection.append(updateBtn);
+
+                const self = this;
+                updateBtn.on('click', function() {
+                    self.updateLink();
+                });
+            }
+        },
+
+        /**
+         * Update existing link
+         */
+        updateLink: function() {
+            if (!this.currentRecord || !this.currentRecord.mid) {
+                this.showError(__('No link to update.', 'tp-link-shortener'));
+                return;
+            }
+
+            const newDestination = this.$destinationInput.val().trim();
+
+            if (!newDestination) {
+                this.showError(__('Please enter a destination URL.', 'tp-link-shortener'));
+                return;
+            }
+
+            this.$loading.show();
+
+            const self = this;
+
+            $.ajax({
+                url: tpAjax.ajaxUrl,
+                type: 'POST',
+                data: {
+                    action: 'tp_update_link',
+                    nonce: tpAjax.nonce,
+                    mid: this.currentRecord.mid,
+                    destination: newDestination,
+                    domain: this.currentRecord.domain
+                },
+                success: function(response) {
+                    self.$loading.hide();
+
+                    if (response.success) {
+                        self.showSuccess(__('Link updated successfully!', 'tp-link-shortener'));
+                        // Update the stored record
+                        self.currentRecord.destination = newDestination;
+                    } else {
+                        self.showError(response.data.message || __('Failed to update link.', 'tp-link-shortener'));
+                    }
+                },
+                error: function(xhr, status, error) {
+                    self.$loading.hide();
+                    self.showError(__('An error occurred while updating the link.', 'tp-link-shortener'));
+                }
+            });
+        },
+
+        /**
+         * Start expiry countdown timer
+         */
+        startExpiryCountdown: function(expiresAt) {
+            // Clear any existing timer
+            this.stopExpiryCountdown();
+
+            const expiryDate = new Date(expiresAt);
+            const self = this;
+
+            // Show expiry row
+            $('#tp-expiry-row').show();
+
+            function updateCountdown() {
+                const now = new Date();
+                const timeLeft = expiryDate - now;
+
+                if (timeLeft <= 0) {
+                    $('#tp-expiry-timer').text(__('Expired', 'tp-link-shortener'));
+                    self.stopExpiryCountdown();
+                    self.showError(__('This link has expired.', 'tp-link-shortener'));
+                    return;
+                }
+
+                const hours = Math.floor(timeLeft / (1000 * 60 * 60));
+                const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+
+                const formatted =
+                    String(hours).padStart(2, '0') + ':' +
+                    String(minutes).padStart(2, '0') + ':' +
+                    String(seconds).padStart(2, '0');
+
+                $('#tp-expiry-timer').text(formatted);
+            }
+
+            // Update immediately
+            updateCountdown();
+
+            // Update every second
+            this.expiryTimer = setInterval(updateCountdown, 1000);
+        },
+
+        /**
+         * Stop expiry countdown timer
+         */
+        stopExpiryCountdown: function() {
+            if (this.expiryTimer) {
+                clearInterval(this.expiryTimer);
+                this.expiryTimer = null;
+            }
+            $('#tp-expiry-row').hide();
         }
     };
 
