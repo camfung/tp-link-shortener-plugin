@@ -108,8 +108,8 @@
 
             // Initialize URLValidator with current user authentication status
             this.urlValidator = new URLValidator({
-                isUserRegistered: tpLinkShortener.isLoggedIn || false,
-                proxyUrl: tpLinkShortener.ajaxUrl + '?action=tp_validate_url',
+                isUserRegistered: tpAjax.isLoggedIn || false,
+                proxyUrl: tpAjax.ajaxUrl + '?action=tp_validate_url',
                 timeout: 10000
             });
 
@@ -226,7 +226,7 @@
 
             // Validate URL format
             if (!this.validateUrl(destination)) {
-                this.showError(tpLinkShortener.strings.invalidUrl);
+                this.showError(tpAjax.strings.invalidUrl);
                 return;
             }
 
@@ -248,7 +248,7 @@
             // Prepare data
             const data = {
                 action: 'tp_create_link',
-                nonce: tpLinkShortener.nonce,
+                nonce: tpAjax.nonce,
                 destination: destination,
                 custom_key: customKey
             };
@@ -259,7 +259,7 @@
 
             // Send AJAX request
             $.ajax({
-                url: tpLinkShortener.ajaxUrl,
+                url: tpAjax.ajaxUrl,
                 type: 'POST',
                 data: data,
                 success: this.handleSuccess.bind(this),
@@ -316,7 +316,7 @@
                 }
 
                 // Start expiry countdown for non-logged-in users
-                if (!tpLinkShortener.isLoggedIn) {
+                if (!tpAjax.isLoggedIn) {
                     this.startExpiryCountdown();
                 }
 
@@ -334,7 +334,7 @@
                 if (response.data && response.data.error_type === 'rate_limit') {
                     this.showRateLimitError(response.data.message);
                 } else {
-                    this.showError(response.data.message || tpLinkShortener.strings.error);
+                    this.showError(response.data.message || tpAjax.strings.error);
                 }
             }
         },
@@ -344,7 +344,7 @@
          */
         handleError: function(xhr, status, error) {
             console.error('AJAX Error:', error);
-            this.showError(tpLinkShortener.strings.error);
+            this.showError(tpAjax.strings.error);
         },
 
         /**
@@ -795,11 +795,11 @@
 
             // Send AJAX request to capture screenshot
             $.ajax({
-                url: tpLinkShortener.ajaxUrl,
+                url: tpAjax.ajaxUrl,
                 type: 'POST',
                 data: {
                     action: 'tp_capture_screenshot',
-                    nonce: tpLinkShortener.nonce,
+                    nonce: tpAjax.nonce,
                     url: url
                 },
                 success: function(response) {
@@ -874,7 +874,7 @@
 
             // Visual feedback
             const originalText = this.$copyBtn.html();
-            const copiedLabel = tpLinkShortener.strings.copied || 'Copied!';
+            const copiedLabel = tpAjax.strings.copied || 'Copied!';
             this.$copyBtn.html('<i class="fas fa-check me-2"></i>' + copiedLabel);
 
             setTimeout(function() {
@@ -942,7 +942,7 @@
          * Show stored link with countdown
          */
         showStoredLink: function(storedData) {
-            const domain = tpLinkShortener.domain || 'tp.local';
+            const domain = tpAjax.domain || 'tp.local';
             const shortUrl = 'https://' + domain + '/' + storedData.shortcode;
 
             // Pre-fill form inputs with stored data
@@ -969,7 +969,7 @@
             this.restoreScreenshot(storedData.screenshot);
 
             // Only disable the form for non-logged-in users (trial users)
-            if (!tpLinkShortener.isLoggedIn) {
+            if (!tpAjax.isLoggedIn) {
                 this.disableForm();
 
                 // Show returning visitor message with countdown for trial users
