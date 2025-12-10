@@ -1212,8 +1212,7 @@
             this.currentRecord = record;
 
             // Show result section
-            this.showSuccess('Your most recent link:');
-            this.$resultSection.slideDown(300);
+            this.showResult();
 
             // Generate QR code
             this.generateQRCode(shortUrl);
