@@ -1164,6 +1164,9 @@
             // Generate QR code
             this.generateQRCode(shortUrl);
 
+            // Always capture fresh screenshot from API
+            this.captureScreenshot(record.destination);
+
             // If link has expiry, start countdown
             if (record.expires_at) {
                 this.startExpiryCountdown(record.expires_at);
