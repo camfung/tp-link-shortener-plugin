@@ -1172,10 +1172,10 @@
                 this.startExpiryCountdown(record.expires_at);
             }
 
-            // Show update button for anonymous users
-            if (!tpAjax.isLoggedIn) {
-                this.showUpdateButton();
-            }
+            // Hide update button for now (temporarily disabled)
+            // if (!tpAjax.isLoggedIn) {
+            //     this.showUpdateButton();
+            // }
         },
 
         /**
