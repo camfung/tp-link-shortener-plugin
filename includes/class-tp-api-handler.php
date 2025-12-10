@@ -19,6 +19,8 @@ use TrafficPortal\Exception\RateLimitException;
 use TrafficPortal\Exception\ApiException;
 use SnapCapture\SnapCaptureClient;
 use SnapCapture\DTO\ScreenshotRequest;
+use SnapCapture\Cache\ScreenshotCache;
+use SnapCapture\Cache\WordPressCacheAdapter;
 use ShortCode\GenerateShortCodeClient;
 use ShortCode\DTO\GenerateShortCodeRequest;
 use ShortCode\Exception\ApiException as ShortCodeApiException;
@@ -36,6 +38,11 @@ class TP_API_Handler {
      * SnapCapture Client instance
      */
     private $snapcapture_client;
+
+    /**
+     * Screenshot Cache instance
+     */
+    private $screenshot_cache;
 
     /**
      * AI Short Code Client instance
@@ -119,6 +126,11 @@ class TP_API_Handler {
         $logger = new \SnapCapture\Logger($log_file, true, \SnapCapture\Logger::LEVEL_DEBUG);
 
         $this->snapcapture_client = new SnapCaptureClient($snapcapture_api_key, null, 30, $logger);
+
+        // Initialize screenshot cache with WordPress adapter
+        // Cache screenshots for 7 days (604800 seconds)
+        $cacheAdapter = new WordPressCacheAdapter('snapcap_');
+        $this->screenshot_cache = new ScreenshotCache($cacheAdapter, 604800);
     }
 
     /**
@@ -727,13 +739,34 @@ class TP_API_Handler {
         try {
             error_log('TP Link Shortener: Creating screenshot request for: ' . $url);
 
-            // Create desktop screenshot request
-            $request = ScreenshotRequest::desktop($url);
+            // Check cache first
+            $options = ['viewport' => 'desktop', 'format' => 'jpeg'];
+            $cachedScreenshot = null;
 
-            // Capture screenshot (returns base64 by default for easier transmission)
-            $response = $this->snapcapture_client->captureScreenshot($request, true);
+            if (isset($this->screenshot_cache)) {
+                $cachedScreenshot = $this->screenshot_cache->get($url, $options);
+            }
 
-            error_log('TP Link Shortener: Screenshot captured successfully');
+            if ($cachedScreenshot !== null) {
+                error_log('TP Link Shortener: Screenshot found in cache');
+                $response = $cachedScreenshot;
+            } else {
+                error_log('TP Link Shortener: Screenshot not in cache, fetching from API');
+
+                // Create desktop screenshot request
+                $request = ScreenshotRequest::desktop($url);
+
+                // Capture screenshot (returns base64 by default for easier transmission)
+                $response = $this->snapcapture_client->captureScreenshot($request, true);
+
+                // Cache the screenshot
+                if (isset($this->screenshot_cache)) {
+                    $this->screenshot_cache->set($url, $response, $options);
+                    error_log('TP Link Shortener: Screenshot cached successfully');
+                }
+
+                error_log('TP Link Shortener: Screenshot captured successfully');
+            }
 
             return array(
                 'success' => true,
@@ -743,7 +776,8 @@ class TP_API_Handler {
                     'content_type' => $response->getContentType(),
                     'cached' => $response->isCached(),
                     'response_time_ms' => $response->getResponseTimeMs(),
-                    'url' => $url
+                    'url' => $url,
+                    'server_cached' => $cachedScreenshot !== null
                 )
             );
 
