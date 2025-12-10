@@ -667,6 +667,10 @@ form .tp-plain-input:focus,
     margin: 1em 0;
 }
 
+.tp-result-section {
+    margin: 1em 0;
+}
+
 /* Keyframe animation for initial slide */
 @keyframes slideDown {
     from {
