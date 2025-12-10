@@ -850,7 +850,7 @@ class TP_API_Handler {
     public function ajax_update_link() {
         try {
             // Verify nonce
-            check_ajax_referer('tp-link-shortener-nonce', 'nonce');
+            check_ajax_referer('tp_link_shortener_nonce', 'nonce');
 
             // Get parameters
             $mid = isset($_POST['mid']) ? intval($_POST['mid']) : 0;
