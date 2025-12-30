@@ -189,7 +189,7 @@
          * Request a Gemini-generated shortcode suggestion and populate the keyword field
          */
         fetchGeminiSuggestion: function(destination) {
-            if (!tpLinkShortener.useGemini) {
+            if (!tpAjax.useGemini) {
                 return;
             }
 
@@ -222,11 +222,11 @@
             this.$customKeyInput.attr('placeholder', 'Generating magic keyword...');
 
             $.ajax({
-                url: tpLinkShortener.ajaxUrl,
+                url: tpAjax.ajaxUrl,
                 type: 'POST',
                 data: {
                     action: 'tp_generate_shortcode',
-                    nonce: tpLinkShortener.nonce,
+                    nonce: tpAjax.nonce,
                     destination: sanitizedDestination
                 },
                 success: function(response) {
