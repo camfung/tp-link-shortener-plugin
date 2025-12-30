@@ -15,7 +15,6 @@
         $customKeyInput: null,
         $loading: null,
         $errorMessage: null,
-        $successMessage: null,
         $resultSection: null,
         $shortUrlOutput: null,
         $copyBtn: null,
@@ -27,6 +26,7 @@
         $returningVisitorMessage: null,
         $validationMessage: null,
         $saveLinkReminder: null,
+        snackbarTimer: null,
 
         // State
         qrCode: null,
@@ -64,6 +64,11 @@
             this.bindEvents();
             this.checkClipboardSupport();
             this.checkReturningVisitor();
+
+            // Search for existing links by IP for anonymous users
+            if (!tpAjax.isLoggedIn) {
+                this.searchByIP();
+            }
         },
 
         /**
@@ -77,7 +82,6 @@
             this.$customKeyGroup = $('.tp-custom-key-group');
             this.$loading = $('#tp-loading');
             this.$errorMessage = $('#tp-error-message');
-            this.$successMessage = $('#tp-success-message');
             this.$resultSection = $('#tp-result-section');
             this.$shortUrlOutput = $('#tp-short-url-output');
             this.$copyBtn = $('#tp-copy-btn');
@@ -109,8 +113,8 @@
 
             // Initialize URLValidator with current user authentication status
             this.urlValidator = new URLValidator({
-                isUserRegistered: tpLinkShortener.isLoggedIn || false,
-                proxyUrl: tpLinkShortener.ajaxUrl + '?action=tp_validate_url',
+                isUserRegistered: tpAjax.isLoggedIn || false,
+                proxyUrl: tpAjax.ajaxUrl + '?action=tp_validate_url',
                 timeout: 10000
             });
 
@@ -125,6 +129,13 @@
          * Handle URL validation result
          */
         handleValidationResult: function(result, url) {
+            // Check if protocol was updated (HTTPS -> HTTP fallback)
+            if (result.protocolUpdated && result.updatedUrl) {
+                // Update the input field with the HTTP URL
+                this.$destinationInput.val(result.updatedUrl);
+                console.log('TP Link Shortener: URL protocol updated from HTTPS to HTTP:', result.updatedUrl);
+            }
+
             // Update UI based on validation result
             if (result.isError) {
                 this.isValid = false;
@@ -289,7 +300,7 @@
 
             // Validate URL format
             if (!this.validateUrl(destination)) {
-                this.showError(tpLinkShortener.strings.invalidUrl);
+                this.showError(tpAjax.strings.invalidUrl);
                 return;
             }
 
@@ -311,7 +322,7 @@
             // Prepare data
             const data = {
                 action: 'tp_create_link',
-                nonce: tpLinkShortener.nonce,
+                nonce: tpAjax.nonce,
                 destination: destination,
                 custom_key: customKey
             };
@@ -322,7 +333,7 @@
 
             // Send AJAX request
             $.ajax({
-                url: tpLinkShortener.ajaxUrl,
+                url: tpAjax.ajaxUrl,
                 type: 'POST',
                 data: data,
                 success: this.handleSuccess.bind(this),
@@ -352,7 +363,7 @@
                     // Ignore
                 }
 
-                // Save to local storage (screenshot will be added later when captured)
+                // Save to local storage (screenshots always fetched fresh from API)
                 if (window.TPStorageService && window.TPStorageService.isAvailable()) {
                     window.TPStorageService.saveShortcodeData({
                         shortcode: key,
@@ -360,7 +371,7 @@
                         expiresInHours: 24,
                         uid: uid
                     });
-                    console.log('TP Link Shortener: Shortcode data saved to localStorage (screenshot pending)');
+                    console.log('TP Link Shortener: Shortcode data saved to localStorage');
                 }
 
                 // Display result
@@ -379,7 +390,7 @@
                 }
 
                 // Start expiry countdown for non-logged-in users
-                if (!tpLinkShortener.isLoggedIn) {
+                if (!tpAjax.isLoggedIn) {
                     this.startExpiryCountdown();
                 }
 
@@ -397,7 +408,7 @@
                 if (response.data && response.data.error_type === 'rate_limit') {
                     this.showRateLimitError(response.data.message);
                 } else {
-                    this.showError(response.data.message || tpLinkShortener.strings.error);
+                    this.showError(response.data.message || tpAjax.strings.error);
                 }
             }
         },
@@ -407,7 +418,7 @@
          */
         handleError: function(xhr, status, error) {
             console.error('AJAX Error:', error);
-            this.showError(tpLinkShortener.strings.error);
+            this.showError(tpAjax.strings.error);
         },
 
         /**
@@ -735,24 +746,47 @@
         },
 
         /**
-         * Show success message
+         * Show snackbar notification
          */
-        showSuccessMessage: function() {
-            this.$successMessage.removeClass('d-none');
-        },
+        showSnackbar: function(message, duration) {
+            duration = duration || 3000; // Default 3 seconds
 
-        /**
-         * Hide success message
-         */
-        hideSuccessMessage: function() {
-            this.$successMessage.addClass('d-none');
+            // Remove any existing snackbar
+            $('.tp-snackbar').remove();
+
+            // Clear any existing timer
+            if (this.snackbarTimer) {
+                clearTimeout(this.snackbarTimer);
+                this.snackbarTimer = null;
+            }
+
+            // Create snackbar element
+            const $snackbar = $('<div>')
+                .addClass('tp-snackbar')
+                .html('<i class="fas fa-check-circle"></i><span>' + message + '</span>')
+                .appendTo('body');
+
+            // Trigger reflow to ensure animation plays
+            $snackbar[0].offsetHeight;
+
+            // Show snackbar
+            $snackbar.addClass('tp-snackbar-show');
+
+            // Auto-hide after duration
+            this.snackbarTimer = setTimeout(function() {
+                $snackbar.removeClass('tp-snackbar-show');
+                // Remove from DOM after animation completes
+                setTimeout(function() {
+                    $snackbar.remove();
+                }, 400); // Match transition duration
+            }, duration);
         },
 
         /**
          * Show result section
          */
         showResult: function() {
-            this.showSuccessMessage();
+            this.showSnackbar('Link created successfully!');
             this.$resultSection.removeClass('d-none');
         },
 
@@ -760,7 +794,6 @@
          * Hide result section
          */
         hideResult: function() {
-            this.hideSuccessMessage();
             this.$resultSection.addClass('d-none');
             this.hideQRSection();
             this.stopExpiryCountdown();
@@ -858,11 +891,11 @@
 
             // Send AJAX request to capture screenshot
             $.ajax({
-                url: tpLinkShortener.ajaxUrl,
+                url: tpAjax.ajaxUrl,
                 type: 'POST',
                 data: {
                     action: 'tp_capture_screenshot',
-                    nonce: tpLinkShortener.nonce,
+                    nonce: tpAjax.nonce,
                     url: url
                 },
                 success: function(response) {
@@ -877,31 +910,7 @@
                         $screenshotImg.show();
                         $screenshotPreview.removeClass('tp-screenshot-loading').addClass('tp-screenshot-loaded');
 
-                        // Save screenshot to localStorage for returning visitors
-                        if (window.TPStorageService && window.TPStorageService.isAvailable()) {
-                            const storedData = window.TPStorageService.getShortcodeData();
-                            if (storedData && !storedData.isExpired) {
-                                // Calculate remaining hours until expiration
-                                const remainingMs = storedData.expiration - Date.now();
-                                const remainingHours = Math.max(0, remainingMs / (1000 * 60 * 60));
-
-                                // Update existing stored data with screenshot
-                                window.TPStorageService.saveShortcodeData({
-                                    shortcode: storedData.shortcode,
-                                    destination: storedData.destination,
-                                    expiresInHours: remainingHours,
-                                    uid: storedData.uid,
-                                    screenshot: response.data.data_uri
-                                });
-
-                                console.log('TP Link Shortener: Screenshot saved to localStorage', {
-                                    screenshotLength: response.data.data_uri.length,
-                                    remainingHours: remainingHours.toFixed(2)
-                                });
-                            } else {
-                                console.warn('TP Link Shortener: No valid stored data found to update with screenshot');
-                            }
-                        }
+                        // Screenshot caching removed - always fetch fresh from API
 
                         // Log additional info
                         if (response.data.cached) {
@@ -937,7 +946,7 @@
 
             // Visual feedback
             const originalText = this.$copyBtn.html();
-            const copiedLabel = tpLinkShortener.strings.copied || 'Copied!';
+            const copiedLabel = tpAjax.strings.copied || 'Copied!';
             this.$copyBtn.html('<i class="fas fa-check me-2"></i>' + copiedLabel);
 
             setTimeout(function() {
@@ -1005,7 +1014,7 @@
          * Show stored link with countdown
          */
         showStoredLink: function(storedData) {
-            const domain = tpLinkShortener.domain || 'tp.local';
+            const domain = tpAjax.domain || 'tp.local';
             const shortUrl = 'https://' + domain + '/' + storedData.shortcode;
 
             // Pre-fill form inputs with stored data
@@ -1028,11 +1037,11 @@
             // Generate QR code
             this.generateQRCode(shortUrl);
 
-            // Restore screenshot if available
-            this.restoreScreenshot(storedData.screenshot);
+            // Always capture fresh screenshot from API
+            this.captureScreenshot(storedData.destination);
 
             // Only disable the form for non-logged-in users (trial users)
-            if (!tpLinkShortener.isLoggedIn) {
+            if (!tpAjax.isLoggedIn) {
                 this.disableForm();
 
                 // Show returning visitor message with countdown for trial users
@@ -1050,35 +1059,6 @@
             }
         },
 
-        /**
-         * Restore screenshot from localStorage
-         */
-        restoreScreenshot: function(screenshotDataUri) {
-            if (!screenshotDataUri) {
-                console.log('TP Link Shortener: No cached screenshot found');
-                return;
-            }
-
-            console.log('TP Link Shortener: Restoring screenshot from localStorage');
-
-            const $screenshotPreview = $('.tp-screenshot-preview');
-            const $screenshotImg = $screenshotPreview.find('.tp-screenshot-img');
-
-            if (!$screenshotImg.length) {
-                console.warn('TP Link Shortener: Screenshot preview element not found');
-                return;
-            }
-
-            // Set the cached screenshot
-            $screenshotImg.attr('src', screenshotDataUri);
-            $screenshotImg.attr('alt', 'Cached screenshot');
-
-            // Show the image and hide spinner
-            $screenshotImg.show();
-            $screenshotPreview.removeClass('tp-screenshot-loading').addClass('tp-screenshot-loaded');
-
-            console.log('TP Link Shortener: Screenshot restored from cache');
-        },
 
         /**
          * Show returning visitor message
@@ -1230,6 +1210,189 @@
             this.hideResult();
             this.enableForm();
             this.isReturningVisitor = false;
+        },
+
+        /**
+         * Search for user's most recent link by IP
+         */
+        searchByIP: function() {
+            const self = this;
+
+            $.ajax({
+                url: tpAjax.ajaxUrl,
+                type: 'POST',
+                data: {
+                    action: 'tp_search_by_ip',
+                    nonce: tpAjax.nonce
+                },
+                success: function(response) {
+                    if (response.success && response.data.record) {
+                        const record = response.data.record;
+                        self.displayExistingLink(record);
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.log('IP search failed:', error);
+                }
+            });
+        },
+
+        /**
+         * Display existing link with countdown
+         */
+        displayExistingLink: function(record) {
+            // Build the short URL
+            const shortUrl = 'https://' + record.domain + '/' + record.tpKey;
+
+            // Store data
+            this.lastShortUrl = shortUrl;
+            this.$shortUrlOutput.val(shortUrl);
+
+            // Set destination in form for updating
+            this.$destinationInput.val(record.destination);
+
+            // Store record details for updates
+            this.currentRecord = record;
+
+            // Show result section
+            this.showResult();
+
+            // Generate QR code
+            this.generateQRCode(shortUrl);
+
+            // Always capture fresh screenshot from API
+            this.captureScreenshot(record.destination);
+
+            // If link has expiry, start countdown
+            if (record.expires_at) {
+                this.startExpiryCountdown(record.expires_at);
+            }
+
+            if (!tpAjax.isLoggedIn) {
+                this.showUpdateButton();
+            }
+        },
+
+        /**
+         * Show update button for anonymous users
+         */
+        showUpdateButton: function() {
+            if ($('#tp-update-btn').length === 0) {
+                const updateBtn = $('<button>')
+                    .attr('type', 'button')
+                    .attr('id', 'tp-update-btn')
+                    .addClass('btn btn-primary mt-3')
+                    .html('<i class="fas fa-edit me-2"></i>' + 'Update Link');
+
+                this.$resultSection.append(updateBtn);
+
+                const self = this;
+                updateBtn.on('click', function() {
+                    self.updateLink();
+                });
+            }
+        },
+
+        /**
+         * Update existing link
+         */
+        updateLink: function() {
+            if (!this.currentRecord || !this.currentRecord.mid) {
+                this.showError('No link to update.');
+                return;
+            }
+
+            const newDestination = this.$destinationInput.val().trim();
+
+            if (!newDestination) {
+                this.showError('Please enter a destination URL.');
+                return;
+            }
+
+            this.$loading.show();
+
+            const self = this;
+
+            $.ajax({
+                url: tpAjax.ajaxUrl,
+                type: 'POST',
+                data: {
+                    action: 'tp_update_link',
+                    nonce: tpAjax.nonce,
+                    mid: this.currentRecord.mid,
+                    destination: newDestination,
+                    domain: this.currentRecord.domain
+                },
+                success: function(response) {
+                    self.$loading.hide();
+
+                    if (response.success) {
+                        self.showSuccess('Link updated successfully!');
+                        // Update the stored record
+                        self.currentRecord.destination = newDestination;
+                    } else {
+                        self.showError(response.data.message || 'Failed to update link.');
+                    }
+                },
+                error: function(xhr, status, error) {
+                    self.$loading.hide();
+                    self.showError('An error occurred while updating the link.');
+                }
+            });
+        },
+
+        /**
+         * Start expiry countdown timer
+         */
+        startExpiryCountdown: function(expiresAt) {
+            // Clear any existing timer
+            this.stopExpiryCountdown();
+
+            const expiryDate = new Date(expiresAt);
+            const self = this;
+
+            // Show expiry row
+            $('#tp-expiry-row').show();
+
+            function updateCountdown() {
+                const now = new Date();
+                const timeLeft = expiryDate - now;
+
+                if (timeLeft <= 0) {
+                    $('#tp-expiry-timer').text('Expired');
+                    self.stopExpiryCountdown();
+                    self.showError('This link has expired.');
+                    return;
+                }
+
+                const hours = Math.floor(timeLeft / (1000 * 60 * 60));
+                const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+
+                const formatted =
+                    String(hours).padStart(2, '0') + ':' +
+                    String(minutes).padStart(2, '0') + ':' +
+                    String(seconds).padStart(2, '0');
+
+                $('#tp-expiry-timer').text(formatted);
+            }
+
+            // Update immediately
+            updateCountdown();
+
+            // Update every second
+            this.expiryTimer = setInterval(updateCountdown, 1000);
+        },
+
+        /**
+         * Stop expiry countdown timer
+         */
+        stopExpiryCountdown: function() {
+            if (this.expiryTimer) {
+                clearInterval(this.expiryTimer);
+                this.expiryTimer = null;
+            }
+            $('#tp-expiry-row').hide();
         }
     };
 

@@ -1,0 +1,503 @@
+{
+	"info": {
+		"_postman_id": "a7b3e4c9-8f2d-4e5a-9c3b-1d6e8a4f7b2c",
+		"name": "TrafficPortal - Link Expiry API",
+		"description": "Complete API collection for TrafficPortal Link Expiry Management including create, update, bulk operations, and search functionality.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Create Link",
+			"item": [
+				{
+					"name": "Create Link - Logged In User (No Expiry)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "x-api-key",
+								"value": "{{API_KEY}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"uid\": 125,\n  \"domain\": \"{{DOMAIN}}\",\n  \"tpKey\": \"mylink-{{$randomInt}}\",\n  \"destination\": \"https://example.com\",\n  \"type\": \"redirect\",\n  \"is_set\": 0,\n  \"status\": \"active\",\n  \"tags\": \"\",\n  \"notes\": \"Created by logged-in user, never expires\",\n  \"settings\": \"{}\",\n  \"cache_content\": 0\n}"
+						},
+						"url": {
+							"raw": "{{API_ENDPOINT}}/items",
+							"host": [
+								"{{API_ENDPOINT}}"
+							],
+							"path": [
+								"items"
+							]
+						},
+						"description": "Create a shortlink for logged-in user. By default, links never expire for logged-in users."
+					},
+					"response": []
+				},
+				{
+					"name": "Create Link - With Expiry Date",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "x-api-key",
+								"value": "{{API_KEY}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"uid\": 125,\n  \"domain\": \"{{DOMAIN}}\",\n  \"tpKey\": \"temp-link-{{$randomInt}}\",\n  \"destination\": \"https://example.com/temporary\",\n  \"type\": \"redirect\",\n  \"is_set\": 0,\n  \"status\": \"active\",\n  \"tags\": \"temporary\",\n  \"notes\": \"Link expires in 30 days\",\n  \"settings\": \"{}\",\n  \"cache_content\": 0,\n  \"expires_at\": \"2025-12-31 23:59:59\"\n}"
+						},
+						"url": {
+							"raw": "{{API_ENDPOINT}}/items",
+							"host": [
+								"{{API_ENDPOINT}}"
+							],
+							"path": [
+								"items"
+							]
+						},
+						"description": "Create a shortlink with a specific expiry date. The link will be automatically deleted after this date."
+					},
+					"response": []
+				},
+				{
+					"name": "Create Link - Anonymous User (Auto Expiry)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "x-api-key",
+								"value": "{{API_KEY}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"uid\": -1,\n  \"domain\": \"{{DOMAIN}}\",\n  \"tpKey\": \"anon-{{$randomInt}}\",\n  \"destination\": \"https://example.com/anonymous\",\n  \"type\": \"redirect\",\n  \"is_set\": 0,\n  \"status\": \"intro\",\n  \"tags\": \"\",\n  \"notes\": \"Anonymous user link\",\n  \"settings\": \"{}\",\n  \"cache_content\": 0\n}"
+						},
+						"url": {
+							"raw": "{{API_ENDPOINT}}/items",
+							"host": [
+								"{{API_ENDPOINT}}"
+							],
+							"path": [
+								"items"
+							]
+						},
+						"description": "Create a shortlink for anonymous user (uid=-1). API automatically sets 24-hour expiry. Note: Anonymous users can only create 1 link."
+					},
+					"response": []
+				}
+			],
+			"description": "Create new shortlinks with various expiry configurations"
+		},
+		{
+			"name": "Retrieve Link",
+			"item": [
+				{
+					"name": "Get Link by Key",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "x-api-key",
+								"value": "{{API_KEY}}"
+							}
+						],
+						"url": {
+							"raw": "{{API_ENDPOINT}}/items/:tpKey?uid=125",
+							"host": [
+								"{{API_ENDPOINT}}"
+							],
+							"path": [
+								"items",
+								":tpKey"
+							],
+							"query": [
+								{
+									"key": "uid",
+									"value": "125",
+									"description": "User ID"
+								}
+							],
+							"variable": [
+								{
+									"key": "tpKey",
+									"value": "mylink",
+									"description": "The shortlink key to retrieve"
+								}
+							]
+						},
+						"description": "Retrieve a specific shortlink by its key. Returns the link details including expiry date if set."
+					},
+					"response": []
+				}
+			],
+			"description": "Retrieve existing shortlinks"
+		},
+		{
+			"name": "Update Link",
+			"item": [
+				{
+					"name": "Update Link - Add Expiry",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "x-api-key",
+								"value": "{{API_KEY}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"uid\": 125,\n  \"tpTkn\": \"{{USER_TOKEN}}\",\n  \"domain\": \"{{DOMAIN}}\",\n  \"destination\": \"https://example.com/updated\",\n  \"status\": \"active\",\n  \"is_set\": 0,\n  \"tags\": \"updated\",\n  \"notes\": \"Added expiry date\",\n  \"settings\": \"{}\",\n  \"expires_at\": \"2026-01-15 00:00:00\"\n}"
+						},
+						"url": {
+							"raw": "{{API_ENDPOINT}}/items/:mid",
+							"host": [
+								"{{API_ENDPOINT}}"
+							],
+							"path": [
+								"items",
+								":mid"
+							],
+							"variable": [
+								{
+									"key": "mid",
+									"value": "14244",
+									"description": "The masked record ID (mid)"
+								}
+							]
+						},
+						"description": "Update an existing link to add an expiry date."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Link - Remove Expiry",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "x-api-key",
+								"value": "{{API_KEY}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"uid\": 125,\n  \"tpTkn\": \"{{USER_TOKEN}}\",\n  \"domain\": \"{{DOMAIN}}\",\n  \"destination\": \"https://example.com/permanent\",\n  \"status\": \"active\",\n  \"is_set\": 0,\n  \"tags\": \"\",\n  \"notes\": \"Made permanent\",\n  \"settings\": \"{}\",\n  \"expires_at\": null\n}"
+						},
+						"url": {
+							"raw": "{{API_ENDPOINT}}/items/:mid",
+							"host": [
+								"{{API_ENDPOINT}}"
+							],
+							"path": [
+								"items",
+								":mid"
+							],
+							"variable": [
+								{
+									"key": "mid",
+									"value": "14244",
+									"description": "The masked record ID (mid)"
+								}
+							]
+						},
+						"description": "Update an existing link to remove expiry (make it permanent)."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Link - Change Destination",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "x-api-key",
+								"value": "{{API_KEY}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"uid\": 125,\n  \"tpTkn\": \"{{USER_TOKEN}}\",\n  \"domain\": \"{{DOMAIN}}\",\n  \"destination\": \"https://example.com/new-destination\",\n  \"status\": \"active\",\n  \"is_set\": 0,\n  \"tags\": \"\",\n  \"notes\": \"Updated destination URL\",\n  \"settings\": \"{}\",\n  \"expires_at\": \"2025-12-31 23:59:59\"\n}"
+						},
+						"url": {
+							"raw": "{{API_ENDPOINT}}/items/:mid",
+							"host": [
+								"{{API_ENDPOINT}}"
+							],
+							"path": [
+								"items",
+								":mid"
+							],
+							"variable": [
+								{
+									"key": "mid",
+									"value": "14244",
+									"description": "The masked record ID (mid)"
+								}
+							]
+						},
+						"description": "Update link destination while keeping expiry date."
+					},
+					"response": []
+				}
+			],
+			"description": "Update existing shortlinks"
+		},
+		{
+			"name": "Bulk Operations (Admin)",
+			"item": [
+				{
+					"name": "Bulk Update Expiry",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "x-api-key",
+								"value": "{{API_KEY}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"uid\": 125,\n  \"tpTkn\": \"{{USER_TOKEN}}\",\n  \"updates\": [\n    {\n      \"mid\": 14244,\n      \"expires_at\": \"2025-12-10 00:00:00\"\n    },\n    {\n      \"mid\": 14245,\n      \"expires_at\": null\n    },\n    {\n      \"mid\": 14246,\n      \"expires_at\": \"2025-12-15 12:00:00\"\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{API_ENDPOINT}}/items/expiry/bulk",
+							"host": [
+								"{{API_ENDPOINT}}"
+							],
+							"path": [
+								"items",
+								"expiry",
+								"bulk"
+							]
+						},
+						"description": "Bulk update expiry dates for multiple links at once. Admin only operation. Returns list of updated and failed record IDs."
+					},
+					"response": [
+						{
+							"name": "Bulk Update Success",
+							"originalRequest": {
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									},
+									{
+										"key": "x-api-key",
+										"value": "{{API_KEY}}"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"uid\": 125,\n  \"tpTkn\": \"{{USER_TOKEN}}\",\n  \"updates\": [\n    {\n      \"mid\": 1,\n      \"expires_at\": \"2025-12-10 00:00:00\"\n    },\n    {\n      \"mid\": 2,\n      \"expires_at\": null\n    },\n    {\n      \"mid\": 3,\n      \"expires_at\": \"2025-12-15 12:00:00\"\n    }\n  ]\n}"
+								},
+								"url": {
+									"raw": "{{API_ENDPOINT}}/items/expiry/bulk",
+									"host": [
+										"{{API_ENDPOINT}}"
+									],
+									"path": [
+										"items",
+										"expiry",
+										"bulk"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n  \"message\": \"Updated 3 records, 0 failed\",\n  \"source\": {\n    \"updated\": [1, 2, 3],\n    \"failed\": []\n  },\n  \"success\": true\n}"
+						}
+					]
+				}
+			],
+			"description": "Admin bulk operations"
+		},
+		{
+			"name": "Search (Admin)",
+			"item": [
+				{
+					"name": "Search by IP Address",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "x-api-key",
+								"value": "{{API_KEY}}"
+							},
+							{
+								"key": "uid",
+								"value": "125",
+								"description": "Admin user ID"
+							},
+							{
+								"key": "tpTkn",
+								"value": "{{USER_TOKEN}}",
+								"description": "Admin token"
+							}
+						],
+						"url": {
+							"raw": "{{API_ENDPOINT}}/items/by-ip/:ip_address",
+							"host": [
+								"{{API_ENDPOINT}}"
+							],
+							"path": [
+								"items",
+								"by-ip",
+								":ip_address"
+							],
+							"variable": [
+								{
+									"key": "ip_address",
+									"value": "192.168.1.100",
+									"description": "IP address to search for"
+								}
+							]
+						},
+						"description": "Search for all links created by a specific IP address. Admin only operation."
+					},
+					"response": [
+						{
+							"name": "Search by IP Success",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									},
+									{
+										"key": "x-api-key",
+										"value": "{{API_KEY}}"
+									},
+									{
+										"key": "uid",
+										"value": "125"
+									},
+									{
+										"key": "tpTkn",
+										"value": "{{USER_TOKEN}}"
+									}
+								],
+								"url": {
+									"raw": "{{API_ENDPOINT}}/items/by-ip/192.168.1.100",
+									"host": [
+										"{{API_ENDPOINT}}"
+									],
+									"path": [
+										"items",
+										"by-ip",
+										"192.168.1.100"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n  \"message\": \"Found 1 records for IP 192.168.1.100\",\n  \"source\": {\n    \"ip\": \"192.168.1.100\",\n    \"count\": 1,\n    \"records\": [\n      {\n        \"mid\": 14244,\n        \"tpKey\": \"testlink\",\n        \"domain\": \"dev.trfc.link\",\n        \"destination\": \"https://example.com\",\n        \"status\": \"intro\",\n        \"expires_at\": \"2025-12-08 03:31:29\",\n        \"created_by_ip\": \"192.168.1.100\",\n        \"updated_at\": \"2025-12-07 03:31:29\"\n      }\n    ]\n  },\n  \"success\": true\n}"
+						}
+					]
+				}
+			],
+			"description": "Admin search operations"
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "API_ENDPOINT",
+			"value": "https://ce7jzbocq1.execute-api.ca-central-1.amazonaws.com/dev",
+			"type": "string"
+		},
+		{
+			"key": "API_KEY",
+			"value": "q9D7lp99A818aVMcVM9vU1QoY7KM0SZa5lyw8M0d",
+			"type": "string"
+		},
+		{
+			"key": "DOMAIN",
+			"value": "dev.trfc.link",
+			"type": "string"
+		},
+		{
+			"key": "USER_TOKEN",
+			"value": "MkmFJGQJlCyAuFWkkIiG",
+			"type": "string"
+		}
+	]
+}

@@ -1,0 +1,81 @@
+{
+  "info": {
+    "_postman_id": "3e5d1c9a-9d9e-4b31-9b83-f0f6e6c27f5a",
+    "name": "SnapCapture API",
+    "description": "Postman collection matching the requests made by `includes/SnapCapture/SnapCaptureClient.php`. It includes the screenshot capture call (with optional JSON/base64 response) and the `/ping` health check.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Capture Screenshot (JSON/base64 response)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-RapidAPI-Key",
+            "value": "{{rapidApiKey}}",
+            "type": "text",
+            "description": "RapidAPI key used by the PHP client."
+          },
+          {
+            "key": "X-RapidAPI-Host",
+            "value": "snapcapture1.p.rapidapi.com",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"url\": \"https://example.com\",\n  \"format\": \"jpeg\",\n  \"quality\": 80,\n  \"viewport\": {\n    \"width\": 1920,\n    \"height\": 1080\n  },\n  \"fullPage\": false,\n  \"mobile\": false\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/screenshot?json=true",
+          "query": [
+            {
+              "key": "json",
+              "value": "true",
+              "description": "Match the `captureScreenshot` flag that requests a JSON response containing base64 data."
+            }
+          ]
+        },
+        "description": "Mirrors `SnapCaptureClient::captureScreenshot` with `$returnJson = true`. Remove the `json` query parameter to retrieve the binary image directly."
+      },
+      "response": []
+    },
+    {
+      "name": "Ping (Health Check)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-RapidAPI-Host",
+            "value": "snapcapture1.p.rapidapi.com",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/ping"
+        },
+        "description": "Matches `SnapCaptureClient::ping` for verifying API availability."
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://snapcapture1.p.rapidapi.com",
+      "type": "string",
+      "description": "API endpoint used by the PHP client."
+    },
+    {
+      "key": "rapidApiKey",
+      "value": "",
+      "type": "string",
+      "description": "Your RapidAPI key passed as `X-RapidAPI-Key`."
+    }
+  ]
+}

@@ -158,6 +158,20 @@ class URLValidator {
         return contentTypeValidation.result;
       }
 
+      // Check if protocol was updated (HTTPS -> HTTP fallback)
+      if (response.protocolUpdated) {
+        return this.createWarningResult(
+          URLValidator.ErrorTypes.REDIRECT_PERMANENT,
+          `URL changed from HTTPS to HTTP. ${response.updateReason || 'SSL certificate error detected.'}`,
+          URLValidator.BorderColors.WARNING,
+          {
+            updatedUrl: response.updatedUrl,
+            originalUrl: response.originalUrl,
+            protocolUpdated: true
+          }
+        );
+      }
+
       // All validations passed
       return this.createSuccessResult(
         'URL is valid and accessible.',
@@ -241,7 +255,7 @@ class URLValidator {
           throw new Error('Unable to reach the destination URL');
         }
 
-        // Create a mock Response-like object
+        // Create a mock Response-like object with protocol update info
         return {
           ok: data.ok,
           status: data.status,
@@ -256,7 +270,12 @@ class URLValidator {
               }
               return null;
             }
-          }
+          },
+          // Pass through protocol update information
+          protocolUpdated: data.protocol_updated || false,
+          updatedUrl: data.updated_url || null,
+          originalUrl: data.original_url || null,
+          updateReason: data.reason || null
         };
       }
 

@@ -24,6 +24,7 @@ class CreateMapRequest
     private string $notes;
     private string $settings;
     private int $cacheContent;
+    private ?string $expiresAt;
 
     /**
      * Constructor
@@ -39,6 +40,7 @@ class CreateMapRequest
      * @param string $notes Notes for the record (default: '')
      * @param string $settings Settings JSON string (default: '{}')
      * @param int $cacheContent Whether to cache content (0 or 1, default: 0)
+     * @param string|null $expiresAt Expiry datetime in 'Y-m-d H:i:s' format, or null for no expiry (default: null)
      */
     public function __construct(
         int $uid,
@@ -51,7 +53,8 @@ class CreateMapRequest
         string $tags = '',
         string $notes = '',
         string $settings = '{}',
-        int $cacheContent = 0
+        int $cacheContent = 0,
+        ?string $expiresAt = null
     ) {
         $this->uid = $uid;
         $this->tpKey = $tpKey;
@@ -64,6 +67,7 @@ class CreateMapRequest
         $this->notes = $notes;
         $this->settings = $settings;
         $this->cacheContent = $cacheContent;
+        $this->expiresAt = $expiresAt;
     }
 
     /**
@@ -73,7 +77,7 @@ class CreateMapRequest
      */
     public function toArray(): array
     {
-        return [
+        $data = [
             'uid' => $this->uid,
             'tpKey' => $this->tpKey,
             'domain' => $this->domain,
@@ -86,6 +90,12 @@ class CreateMapRequest
             'settings' => $this->settings,
             'cache_content' => $this->cacheContent,
         ];
+
+        if ($this->expiresAt !== null) {
+            $data['expires_at'] = $this->expiresAt;
+        }
+
+        return $data;
     }
 
     // Getters
@@ -100,4 +110,5 @@ class CreateMapRequest
     public function getNotes(): string { return $this->notes; }
     public function getSettings(): string { return $this->settings; }
     public function getCacheContent(): int { return $this->cacheContent; }
+    public function getExpiresAt(): ?string { return $this->expiresAt; }
 }

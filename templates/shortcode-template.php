@@ -56,15 +56,12 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                                 id="tp-destination"
                                 name="destination"
                                 class="form-control tp-form-control tp-plain-input"
-                                placeholder="http://ce-canada.ca/content/2025-09-15/ads/courses/?id=ERTGHHTTF"
+                                placeholder="<?php esc_attr_e('Paste the destination URL you want to shorten (e.g., https://example.com/your-page)', 'tp-link-shortener'); ?>"
                                 required
                                 autocomplete="off"
                                 maxlength="2000"
                                 aria-describedby="tp-destination-hint"
                             />
-                            <span class="tp-input-status" aria-hidden="true">
-                                <i class="fas fa-check"></i>
-                            </span>
                         </div>
                         <small id="tp-destination-hint" class="tp-field-hint">
                             <?php esc_html_e('Enter the full URL where this short link should redirect', 'tp-link-shortener'); ?>
@@ -125,10 +122,11 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                     </div>
                     <?php endif; ?>
 
-                    <!-- Success Message (hidden initially) -->
-                    <div id="tp-success-message" class="tp-success-message alert alert-success d-flex align-items-center gap-3 mb-4 d-none">
-                        <i class="fas fa-check-circle fs-4"></i>
-                        <span class="fw-semibold"><?php esc_html_e('Link created successfully!', 'tp-link-shortener'); ?></span>
+                    <div class="tp-submit-row">
+                        <button type="submit" class="btn tp-btn tp-btn-primary tp-cta-button w-100" id="tp-submit-btn">
+                            <i class="fas fa-link me-2"></i>
+                            <?php esc_html_e('Save the link and it never expires', 'tp-link-shortener'); ?>
+                        </button>
                     </div>
 
                     <!-- Result Section (hidden initially) -->
@@ -136,7 +134,7 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                         <div class="tp-result-grid">
                             <div class="tp-result-details">
                                 <?php if (!is_user_logged_in()): ?>
-                                <div class="tp-meta-row mb-3" id="tp-expiry-row">
+                                <div class="tp-meta-row mb-3" id="tmp-tp-expiry-row" style="display: none;">
                                     <div class="tp-meta-label">
                                         <?php esc_html_e('The link expires in', 'tp-link-shortener'); ?>
                                     </div>
@@ -194,13 +192,6 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
 
                     <!-- Error Message -->
                     <div id="tp-error-message" class="tp-error-message alert alert-danger d-none" role="alert"></div>
-
-                    <div class="tp-submit-row">
-                        <button type="submit" class="btn tp-btn tp-btn-primary tp-cta-button w-100" id="tp-submit-btn">
-                            <i class="fas fa-link me-2"></i>
-                            <?php esc_html_e('Save the link and it never expires', 'tp-link-shortener'); ?>
-                        </button>
-                    </div>
 
                     <div id="tp-save-link-reminder" class="tp-save-link-reminder d-none mt-3" role="status">
                         <span class="fw-semibold"><?php esc_html_e('Save the link and it never expires', 'tp-link-shortener'); ?></span>

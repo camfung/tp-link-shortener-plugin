@@ -92,7 +92,7 @@ class TP_Assets {
         );
 
         // Localize script with AJAX URL and settings
-        wp_localize_script('tp-link-shortener-js', 'tpLinkShortener', array(
+        wp_localize_script('tp-link-shortener-js', 'tpAjax', array(
             'ajaxUrl' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('tp_link_shortener_nonce'),
             'domain' => TP_Link_Shortener::get_domain(),

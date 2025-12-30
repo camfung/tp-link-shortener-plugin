@@ -131,6 +131,8 @@ class TP_API_Handler {
         add_action('wp_ajax_tp_validate_url', array($this, 'ajax_validate_url'));
         add_action('wp_ajax_tp_capture_screenshot', array($this, 'ajax_capture_screenshot'));
         add_action('wp_ajax_tp_generate_shortcode', array($this, 'ajax_generate_shortcode'));
+        add_action('wp_ajax_tp_search_by_ip', array($this, 'ajax_search_by_ip'));
+        add_action('wp_ajax_tp_update_link', array($this, 'ajax_update_link'));
 
         // For non-logged-in users
         add_action('wp_ajax_nopriv_tp_create_link', array($this, 'ajax_create_link'));
@@ -138,6 +140,8 @@ class TP_API_Handler {
         add_action('wp_ajax_nopriv_tp_validate_url', array($this, 'ajax_validate_url'));
         add_action('wp_ajax_nopriv_tp_capture_screenshot', array($this, 'ajax_capture_screenshot'));
         add_action('wp_ajax_nopriv_tp_generate_shortcode', array($this, 'ajax_generate_shortcode'));
+        add_action('wp_ajax_nopriv_tp_search_by_ip', array($this, 'ajax_search_by_ip'));
+        add_action('wp_ajax_nopriv_tp_update_link', array($this, 'ajax_update_link'));
     }
 
     /**
@@ -561,6 +565,7 @@ class TP_API_Handler {
     /**
      * AJAX handler for URL validation proxy (CORS bypass)
      * This endpoint proxies HEAD requests to validate URLs
+     * Implements automatic HTTP fallback for HTTPS URLs with SSL errors
      */
     public function ajax_validate_url() {
         // Get the URL to validate
@@ -598,11 +603,67 @@ class TP_API_Handler {
             'user-agent' => 'TP-Link-Shortener-Validator/1.0'
         ));
 
-        // Check for errors
+        // Check for errors - if HTTPS fails with SSL error, try HTTP fallback
         if (is_wp_error($response)) {
             $error_message = $response->get_error_message();
+            $is_https = $parsed_url['scheme'] === 'https';
 
-            // Return error response in format expected by URLValidator
+            // Check if this is an SSL-related error
+            $is_ssl_error = strpos($error_message, 'SSL') !== false ||
+                           strpos($error_message, 'certificate') !== false ||
+                           strpos($error_message, 'ssl') !== false;
+
+            // If HTTPS failed with SSL error, try HTTP fallback
+            if ($is_https && $is_ssl_error) {
+                error_log('TP Link Shortener: HTTPS failed with SSL error, trying HTTP fallback for: ' . $url);
+
+                // Convert to HTTP
+                $http_url = preg_replace('/^https:/', 'http:', $url);
+
+                // Try HTTP request
+                $http_response = wp_remote_head($http_url, array(
+                    'timeout' => 10,
+                    'redirection' => 0,
+                    'user-agent' => 'TP-Link-Shortener-Validator/1.0'
+                ));
+
+                // If HTTP succeeds, return success with protocol update flag
+                if (!is_wp_error($http_response)) {
+                    $http_status_code = wp_remote_retrieve_response_code($http_response);
+
+                    // Only use HTTP fallback if we get a successful response (2xx or 3xx)
+                    if ($http_status_code >= 200 && $http_status_code < 400) {
+                        $http_headers = wp_remote_retrieve_headers($http_response);
+
+                        // Convert headers to simple key-value array
+                        $headers_array = array();
+                        if (is_object($http_headers)) {
+                            $headers_array = $http_headers->getAll();
+                        } elseif (is_array($http_headers)) {
+                            $headers_array = $http_headers;
+                        }
+
+                        error_log('TP Link Shortener: HTTP fallback successful, returning updated URL');
+
+                        // Return response with protocol update flag
+                        header('Content-Type: application/json');
+                        echo json_encode(array(
+                            'ok' => true,
+                            'status' => $http_status_code,
+                            'headers' => $headers_array,
+                            'protocol_updated' => true,
+                            'updated_url' => $http_url,
+                            'original_url' => $url,
+                            'reason' => 'HTTPS failed with SSL error, HTTP works'
+                        ));
+                        wp_die();
+                    }
+                }
+
+                error_log('TP Link Shortener: HTTP fallback also failed for: ' . $url);
+            }
+
+            // Return original error response if no fallback worked
             header('Content-Type: application/json');
             http_response_code(500);
             echo json_encode(array(
@@ -766,6 +827,126 @@ class TP_API_Handler {
                 'message' => __('An unexpected error occurred while capturing screenshot.', 'tp-link-shortener'),
                 'debug_error' => $e->getMessage()
             );
+        }
+    }
+
+    /**
+     * AJAX handler for searching links by IP address
+     */
+    public function ajax_search_by_ip() {
+        try {
+            // Get user's IP address
+            $ip_address = $this->get_user_ip();
+
+            if (empty($ip_address)) {
+                wp_send_json_error(array(
+                    'message' => __('Unable to determine IP address.', 'tp-link-shortener')
+                ));
+                return;
+            }
+
+            // Search for records by IP
+            $result = $this->client->searchByIp($ip_address, 0, '');
+
+            if (!empty($result['source']['records']) && count($result['source']['records']) > 0) {
+                // Get the most recent record (first in array)
+                $latest_record = $result['source']['records'][0];
+
+                wp_send_json_success(array(
+                    'record' => $latest_record,
+                    'ip' => $ip_address,
+                    'count' => $result['source']['count']
+                ));
+            } else {
+                // No records found
+                wp_send_json_success(array(
+                    'record' => null,
+                    'ip' => $ip_address,
+                    'count' => 0
+                ));
+            }
+
+        } catch (Exception $e) {
+            error_log('TP Link Shortener IP Search Error: ' . $e->getMessage());
+            wp_send_json_error(array(
+                'message' => __('Failed to search for links.', 'tp-link-shortener'),
+                'debug_error' => $e->getMessage()
+            ));
+        }
+    }
+
+    /**
+     * AJAX handler for updating link (anonymous users)
+     */
+    public function ajax_update_link() {
+        try {
+            // Verify nonce
+            check_ajax_referer('tp_link_shortener_nonce', 'nonce');
+
+            // Get parameters
+            $mid = isset($_POST['mid']) ? intval($_POST['mid']) : 0;
+            $destination = isset($_POST['destination']) ? sanitize_text_field($_POST['destination']) : '';
+            $domain = isset($_POST['domain']) ? sanitize_text_field($_POST['domain']) : '';
+
+            if (empty($mid) || empty($destination) || empty($domain)) {
+                wp_send_json_error(array(
+                    'message' => __('Missing required parameters.', 'tp-link-shortener')
+                ));
+                return;
+            }
+
+            // Get user ID (-1 for anonymous)
+            $user_id = is_user_logged_in() ? get_current_user_id() : -1;
+
+            // Prepare update data (no tpTkn required)
+            $updateData = array(
+                'uid' => $user_id,
+                'domain' => $domain,
+                'destination' => $destination,
+                'status' => $user_id === -1 ? 'intro' : 'active',
+                'is_set' => 0,
+                'tags' => '',
+                'notes' => '',
+                'settings' => '{}',
+            );
+
+            // Update the record
+            $response = $this->client->updateMaskedRecord($mid, $updateData);
+
+            if ($response['success']) {
+                wp_send_json_success(array(
+                    'message' => __('Link updated successfully!', 'tp-link-shortener'),
+                    'data' => $response
+                ));
+            } else {
+                wp_send_json_error(array(
+                    'message' => __('Failed to update link.', 'tp-link-shortener')
+                ));
+            }
+
+        } catch (ValidationException $e) {
+            wp_send_json_error(array(
+                'message' => __('Validation error: ', 'tp-link-shortener') . $e->getMessage()
+            ));
+        } catch (Exception $e) {
+            error_log('TP Link Shortener Update Error: ' . $e->getMessage());
+            wp_send_json_error(array(
+                'message' => __('Failed to update link.', 'tp-link-shortener'),
+                'debug_error' => $e->getMessage()
+            ));
+        }
+    }
+
+    /**
+     * Get user's IP address
+     */
+    private function get_user_ip() {
+        if (!empty($_SERVER['HTTP_CLIENT_IP'])) {
+            return $_SERVER['HTTP_CLIENT_IP'];
+        } elseif (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+            return $_SERVER['HTTP_X_FORWARDED_FOR'];
+        } else {
+            return $_SERVER['REMOTE_ADDR'];
         }
     }
 }
