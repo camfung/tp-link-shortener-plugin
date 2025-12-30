@@ -197,6 +197,49 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                         <span class="fw-semibold"><?php esc_html_e('Save the link and it never expires', 'tp-link-shortener'); ?></span>
                     </div>
                 </form>
+
+                <!-- Update Link Confirmation Modal -->
+                <?php if (!is_user_logged_in()): ?>
+                <div class="modal fade" id="tp-update-confirmation-modal" tabindex="-1" aria-labelledby="tp-update-modal-label" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="tp-update-modal-label">
+                                    <i class="fas fa-question-circle me-2"></i>
+                                    <?php esc_html_e('Update Existing Link?', 'tp-link-shortener'); ?>
+                                </h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <p class="mb-3">
+                                    <?php esc_html_e('You already have an active short link. Would you like to update it with this new destination?', 'tp-link-shortener'); ?>
+                                </p>
+                                <div class="alert alert-info mb-0">
+                                    <div class="mb-2">
+                                        <strong><?php esc_html_e('Current link:', 'tp-link-shortener'); ?></strong>
+                                        <div class="text-break small" id="tp-modal-current-url"></div>
+                                    </div>
+                                    <div>
+                                        <strong><?php esc_html_e('New destination:', 'tp-link-shortener'); ?></strong>
+                                        <div class="text-break small" id="tp-modal-new-destination"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="tp-modal-cancel-btn">
+                                    <i class="fas fa-times me-2"></i>
+                                    <?php esc_html_e('Cancel', 'tp-link-shortener'); ?>
+                                </button>
+                                <button type="button" class="btn btn-primary" id="tp-modal-update-btn">
+                                    <i class="fas fa-edit me-2"></i>
+                                    <?php esc_html_e('Update Link', 'tp-link-shortener'); ?>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <?php endif; ?>
+
             </div>
         </div>
     </div>

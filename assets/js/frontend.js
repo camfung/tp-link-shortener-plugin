@@ -93,6 +93,13 @@
             // Get validation message element (now exists in template)
             this.$validationMessage = $('#tp-url-validation-message');
             this.$tryItMessage = $('#tp-try-it-message');
+
+            // Cache modal elements
+            this.$updateModal = $('#tp-update-confirmation-modal');
+            this.$modalCurrentUrl = $('#tp-modal-current-url');
+            this.$modalNewDestination = $('#tp-modal-new-destination');
+            this.$modalUpdateBtn = $('#tp-modal-update-btn');
+            this.$modalCancelBtn = $('#tp-modal-cancel-btn');
         },
 
         /**
@@ -200,6 +207,15 @@
             if (this.$suggestBtn.length) {
                 this.$suggestBtn.on('click', this.handleSuggestClick.bind(this));
             }
+
+            // Modal button handlers
+            if (this.$modalUpdateBtn.length) {
+                this.$modalUpdateBtn.on('click', this.handleModalUpdate.bind(this));
+            }
+
+            if (this.$modalCancelBtn.length) {
+                this.$modalCancelBtn.on('click', this.handleModalCancel.bind(this));
+            }
         },
 
         /**
@@ -235,6 +251,13 @@
                 this.$destinationInput.addClass('is-invalid');
                 // Scroll to the error
                 this.$destinationInput[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return;
+            }
+
+            // Check if anonymous user has existing link and is trying to change destination
+            if (!tpAjax.isLoggedIn && this.currentRecord && this.currentRecord.destination !== destination) {
+                // Show modal asking if they want to update the existing link
+                this.showUpdateConfirmationModal(destination);
                 return;
             }
 
@@ -1193,9 +1216,8 @@
                 this.startExpiryCountdown(record.expires_at);
             }
 
-            if (!tpAjax.isLoggedIn) {
-                this.showUpdateButton();
-            }
+            // Keep form enabled for anonymous users so they can enter a new destination
+            // The modal will intercept submission if they try to create a new link
         },
 
         /**
@@ -1221,15 +1243,16 @@
         /**
          * Update existing link
          */
-        updateLink: function() {
+        updateLink: function(newDestination) {
             if (!this.currentRecord || !this.currentRecord.mid) {
                 this.showError('No link to update.');
                 return;
             }
 
-            const newDestination = this.$destinationInput.val().trim();
+            // Use provided destination or get from input
+            const destination = newDestination || this.$destinationInput.val().trim();
 
-            if (!newDestination) {
+            if (!destination) {
                 this.showError('Please enter a destination URL.');
                 return;
             }
@@ -1245,16 +1268,19 @@
                     action: 'tp_update_link',
                     nonce: tpAjax.nonce,
                     mid: this.currentRecord.mid,
-                    destination: newDestination,
+                    destination: destination,
                     domain: this.currentRecord.domain
                 },
                 success: function(response) {
                     self.$loading.hide();
 
                     if (response.success) {
-                        self.showSuccess('Link updated successfully!');
-                        // Update the stored record
-                        self.currentRecord.destination = newDestination;
+                        self.showSnackbar('Link updated successfully!', 3000);
+                        // Update the stored record and UI
+                        self.currentRecord.destination = destination;
+                        self.$destinationInput.val(destination);
+                        // Refresh screenshot with new destination
+                        self.captureScreenshot(destination);
                     } else {
                         self.showError(response.data.message || 'Failed to update link.');
                     }
@@ -1264,6 +1290,88 @@
                     self.showError('An error occurred while updating the link.');
                 }
             });
+        },
+
+        /**
+         * Show update confirmation modal
+         */
+        showUpdateConfirmationModal: function(newDestination) {
+            if (!this.$updateModal.length) {
+                console.warn('Update modal not found in DOM');
+                return;
+            }
+
+            // Store the new destination for later use
+            this.pendingDestination = newDestination;
+
+            // Populate modal with current and new URLs
+            const currentShortUrl = this.lastShortUrl || '';
+            this.$modalCurrentUrl.text(currentShortUrl);
+            this.$modalNewDestination.text(newDestination);
+
+            // Show the modal using Bootstrap 5 API
+            const modal = new bootstrap.Modal(this.$updateModal[0]);
+            modal.show();
+        },
+
+        /**
+         * Handle modal update button click
+         */
+        handleModalUpdate: function() {
+            // Close the modal
+            const modalInstance = bootstrap.Modal.getInstance(this.$updateModal[0]);
+            if (modalInstance) {
+                modalInstance.hide();
+            }
+
+            // Update the link with the pending destination
+            if (this.pendingDestination) {
+                this.updateLink(this.pendingDestination);
+                this.pendingDestination = null;
+            }
+        },
+
+        /**
+         * Handle modal cancel button click
+         */
+        handleModalCancel: function() {
+            // Clear the pending destination
+            this.pendingDestination = null;
+
+            // Revert the destination input to the current record's destination
+            if (this.currentRecord) {
+                this.$destinationInput.val(this.currentRecord.destination);
+            }
+
+            // Show registration message
+            this.showRegistrationMessage();
+        },
+
+        /**
+         * Show registration message when user cancels update
+         */
+        showRegistrationMessage: function() {
+            const message = '<div class="alert alert-warning alert-dismissible fade show mt-3" role="alert">' +
+                '<i class="fas fa-info-circle me-2"></i>' +
+                '<strong>Want multiple links?</strong> Register for a free account to create unlimited short links that never expire!' +
+                '<div class="mt-2">' +
+                '<a href="' + (tpAjax.registerUrl || '#') + '" class="btn btn-sm btn-primary me-2">' +
+                '<i class="fas fa-user-plus me-1"></i>Register Now' +
+                '</a>' +
+                '<a href="' + (tpAjax.loginUrl || '#') + '" class="btn btn-sm btn-outline-primary">' +
+                '<i class="fas fa-sign-in-alt me-1"></i>Login' +
+                '</a>' +
+                '</div>' +
+                '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>' +
+                '</div>';
+
+            // Insert after the form
+            const $existingMessage = $('#tp-registration-prompt');
+            if ($existingMessage.length) {
+                $existingMessage.remove();
+            }
+
+            $(message).attr('id', 'tp-registration-prompt').insertAfter(this.$form);
         },
 
         /**

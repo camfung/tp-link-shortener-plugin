@@ -98,6 +98,8 @@ class TP_Assets {
             'domain' => TP_Link_Shortener::get_domain(),
             'isPremiumOnly' => TP_Link_Shortener::is_premium_only(),
             'isLoggedIn' => is_user_logged_in(),
+            'registerUrl' => wp_registration_url(),
+            'loginUrl' => wp_login_url(),
             'strings' => array(
                 'creating' => __('Creating...', 'tp-link-shortener'),
                 'success' => __('Link created successfully!', 'tp-link-shortener'),
