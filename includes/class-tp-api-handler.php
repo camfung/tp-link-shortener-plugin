@@ -868,7 +868,7 @@ class TP_API_Handler {
 
             // Get parameters
             $mid = isset($_POST['mid']) ? intval($_POST['mid']) : 0;
-            $destination = isset($_POST['destination']) ? sanitize_text_field($_POST['destination']) : '';
+            $destination = isset($_POST['destination']) ? esc_url_raw($_POST['destination']) : '';
             $domain = isset($_POST['domain']) ? sanitize_text_field($_POST['domain']) : '';
 
             $this->log_to_file('Parsed params: mid=' . $mid . ', destination=' . $destination . ', domain=' . $domain);
