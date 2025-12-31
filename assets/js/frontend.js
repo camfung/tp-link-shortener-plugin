@@ -97,7 +97,6 @@
 
             // Update mode elements
             this.$updateModeMessage = $('#tp-update-mode-message');
-            this.$switchToCreateBtn = $('#tp-switch-to-create-btn');
             this.$submitText = $('#tp-submit-text');
             this.$submitIcon = $('#tp-submit-icon');
         },
@@ -206,11 +205,6 @@
             // Suggest button (lightbulb)
             if (this.$suggestBtn.length) {
                 this.$suggestBtn.on('click', this.handleSuggestClick.bind(this));
-            }
-
-            // Switch to create mode button
-            if (this.$switchToCreateBtn.length) {
-                this.$switchToCreateBtn.on('click', this.switchToCreateMode.bind(this));
             }
         },
 

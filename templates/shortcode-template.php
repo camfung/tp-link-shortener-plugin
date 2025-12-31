@@ -97,31 +97,6 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                     </div>
                     <?php endif; ?>
 
-                    <!-- Trial Message -->
-                    <?php if (!is_user_logged_in()): ?>
-                    <div class="tp-trial-message alert d-flex flex-column flex-md-row align-items-md-center gap-3 mb-4">
-                        <div class="d-flex align-items-start gap-3">
-                            <span class="tp-trial-icon">
-                                <i class="fas fa-info-circle"></i>
-                            </span>
-                            <p class="mb-0">
-                                <?php esc_html_e('Trial links expire in 24 hours.', 'tp-link-shortener'); ?>
-                            </p>
-                        </div>
-                        <div class="tp-action-buttons d-flex flex-column flex-sm-row align-items-stretch align-items-sm-center gap-2 ms-md-auto">
-                            <button type="button" class="btn tp-btn tp-btn-register w-100">
-                                <i class="fas fa-user-plus me-2"></i>
-                                <?php esc_html_e('Register', 'tp-link-shortener'); ?>
-                            </button>
-                            <span class="tp-or text-center mx-sm-2"><?php esc_html_e('or', 'tp-link-shortener'); ?></span>
-                            <button type="button" class="btn tp-btn tp-btn-login w-100">
-                                <i class="fas fa-sign-in-alt me-2"></i>
-                                <?php esc_html_e('Login', 'tp-link-shortener'); ?>
-                            </button>
-                        </div>
-                    </div>
-                    <?php endif; ?>
-
                     <!-- Update Mode Message (hidden by default) -->
                     <div id="tp-update-mode-message" class="alert alert-info d-none mb-4">
                         <div class="d-flex align-items-start gap-3">
@@ -131,10 +106,6 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                                 <p class="mb-0 mt-1">You can update the destination URL for your existing short link below.</p>
                             </div>
                         </div>
-                        <button type="button" class="btn btn-sm tp-btn tp-btn-secondary mt-2" id="tp-switch-to-create-btn">
-                            <i class="fas fa-plus me-2"></i>
-                            Create new link instead
-                        </button>
                     </div>
 
                     <div class="tp-submit-row">
