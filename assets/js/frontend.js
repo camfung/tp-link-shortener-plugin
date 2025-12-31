@@ -308,8 +308,18 @@
                 return;
             }
 
+            // Get the current key (could be 'key' or 'tpKey' depending on source)
+            const currentKey = this.currentRecord.tpKey || this.currentRecord.key;
+
+            if (!currentKey) {
+                console.error('TP Update: No key found in currentRecord', this.currentRecord);
+                this.showSnackbar('Unable to find link key.', 'error');
+                return;
+            }
+
             console.log('TP Update: currentRecord.mid:', this.currentRecord.mid);
             console.log('TP Update: currentRecord.domain:', this.currentRecord.domain);
+            console.log('TP Update: currentKey:', currentKey);
             console.log('TP Update: All currentRecord keys:', Object.keys(this.currentRecord));
 
             const updateData = {
@@ -317,7 +327,8 @@
                 nonce: tpAjax.nonce,
                 mid: this.currentRecord.mid,
                 destination: newDestination,
-                domain: this.currentRecord.domain
+                domain: this.currentRecord.domain,
+                tpKey: currentKey
             };
 
             console.log('TP Update: Sending request with data:', updateData);
