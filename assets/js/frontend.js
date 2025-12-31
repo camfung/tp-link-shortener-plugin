@@ -339,17 +339,6 @@
                         self.currentRecord.destination = newDestination;
                         // Capture new screenshot
                         self.captureScreenshot(newDestination);
-
-                        // Update localStorage if applicable
-                        if (window.TPStorageService && window.TPStorageService.isAvailable()) {
-                            const storedData = window.TPStorageService.getShortcodeData();
-                            if (storedData && storedData.shortcode === self.currentRecord.key) {
-                                window.TPStorageService.saveShortcodeData({
-                                    ...storedData,
-                                    destination: newDestination
-                                });
-                            }
-                        }
                     } else {
                         console.error('TP Update: Server returned success=false', response);
                         const errorMsg = response.data ? response.data.message : 'Failed to update link.';
