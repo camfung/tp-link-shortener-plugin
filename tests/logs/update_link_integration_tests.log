@@ -1,0 +1,165 @@
+PHPUnit 9.6.30 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.2.29
+Configuration: /Users/camer/Documents/projects/tp-bloomland/homepage/tp-link-shortener-plugin/phpunit.xml
+
+F
+
+========================================
+TEST 1: UPDATE LINK DESTINATION
+========================================
+
+--- STEP 1: Creating initial link ---
+CREATE REQUEST:
+  - UID: 125
+  - Key: detailed-update-695481c586005
+  - Domain: dev.trfc.link
+  - Destination: https://example.com/original-1767145925
+  - Status: active
+  - Type: redirect
+  - Tags: integration-test,update-test
+  - Notes: Created for update integration test
+
+CREATE RESPONSE:
+  - Success: YES
+  - MID: 14331
+  - Key: detailed-update-695481c586005
+  - Domain: dev.trfc.link
+  - Destination: https://example.com/original-1767145925
+  - Message: Record Created
+  - Expires At: null (never expires)
+
+--- STEP 2: Updating link destination ---
+UPDATE REQUEST:
+  - API Endpoint: https://ce7jzbocq1.execute-api.ca-central-1.amazonaws.com/dev/items/14331
+  - HTTP Method: PUT
+  - MID: 14331
+  - Request Payload:
+    - uid: 125
+    - domain: dev.trfc.link
+    - destination: https://example.com/updated-1767145925
+    - status: active
+    - is_set: 0
+    - tags: integration-test,update-test,updated
+    - notes: Updated via detailed integration test at 2025-12-31 01:52:05
+    - settings: {}
+
+UPDATE RESPONSE:
+  - Duration: 309.83ms
+  - Success: YES
+  - Response Data:
+{
+    "message": "Record Updated",
+    "source": {
+        "destination": "https://example.com/updated-1767145925",
+        "domain": "dev.trfc.link",
+        "is_set": 0,
+        "notes": "Updated via detailed integration test at 2025-12-31 01:52:05",
+        "settings": "{}",
+        "status": "active",
+        "tags": "integration-test,update-test,updated",
+        "uid": 125
+    },
+    "success": true
+}
+
+--- STEP 3: Verifying update by retrieving record ---
+GET REQUEST:
+  - API Endpoint: https://ce7jzbocq1.execute-api.ca-central-1.amazonaws.com/dev/items/detailed-update-695481c586005?uid=125
+  - Key: detailed-update-695481c586005
+  - UID: 125
+
+GET RESPONSE:
+  - Record Found: YES
+  - Full Response Structure:
+{
+    "message": "",
+    "source": null,
+    "success": true
+}
+  - MID: N/A
+  - Key: N/A
+  - Destination: N/A
+  - Status: N/A
+  - Tags: N/A
+  - Notes: N/A
+  - Updated At: N/A
+F                                                                  2 / 2 (100%)
+
+========================================
+TEST 2: UPDATE LINK EXPIRY MANAGEMENT
+========================================
+
+--- STEP 1: Creating link without expiry ---
+CREATE REQUEST:
+  - UID: 125
+  - Key: expiry-test-695481c67fe80
+  - Domain: dev.trfc.link
+  - Destination: https://example.com/expiry-test-1767145926
+  - Expires At: null (permanent link)
+
+CREATE RESPONSE:
+  - Success: YES
+  - MID: 14332
+  - Expires At: null (permanent)
+
+--- STEP 2: Adding 7-day expiry to link ---
+UPDATE REQUEST #1 (Add Expiry):
+  - API Endpoint: https://ce7jzbocq1.execute-api.ca-central-1.amazonaws.com/dev/items/14332
+  - MID: 14332
+  - Expires At: 2026-01-07 01:52:06
+  - Current Time: 2025-12-31 01:52:06
+  - Time Until Expiry: 7 days
+
+UPDATE RESPONSE #1:
+  - Duration: 361.75ms
+  - Success: YES
+  - Response:
+{
+    "message": "Record Updated",
+    "source": {
+        "destination": "https://example.com/expiry-test-1767145926",
+        "domain": "dev.trfc.link",
+        "expires_at": "2026-01-07 01:52:06",
+        "is_set": 0,
+        "notes": "Added 7-day expiry at 2025-12-31 01:52:06",
+        "settings": "{}",
+        "status": "active",
+        "tags": "integration-test,expiry-test,has-expiry",
+        "uid": 125
+    },
+    "success": true
+}
+
+--- STEP 3: Verifying expiry was added ---
+GET RESPONSE #1:
+  - Full Response Structure:
+{
+    "message": "",
+    "source": null,
+    "success": true
+}
+  - Destination: N/A
+  - Status: N/A
+  - Expires At: null
+  - Tags: N/A
+
+
+Time: 00:02.006, Memory: 6.00 MB
+
+There were 2 failures:
+
+1) Tests\Integration\TrafficPortalApiClientIntegrationTest::testUpdateLinkDestinationWithDetailedLogging
+Destination should be updated to new value
+Failed asserting that null matches expected 'https://example.com/updated-1767145925'.
+
+/Users/camer/Documents/projects/tp-bloomland/homepage/tp-link-shortener-plugin/tests/Integration/TrafficPortalApiClientIntegrationTest.php:432
+
+2) Tests\Integration\TrafficPortalApiClientIntegrationTest::testUpdateLinkExpiryManagementWithDetailedLogging
+Expiry should be set after first update
+Failed asserting that null is not null.
+
+/Users/camer/Documents/projects/tp-bloomland/homepage/tp-link-shortener-plugin/tests/Integration/TrafficPortalApiClientIntegrationTest.php:541
+
+FAILURES!
+Tests: 2, Assertions: 13, Failures: 2.

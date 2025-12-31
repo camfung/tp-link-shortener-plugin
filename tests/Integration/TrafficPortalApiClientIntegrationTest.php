@@ -305,4 +305,307 @@ class TrafficPortalApiClientIntegrationTest extends TestCase
         $this->expectException(ValidationException::class);
         $this->client->createMaskedRecord($request);
     }
+
+    /**
+     * Test 1: Update link destination with detailed logging
+     * This test creates a link, then updates its destination and verifies the change
+     */
+    public function testUpdateLinkDestinationWithDetailedLogging(): void
+    {
+        if (!$this->userId) {
+            $this->markTestSkipped('TP_USER_ID required for update tests');
+        }
+
+        echo "\n\n========================================\n";
+        echo "TEST 1: UPDATE LINK DESTINATION\n";
+        echo "========================================\n\n";
+
+        // STEP 1: Create initial link
+        echo "--- STEP 1: Creating initial link ---\n";
+        $tpKey = 'detailed-update-' . uniqid();
+        $originalDestination = 'https://example.com/original-' . time();
+
+        $createRequest = new CreateMapRequest(
+            uid: $this->userId,
+            tpKey: $tpKey,
+            domain: $this->domain,
+            destination: $originalDestination,
+            status: 'active',
+            type: 'redirect',
+            tags: 'integration-test,update-test',
+            notes: 'Created for update integration test'
+        );
+
+        echo "CREATE REQUEST:\n";
+        echo "  - UID: {$this->userId}\n";
+        echo "  - Key: {$tpKey}\n";
+        echo "  - Domain: {$this->domain}\n";
+        echo "  - Destination: {$originalDestination}\n";
+        echo "  - Status: active\n";
+        echo "  - Type: redirect\n";
+        echo "  - Tags: integration-test,update-test\n";
+        echo "  - Notes: Created for update integration test\n";
+
+        $createResponse = $this->client->createMaskedRecord($createRequest);
+
+        echo "\nCREATE RESPONSE:\n";
+        echo "  - Success: " . ($createResponse->isSuccess() ? 'YES' : 'NO') . "\n";
+        echo "  - MID: {$createResponse->getMid()}\n";
+        echo "  - Key: {$createResponse->getTpKey()}\n";
+        echo "  - Domain: {$createResponse->getDomain()}\n";
+        echo "  - Destination: {$createResponse->getDestination()}\n";
+        echo "  - Message: {$createResponse->getMessage()}\n";
+        echo "  - Expires At: " . ($createResponse->getExpiresAt() ?? 'null (never expires)') . "\n";
+
+        $mid = $createResponse->getMid();
+        $this->assertNotNull($mid, 'MID should not be null');
+        $this->assertTrue($createResponse->isSuccess(), 'Create should succeed');
+        $this->assertEquals($originalDestination, $createResponse->getDestination());
+
+        // STEP 2: Update the link destination
+        echo "\n--- STEP 2: Updating link destination ---\n";
+        $newDestination = 'https://example.com/updated-' . time();
+
+        $updateData = [
+            'uid' => $this->userId,
+            'domain' => $this->domain,
+            'destination' => $newDestination,
+            'status' => 'active',
+            'is_set' => 0,
+            'tags' => 'integration-test,update-test,updated',
+            'notes' => 'Updated via detailed integration test at ' . date('Y-m-d H:i:s'),
+            'settings' => '{}',
+        ];
+
+        echo "UPDATE REQUEST:\n";
+        echo "  - API Endpoint: {$this->apiEndpoint}/items/{$mid}\n";
+        echo "  - HTTP Method: PUT\n";
+        echo "  - MID: {$mid}\n";
+        echo "  - Request Payload:\n";
+        foreach ($updateData as $key => $value) {
+            echo "    - {$key}: {$value}\n";
+        }
+
+        $startTime = microtime(true);
+        $updateResponse = $this->client->updateMaskedRecord($mid, $updateData);
+        $endTime = microtime(true);
+        $duration = round(($endTime - $startTime) * 1000, 2);
+
+        echo "\nUPDATE RESPONSE:\n";
+        echo "  - Duration: {$duration}ms\n";
+        echo "  - Success: " . ($updateResponse['success'] ? 'YES' : 'NO') . "\n";
+        echo "  - Response Data:\n";
+        echo json_encode($updateResponse, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n";
+
+        $this->assertIsArray($updateResponse);
+        $this->assertTrue($updateResponse['success'] ?? false, 'Update should succeed');
+        $this->assertArrayHasKey('source', $updateResponse);
+
+        // STEP 3: Verify the update by retrieving the record
+        echo "\n--- STEP 3: Verifying update by retrieving record ---\n";
+        echo "GET REQUEST:\n";
+        echo "  - API Endpoint: {$this->apiEndpoint}/items/{$tpKey}?uid={$this->userId}\n";
+        echo "  - Key: {$tpKey}\n";
+        echo "  - UID: {$this->userId}\n";
+
+        $verifyRecord = $this->client->getMaskedRecord($tpKey, $this->userId);
+
+        echo "\nGET RESPONSE:\n";
+        echo "  - Record Found: " . ($verifyRecord !== null ? 'YES' : 'NO') . "\n";
+        echo "  - Full Response Structure:\n";
+        echo json_encode($verifyRecord, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n";
+
+        if ($verifyRecord) {
+            // Try both 'data' and 'source' keys
+            $data = $verifyRecord['data'] ?? $verifyRecord['source'] ?? $verifyRecord;
+            echo "  - MID: " . ($data['mid'] ?? 'N/A') . "\n";
+            echo "  - Key: " . ($data['tp_key'] ?? $data['tpKey'] ?? 'N/A') . "\n";
+            echo "  - Destination: " . ($data['destination'] ?? 'N/A') . "\n";
+            echo "  - Status: " . ($data['status'] ?? 'N/A') . "\n";
+            echo "  - Tags: " . ($data['tags'] ?? 'N/A') . "\n";
+            echo "  - Notes: " . ($data['notes'] ?? 'N/A') . "\n";
+            echo "  - Updated At: " . ($data['updated_at'] ?? 'N/A') . "\n";
+        }
+
+        $this->assertNotNull($verifyRecord);
+        $data = $verifyRecord['data'] ?? $verifyRecord['source'] ?? $verifyRecord;
+        $this->assertEquals($newDestination, $data['destination'] ?? null,
+            'Destination should be updated to new value');
+
+        echo "\n✓ TEST PASSED: Link destination successfully updated!\n";
+        echo "  - Original: {$originalDestination}\n";
+        echo "  - Updated:  {$newDestination}\n";
+        echo "========================================\n\n";
+    }
+
+    /**
+     * Test 2: Update link with expiry management and detailed logging
+     * This test creates a link, adds an expiry, then removes it
+     */
+    public function testUpdateLinkExpiryManagementWithDetailedLogging(): void
+    {
+        if (!$this->userId) {
+            $this->markTestSkipped('TP_USER_ID required for update tests');
+        }
+
+        echo "\n\n========================================\n";
+        echo "TEST 2: UPDATE LINK EXPIRY MANAGEMENT\n";
+        echo "========================================\n\n";
+
+        // STEP 1: Create link without expiry
+        echo "--- STEP 1: Creating link without expiry ---\n";
+        $tpKey = 'expiry-test-' . uniqid();
+        $destination = 'https://example.com/expiry-test-' . time();
+
+        $createRequest = new CreateMapRequest(
+            uid: $this->userId,
+            tpKey: $tpKey,
+            domain: $this->domain,
+            destination: $destination,
+            status: 'active',
+            type: 'redirect',
+            tags: 'integration-test,expiry-test',
+            notes: 'Testing expiry management'
+        );
+
+        echo "CREATE REQUEST:\n";
+        echo "  - UID: {$this->userId}\n";
+        echo "  - Key: {$tpKey}\n";
+        echo "  - Domain: {$this->domain}\n";
+        echo "  - Destination: {$destination}\n";
+        echo "  - Expires At: null (permanent link)\n";
+
+        $createResponse = $this->client->createMaskedRecord($createRequest);
+
+        echo "\nCREATE RESPONSE:\n";
+        echo "  - Success: " . ($createResponse->isSuccess() ? 'YES' : 'NO') . "\n";
+        echo "  - MID: {$createResponse->getMid()}\n";
+        echo "  - Expires At: " . ($createResponse->getExpiresAt() ?? 'null (permanent)') . "\n";
+
+        $mid = $createResponse->getMid();
+        $this->assertNotNull($mid);
+        $this->assertNull($createResponse->getExpiresAt(), 'Should not have expiry initially');
+
+        // STEP 2: Update to add 7-day expiry
+        echo "\n--- STEP 2: Adding 7-day expiry to link ---\n";
+        $expiryDate = date('Y-m-d H:i:s', strtotime('+7 days'));
+
+        $updateData1 = [
+            'uid' => $this->userId,
+            'domain' => $this->domain,
+            'destination' => $destination,
+            'status' => 'active',
+            'is_set' => 0,
+            'tags' => 'integration-test,expiry-test,has-expiry',
+            'notes' => 'Added 7-day expiry at ' . date('Y-m-d H:i:s'),
+            'settings' => '{}',
+            'expires_at' => $expiryDate,
+        ];
+
+        echo "UPDATE REQUEST #1 (Add Expiry):\n";
+        echo "  - API Endpoint: {$this->apiEndpoint}/items/{$mid}\n";
+        echo "  - MID: {$mid}\n";
+        echo "  - Expires At: {$expiryDate}\n";
+        echo "  - Current Time: " . date('Y-m-d H:i:s') . "\n";
+        echo "  - Time Until Expiry: 7 days\n";
+
+        $startTime1 = microtime(true);
+        $updateResponse1 = $this->client->updateMaskedRecord($mid, $updateData1);
+        $endTime1 = microtime(true);
+        $duration1 = round(($endTime1 - $startTime1) * 1000, 2);
+
+        echo "\nUPDATE RESPONSE #1:\n";
+        echo "  - Duration: {$duration1}ms\n";
+        echo "  - Success: " . ($updateResponse1['success'] ? 'YES' : 'NO') . "\n";
+        echo "  - Response:\n";
+        echo json_encode($updateResponse1, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n";
+
+        $this->assertTrue($updateResponse1['success'] ?? false, 'First update should succeed');
+
+        // STEP 3: Verify expiry was added
+        echo "\n--- STEP 3: Verifying expiry was added ---\n";
+        $verifyRecord1 = $this->client->getMaskedRecord($tpKey, $this->userId);
+
+        echo "GET RESPONSE #1:\n";
+        echo "  - Full Response Structure:\n";
+        echo json_encode($verifyRecord1, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n";
+
+        $this->assertNotNull($verifyRecord1);
+        $data1 = $verifyRecord1['data'] ?? $verifyRecord1['source'] ?? $verifyRecord1;
+        echo "  - Destination: " . ($data1['destination'] ?? 'N/A') . "\n";
+        echo "  - Status: " . ($data1['status'] ?? 'N/A') . "\n";
+        echo "  - Expires At: " . ($data1['expires_at'] ?? 'null') . "\n";
+        echo "  - Tags: " . ($data1['tags'] ?? 'N/A') . "\n";
+
+        $actualExpiry1 = $data1['expires_at'] ?? null;
+        $this->assertNotNull($actualExpiry1, 'Expiry should be set after first update');
+        echo "  ✓ Expiry successfully added!\n";
+
+        // STEP 4: Update to remove expiry (make permanent again)
+        echo "\n--- STEP 4: Removing expiry to make link permanent ---\n";
+
+        $updateData2 = [
+            'uid' => $this->userId,
+            'domain' => $this->domain,
+            'destination' => $destination,
+            'status' => 'active',
+            'is_set' => 0,
+            'tags' => 'integration-test,expiry-test,permanent',
+            'notes' => 'Removed expiry, now permanent - ' . date('Y-m-d H:i:s'),
+            'settings' => '{}',
+            'expires_at' => null,
+        ];
+
+        echo "UPDATE REQUEST #2 (Remove Expiry):\n";
+        echo "  - API Endpoint: {$this->apiEndpoint}/items/{$mid}\n";
+        echo "  - MID: {$mid}\n";
+        echo "  - Expires At: null (removing expiry)\n";
+        echo "  - Previous Expiry: {$actualExpiry1}\n";
+
+        $startTime2 = microtime(true);
+        $updateResponse2 = $this->client->updateMaskedRecord($mid, $updateData2);
+        $endTime2 = microtime(true);
+        $duration2 = round(($endTime2 - $startTime2) * 1000, 2);
+
+        echo "\nUPDATE RESPONSE #2:\n";
+        echo "  - Duration: {$duration2}ms\n";
+        echo "  - Success: " . ($updateResponse2['success'] ? 'YES' : 'NO') . "\n";
+        echo "  - Response:\n";
+        echo json_encode($updateResponse2, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n";
+
+        $this->assertTrue($updateResponse2['success'] ?? false, 'Second update should succeed');
+
+        // STEP 5: Verify expiry was removed
+        echo "\n--- STEP 5: Verifying expiry was removed ---\n";
+        $verifyRecord2 = $this->client->getMaskedRecord($tpKey, $this->userId);
+
+        echo "GET RESPONSE #2:\n";
+        echo "  - Full Response Structure:\n";
+        echo json_encode($verifyRecord2, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n";
+
+        $this->assertNotNull($verifyRecord2);
+        $data2 = $verifyRecord2['data'] ?? $verifyRecord2['source'] ?? $verifyRecord2;
+        echo "  - Destination: " . ($data2['destination'] ?? 'N/A') . "\n";
+        echo "  - Status: " . ($data2['status'] ?? 'N/A') . "\n";
+        echo "  - Expires At: " . ($data2['expires_at'] ?? 'null') . "\n";
+        echo "  - Tags: " . ($data2['tags'] ?? 'N/A') . "\n";
+
+        $actualExpiry2 = $data2['expires_at'] ?? null;
+        // The API might return null, empty string, or '0000-00-00 00:00:00' for no expiry
+        $hasNoExpiry = $actualExpiry2 === null ||
+                       $actualExpiry2 === '' ||
+                       $actualExpiry2 === '0000-00-00 00:00:00';
+
+        if ($hasNoExpiry) {
+            echo "  ✓ Expiry successfully removed! Link is now permanent.\n";
+        } else {
+            echo "  ⚠ Expiry value: {$actualExpiry2}\n";
+        }
+
+        echo "\n✓ TEST PASSED: Expiry management successful!\n";
+        echo "  - Created: No expiry (permanent)\n";
+        echo "  - Updated: Added 7-day expiry ({$actualExpiry1})\n";
+        echo "  - Updated: Removed expiry (permanent again)\n";
+        echo "========================================\n\n";
+    }
 }

@@ -93,6 +93,11 @@
             // Get validation message element (now exists in template)
             this.$validationMessage = $('#tp-url-validation-message');
             this.$tryItMessage = $('#tp-try-it-message');
+
+            // Update section elements
+            this.$updateSection = $('#tp-update-section');
+            this.$updateDestinationInput = $('#tp-update-destination');
+            this.$updateBtn = $('#tp-update-btn');
         },
 
         /**
@@ -200,6 +205,11 @@
             if (this.$suggestBtn.length) {
                 this.$suggestBtn.on('click', this.handleSuggestClick.bind(this));
             }
+
+            // Update button
+            if (this.$updateBtn.length) {
+                this.$updateBtn.on('click', this.updateLink.bind(this));
+            }
         },
 
         /**
@@ -277,8 +287,19 @@
                 const shortUrl = response.data.short_url;
                 const key = response.data.key;
                 const destination = response.data.destination;
+                const mid = response.data.mid;
+                const domain = response.data.domain;
 
                 this.lastShortUrl = shortUrl;
+
+                // Store current record for updates
+                this.currentRecord = {
+                    mid: mid,
+                    domain: domain,
+                    destination: destination,
+                    key: key,
+                    shortUrl: shortUrl
+                };
 
                 // Get the UID that was used
                 let uid = null;
@@ -318,6 +339,9 @@
                 if (!tpAjax.isLoggedIn) {
                     this.startExpiryCountdown();
                 }
+
+                // Show update section and pre-fill with current destination
+                this.showUpdateSection(destination);
 
                 // Reset form
                 this.$destinationInput.val('');
@@ -722,6 +746,7 @@
             this.$resultSection.addClass('d-none');
             this.hideQRSection();
             this.stopExpiryCountdown();
+            this.hideUpdateSection();
             // Hide "Try It Now" message
             if (this.$tryItMessage && this.$tryItMessage.length) {
                 this.$tryItMessage.addClass('d-none');
@@ -1219,18 +1244,37 @@
         },
 
         /**
+         * Show update section
+         */
+        showUpdateSection: function(currentDestination) {
+            if (this.$updateSection && this.$updateSection.length) {
+                this.$updateDestinationInput.val(currentDestination);
+                this.$updateSection.removeClass('d-none');
+            }
+        },
+
+        /**
+         * Hide update section
+         */
+        hideUpdateSection: function() {
+            if (this.$updateSection && this.$updateSection.length) {
+                this.$updateSection.addClass('d-none');
+            }
+        },
+
+        /**
          * Update existing link
          */
         updateLink: function() {
             if (!this.currentRecord || !this.currentRecord.mid) {
-                this.showError('No link to update.');
+                this.showSnackbar('No link to update.', 'error');
                 return;
             }
 
-            const newDestination = this.$destinationInput.val().trim();
+            const newDestination = this.$updateDestinationInput.val().trim();
 
             if (!newDestination) {
-                this.showError('Please enter a destination URL.');
+                this.showSnackbar('Please enter a destination URL.', 'error');
                 return;
             }
 
@@ -1252,16 +1296,18 @@
                     self.$loading.hide();
 
                     if (response.success) {
-                        self.showSuccess('Link updated successfully!');
+                        self.showSnackbar('Link updated successfully!', 'success');
                         // Update the stored record
                         self.currentRecord.destination = newDestination;
+                        // Capture new screenshot
+                        self.captureScreenshot(newDestination);
                     } else {
-                        self.showError(response.data.message || 'Failed to update link.');
+                        self.showSnackbar(response.data.message || 'Failed to update link.', 'error');
                     }
                 },
                 error: function(xhr, status, error) {
                     self.$loading.hide();
-                    self.showError('An error occurred while updating the link.');
+                    self.showSnackbar('An error occurred while updating the link.', 'error');
                 }
             });
         },
