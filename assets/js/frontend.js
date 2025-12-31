@@ -297,6 +297,9 @@
          * Submit update link request
          */
         submitUpdate: function() {
+            console.log('TP Update: submitUpdate called');
+            console.log('TP Update: currentRecord:', this.currentRecord);
+
             if (!this.currentRecord || !this.currentRecord.mid) {
                 console.error('TP Update: No current record or mid', this.currentRecord);
                 this.showSnackbar('No link to update.', 'error');
@@ -310,6 +313,10 @@
                 this.showSnackbar('Please enter a destination URL.', 'error');
                 return;
             }
+
+            console.log('TP Update: currentRecord.mid:', this.currentRecord.mid);
+            console.log('TP Update: currentRecord.domain:', this.currentRecord.domain);
+            console.log('TP Update: All currentRecord keys:', Object.keys(this.currentRecord));
 
             const updateData = {
                 action: 'tp_update_link',
