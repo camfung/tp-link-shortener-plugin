@@ -146,6 +146,9 @@ class TP_API_Handler {
      * AJAX handler for creating short links
      */
     public function ajax_create_link() {
+        // Log incoming request for debugging
+        $this->log_to_file('=== CREATE LINK REQUEST START ===');
+        $this->log_to_file('Request received: ' . json_encode($_POST));
         error_log('TP Link Shortener: ajax_create_link called');
 
         // Verify nonce
@@ -156,21 +159,27 @@ class TP_API_Handler {
         $custom_key = isset($_POST['custom_key']) ? sanitize_text_field($_POST['custom_key']) : '';
         $uid = isset($_POST['uid']) ? intval($_POST['uid']) : 0;
 
+        $this->log_to_file('Initial POST data - destination: ' . $destination . ', custom_key: ' . $custom_key . ', uid: ' . $uid);
         error_log('TP Link Shortener: Initial POST data - destination: ' . $destination . ', custom_key: ' . $custom_key . ', uid: ' . $uid);
 
         // If user is not logged in, set uid to -1
         if (!is_user_logged_in()) {
+            $this->log_to_file('User not logged in, setting uid to -1');
             error_log('TP Link Shortener: User not logged in, setting uid to -1');
             $uid = -1;
         } elseif ($uid <= 0) {
             $uid = TP_Link_Shortener::get_user_id();
+            $this->log_to_file('User logged in, using configured uid: ' . $uid);
             error_log('TP Link Shortener: User logged in, using configured uid: ' . $uid);
         } else {
+            $this->log_to_file('Using provided uid: ' . $uid);
             error_log('TP Link Shortener: Using provided uid: ' . $uid);
         }
 
         // Validate destination
         if (empty($destination) || !filter_var($destination, FILTER_VALIDATE_URL)) {
+            $this->log_to_file('VALIDATION ERROR - Invalid destination URL: ' . $destination);
+            $this->log_to_file('=== CREATE LINK REQUEST END ===');
             error_log('TP Link Shortener: Invalid destination URL: ' . $destination);
             wp_send_json_error(array(
                 'message' => __('Please enter a valid URL', 'tp-link-shortener')
@@ -179,9 +188,12 @@ class TP_API_Handler {
 
         // Check if custom key is allowed
         if (!empty($custom_key) && TP_Link_Shortener::is_premium_only()) {
+            $this->log_to_file('Premium-only mode enabled, checking user status');
             error_log('TP Link Shortener: Premium-only mode enabled, checking user status');
             // Check if user is premium
             if (!$this->is_user_premium()) {
+                $this->log_to_file('PERMISSION ERROR - User is not premium, rejecting custom key');
+                $this->log_to_file('=== CREATE LINK REQUEST END ===');
                 error_log('TP Link Shortener: User is not premium, rejecting custom key');
                 wp_send_json_error(array(
                     'message' => __('Custom shortcodes are only available for premium members', 'tp-link-shortener')
@@ -192,19 +204,26 @@ class TP_API_Handler {
         // Generate random key if custom key not provided
         if (empty($custom_key)) {
             $custom_key = $this->generate_short_code($destination);
+            $this->log_to_file('Generated key: ' . $custom_key);
             error_log('TP Link Shortener: Generated key: ' . $custom_key);
         } else {
+            $this->log_to_file('Using custom key: ' . $custom_key);
             error_log('TP Link Shortener: Using custom key: ' . $custom_key);
         }
 
         // Create the short link
+        $this->log_to_file('Creating short link - destination: ' . $destination . ', key: ' . $custom_key . ', uid: ' . $uid);
         error_log('TP Link Shortener: Creating short link - destination: ' . $destination . ', key: ' . $custom_key . ', uid: ' . $uid);
         $result = $this->create_short_link($destination, $custom_key, $uid);
 
         if ($result['success']) {
+            $this->log_to_file('SUCCESS - Link created successfully: ' . json_encode($result['data']));
+            $this->log_to_file('=== CREATE LINK REQUEST END ===');
             error_log('TP Link Shortener: Link created successfully: ' . json_encode($result['data']));
             wp_send_json_success($result['data']);
         } else {
+            $this->log_to_file('FAILURE - Link creation failed: ' . $result['message']);
+            $this->log_to_file('=== CREATE LINK REQUEST END ===');
             error_log('TP Link Shortener: Link creation failed: ' . $result['message']);
 
             // Prepare error data
@@ -231,6 +250,7 @@ class TP_API_Handler {
      */
     private function create_short_link(string $destination, string $key, int $uid): array {
         try {
+            $this->log_to_file('Building CreateMapRequest with uid=' . $uid . ', key=' . $key . ', domain=' . TP_Link_Shortener::get_domain());
             error_log('TP Link Shortener: Building CreateMapRequest with uid=' . $uid . ', key=' . $key . ', domain=' . TP_Link_Shortener::get_domain());
 
             $request = new CreateMapRequest(
@@ -247,14 +267,17 @@ class TP_API_Handler {
                 cacheContent: 0
             );
 
+            $this->log_to_file('Sending request to API: ' . json_encode($request->toArray()));
             error_log('TP Link Shortener: Sending request to API: ' . json_encode($request->toArray()));
             $response = $this->client->createMaskedRecord($request);
+            $this->log_to_file('Received API response');
             error_log('TP Link Shortener: Received API response');
 
             if ($response->isSuccess()) {
                 $domain = TP_Link_Shortener::get_domain();
                 $short_url = 'https://' . $domain . '/' . $key;
 
+                $this->log_to_file('API response successful - mid: ' . $response->getMid());
                 error_log('TP Link Shortener: API response successful - mid: ' . $response->getMid());
 
                 return array(
@@ -270,6 +293,7 @@ class TP_API_Handler {
                 );
             }
 
+            $this->log_to_file('API response unsuccessful');
             error_log('TP Link Shortener: API response unsuccessful');
             return array(
                 'success' => false,
@@ -277,6 +301,7 @@ class TP_API_Handler {
             );
 
         } catch (AuthenticationException $e) {
+            $this->log_to_file('EXCEPTION - AuthenticationException: ' . $e->getMessage());
             error_log('TP Link Shortener Auth Error: ' . $e->getMessage());
             return array(
                 'success' => false,
@@ -285,6 +310,7 @@ class TP_API_Handler {
             );
 
         } catch (RateLimitException $e) {
+            $this->log_to_file('EXCEPTION - RateLimitException: ' . $e->getMessage());
             error_log('TP Link Shortener Rate Limit Error: ' . $e->getMessage());
             return array(
                 'success' => false,
@@ -295,6 +321,7 @@ class TP_API_Handler {
             );
 
         } catch (ValidationException $e) {
+            $this->log_to_file('EXCEPTION - ValidationException: ' . $e->getMessage());
             // Key might be taken
             if (strpos($e->getMessage(), 'invalid') !== false) {
                 return array(
@@ -311,6 +338,7 @@ class TP_API_Handler {
             );
 
         } catch (NetworkException $e) {
+            $this->log_to_file('EXCEPTION - NetworkException: ' . $e->getMessage());
             error_log('TP Link Shortener Network Error: ' . $e->getMessage());
             return array(
                 'success' => false,
@@ -319,6 +347,7 @@ class TP_API_Handler {
             );
 
         } catch (ApiException $e) {
+            $this->log_to_file('EXCEPTION - ApiException: ' . $e->getMessage());
             error_log('TP Link Shortener API Error: ' . $e->getMessage());
             return array(
                 'success' => false,
@@ -327,6 +356,8 @@ class TP_API_Handler {
             );
 
         } catch (Exception $e) {
+            $this->log_to_file('EXCEPTION - ' . get_class($e) . ': ' . $e->getMessage());
+            $this->log_to_file('Trace: ' . $e->getTraceAsString());
             error_log('TP Link Shortener Error: ' . $e->getMessage());
             return array(
                 'success' => false,
