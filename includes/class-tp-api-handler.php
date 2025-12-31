@@ -870,18 +870,21 @@ class TP_API_Handler {
             $mid = isset($_POST['mid']) ? intval($_POST['mid']) : 0;
             $destination = isset($_POST['destination']) ? esc_url_raw($_POST['destination']) : '';
             $domain = isset($_POST['domain']) ? sanitize_text_field($_POST['domain']) : '';
+            $tpKey = isset($_POST['tpKey']) ? sanitize_text_field($_POST['tpKey']) : '';
 
-            $this->log_to_file('Parsed params: mid=' . $mid . ', destination=' . $destination . ', domain=' . $domain);
-            error_log('TP Update Link - Parsed params: mid=' . $mid . ', destination=' . $destination . ', domain=' . $domain);
+            $this->log_to_file('Parsed params: mid=' . $mid . ', destination=' . $destination . ', domain=' . $domain . ', tpKey=' . $tpKey);
+            error_log('TP Update Link - Parsed params: mid=' . $mid . ', destination=' . $destination . ', domain=' . $domain . ', tpKey=' . $tpKey);
 
-            if (empty($mid) || empty($destination) || empty($domain)) {
+            if (empty($mid) || empty($destination) || empty($domain) || empty($tpKey)) {
                 $error_details = array(
                     'mid_empty' => empty($mid),
                     'destination_empty' => empty($destination),
                     'domain_empty' => empty($domain),
+                    'tpKey_empty' => empty($tpKey),
                     'mid_value' => $mid,
                     'destination_value' => $destination,
-                    'domain_value' => $domain
+                    'domain_value' => $domain,
+                    'tpKey_value' => $tpKey
                 );
                 $this->log_to_file('Missing params: ' . json_encode($error_details));
                 error_log('TP Update Link - Missing params: ' . json_encode($error_details));
@@ -902,6 +905,7 @@ class TP_API_Handler {
                 'uid' => $user_id,
                 'domain' => $domain,
                 'destination' => $destination,
+                'tpKey' => $tpKey,
                 'status' => $user_id === -1 ? 'intro' : 'active',
                 'is_set' => 0,
                 'tags' => '',

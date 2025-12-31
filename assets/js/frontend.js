@@ -336,6 +336,8 @@
             };
 
             console.log('TP Update: Sending request with data:', updateData);
+            console.log('TP Update: Data as JSON:', JSON.stringify(updateData, null, 2));
+            console.log('TP Update: tpKey value type:', typeof tpKey, 'value:', tpKey);
 
             this.$loading.show();
 
@@ -345,6 +347,9 @@
                 url: tpAjax.ajaxUrl,
                 type: 'POST',
                 data: updateData,
+                beforeSend: function(xhr, settings) {
+                    console.log('TP Update: AJAX beforeSend - data being sent:', settings.data);
+                },
                 success: function(response) {
                     console.log('TP Update: Success response:', response);
                     self.$loading.hide();
