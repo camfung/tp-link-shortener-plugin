@@ -244,10 +244,23 @@ class TrafficPortalApiClient
      * @throws NetworkException If network error occurs
      * @throws ApiException For other API errors
      */
+    /**
+     * Log to file for debugging
+     */
+    private function log_to_file($message) {
+        $log_file = WP_CONTENT_DIR . '/plugins/tp-update-debug.log';
+        $timestamp = date('Y-m-d H:i:s');
+        file_put_contents($log_file, "[$timestamp] API CLIENT: $message\n", FILE_APPEND);
+    }
+
     public function updateMaskedRecord(int $mid, array $updateData): array
     {
         $url = $this->apiEndpoint . '/items/' . $mid;
 
+        $this->log_to_file('updateMaskedRecord called');
+        $this->log_to_file('URL: ' . $url);
+        $this->log_to_file('MID: ' . $mid);
+        $this->log_to_file('Update data: ' . json_encode($updateData));
         error_log('TP API Client - updateMaskedRecord called');
         error_log('TP API Client - URL: ' . $url);
         error_log('TP API Client - MID: ' . $mid);
@@ -260,6 +273,7 @@ class TrafficPortalApiClient
         }
 
         $jsonData = json_encode($updateData);
+        $this->log_to_file('JSON payload: ' . $jsonData);
         error_log('TP API Client - JSON payload: ' . $jsonData);
 
         // Set cURL options
@@ -276,12 +290,17 @@ class TrafficPortalApiClient
             CURLOPT_FOLLOWLOCATION => false,
         ]);
 
+        $this->log_to_file('Sending PUT request to API...');
+
         // Execute request
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $curlError = curl_error($ch);
         $curlErrno = curl_errno($ch);
 
+        $this->log_to_file('HTTP Code: ' . $httpCode);
+        $this->log_to_file('cURL errno: ' . $curlErrno);
+        $this->log_to_file('Response (first 500 chars): ' . substr($response, 0, 500));
         error_log('TP API Client - HTTP Code: ' . $httpCode);
         error_log('TP API Client - cURL errno: ' . $curlErrno);
         error_log('TP API Client - Response: ' . substr($response, 0, 500));
@@ -290,6 +309,7 @@ class TrafficPortalApiClient
 
         // Handle cURL errors
         if ($curlErrno !== 0) {
+            $this->log_to_file('cURL ERROR: ' . $curlError);
             throw new NetworkException(
                 sprintf('cURL error: %s', $curlError),
                 $curlErrno
@@ -298,23 +318,28 @@ class TrafficPortalApiClient
 
         // Handle empty response
         if ($response === false || $response === '') {
+            $this->log_to_file('ERROR: Empty response from API');
             throw new NetworkException('Empty response from API');
         }
 
         // Decode JSON response
         $data = json_decode($response, true);
         if (json_last_error() !== JSON_ERROR_NONE) {
+            $this->log_to_file('ERROR: Invalid JSON response: ' . json_last_error_msg());
             throw new ApiException(
                 sprintf('Invalid JSON response: %s', json_last_error_msg()),
                 $httpCode
             );
         }
 
+        $this->log_to_file('Decoded response: ' . json_encode($data));
         error_log('TP API Client - Decoded response: ' . json_encode($data));
 
         // Handle HTTP errors
+        $this->log_to_file('Checking for HTTP errors...');
         $this->handleHttpErrors($httpCode, $data);
 
+        $this->log_to_file('Request completed successfully');
         return $data;
     }
 

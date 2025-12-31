@@ -845,11 +845,22 @@ class TP_API_Handler {
     }
 
     /**
+     * Log to file for debugging
+     */
+    private function log_to_file($message) {
+        $log_file = WP_CONTENT_DIR . '/plugins/tp-update-debug.log';
+        $timestamp = date('Y-m-d H:i:s');
+        file_put_contents($log_file, "[$timestamp] $message\n", FILE_APPEND);
+    }
+
+    /**
      * AJAX handler for updating link (anonymous users)
      */
     public function ajax_update_link() {
         try {
             // Log incoming request for debugging
+            $this->log_to_file('=== UPDATE LINK REQUEST START ===');
+            $this->log_to_file('Request received: ' . json_encode($_POST));
             error_log('TP Update Link - Request received: ' . json_encode($_POST));
 
             // Verify nonce
@@ -860,6 +871,7 @@ class TP_API_Handler {
             $destination = isset($_POST['destination']) ? sanitize_text_field($_POST['destination']) : '';
             $domain = isset($_POST['domain']) ? sanitize_text_field($_POST['domain']) : '';
 
+            $this->log_to_file('Parsed params: mid=' . $mid . ', destination=' . $destination . ', domain=' . $domain);
             error_log('TP Update Link - Parsed params: mid=' . $mid . ', destination=' . $destination . ', domain=' . $domain);
 
             if (empty($mid) || empty($destination) || empty($domain)) {
@@ -871,6 +883,7 @@ class TP_API_Handler {
                     'destination_value' => $destination,
                     'domain_value' => $domain
                 );
+                $this->log_to_file('Missing params: ' . json_encode($error_details));
                 error_log('TP Update Link - Missing params: ' . json_encode($error_details));
                 wp_send_json_error(array(
                     'message' => __('Missing required parameters.', 'tp-link-shortener'),
@@ -881,6 +894,7 @@ class TP_API_Handler {
 
             // Get user ID (-1 for anonymous)
             $user_id = is_user_logged_in() ? get_current_user_id() : -1;
+            $this->log_to_file('User ID: ' . $user_id . ' (logged_in: ' . (is_user_logged_in() ? 'yes' : 'no') . ')');
             error_log('TP Update Link - User ID: ' . $user_id);
 
             // Prepare update data
@@ -895,19 +909,26 @@ class TP_API_Handler {
                 'settings' => '{}',
             );
 
+            $this->log_to_file('Update data prepared: ' . json_encode($updateData));
             error_log('TP Update Link - Update data prepared: ' . json_encode($updateData));
 
             // Update the record
+            $this->log_to_file('Calling updateMaskedRecord with mid=' . $mid);
             $response = $this->client->updateMaskedRecord($mid, $updateData);
 
+            $this->log_to_file('API Response: ' . json_encode($response));
             error_log('TP Update Link - API Response: ' . json_encode($response));
 
             if ($response['success']) {
+                $this->log_to_file('SUCCESS - Link updated successfully');
+                $this->log_to_file('=== UPDATE LINK REQUEST END ===');
                 wp_send_json_success(array(
                     'message' => __('Link updated successfully!', 'tp-link-shortener'),
                     'data' => $response
                 ));
             } else {
+                $this->log_to_file('FAILURE - API returned success=false: ' . json_encode($response));
+                $this->log_to_file('=== UPDATE LINK REQUEST END ===');
                 error_log('TP Update Link - API returned success=false: ' . json_encode($response));
                 wp_send_json_error(array(
                     'message' => __('Failed to update link.', 'tp-link-shortener'),
@@ -920,6 +941,9 @@ class TP_API_Handler {
             }
 
         } catch (ValidationException $e) {
+            $this->log_to_file('EXCEPTION - ValidationException: ' . $e->getMessage());
+            $this->log_to_file('Trace: ' . $e->getTraceAsString());
+            $this->log_to_file('=== UPDATE LINK REQUEST END ===');
             error_log('TP Update Link - ValidationException: ' . $e->getMessage());
             error_log('TP Update Link - ValidationException trace: ' . $e->getTraceAsString());
             wp_send_json_error(array(
@@ -928,6 +952,10 @@ class TP_API_Handler {
                 'trace' => $e->getTraceAsString()
             ));
         } catch (Exception $e) {
+            $this->log_to_file('EXCEPTION - ' . get_class($e) . ': ' . $e->getMessage());
+            $this->log_to_file('Code: ' . $e->getCode());
+            $this->log_to_file('Trace: ' . $e->getTraceAsString());
+            $this->log_to_file('=== UPDATE LINK REQUEST END ===');
             error_log('TP Link Shortener Update Error: ' . $e->getMessage());
             error_log('TP Link Shortener Update Error Trace: ' . $e->getTraceAsString());
             wp_send_json_error(array(
