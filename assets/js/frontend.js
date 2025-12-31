@@ -309,14 +309,9 @@
                 return;
             }
 
+            // Basic URL format validation (don't require online validation for updates)
             if (!this.validateUrl(newDestination)) {
                 this.showError(tpAjax.strings.invalidUrl);
-                return;
-            }
-
-            if (!this.isValid) {
-                this.showError('Please enter a valid and accessible URL.');
-                this.$destinationInput.addClass('is-invalid');
                 return;
             }
 
