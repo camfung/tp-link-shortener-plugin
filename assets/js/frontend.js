@@ -782,6 +782,9 @@
 
             this.$updateModeMessage.removeClass('d-none');
 
+            // Ensure the destination input is enabled in update mode
+            this.$destinationInput.prop('disabled', false);
+
             if (this.$customKeyGroup && this.$customKeyGroup.length) {
                 this.$customKeyGroup.slideUp(300);
             }
