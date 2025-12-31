@@ -298,25 +298,20 @@
          */
         submitUpdate: function() {
             if (!this.currentRecord || !this.currentRecord.mid) {
-                this.showError('No link to update.');
+                this.showSnackbar('No link to update.', 'error');
                 return;
             }
 
             const newDestination = this.$destinationInput.val().trim();
 
             if (!newDestination) {
-                this.showError('Please enter a destination URL.');
+                this.showSnackbar('Please enter a destination URL.', 'error');
                 return;
             }
 
-            // Basic URL format validation (don't require online validation for updates)
-            if (!this.validateUrl(newDestination)) {
-                this.showError(tpAjax.strings.invalidUrl);
-                return;
-            }
+            this.$loading.show();
 
-            this.setLoadingState(true);
-            this.hideError();
+            const self = this;
 
             $.ajax({
                 url: tpAjax.ajaxUrl,
@@ -328,11 +323,34 @@
                     destination: newDestination,
                     domain: this.currentRecord.domain
                 },
-                success: this.handleUpdateSuccess.bind(this),
-                error: this.handleError.bind(this),
-                complete: function() {
-                    this.setLoadingState(false);
-                }.bind(this)
+                success: function(response) {
+                    self.$loading.hide();
+
+                    if (response.success) {
+                        self.showSnackbar('Link updated successfully!', 'success');
+                        // Update the stored record
+                        self.currentRecord.destination = newDestination;
+                        // Capture new screenshot
+                        self.captureScreenshot(newDestination);
+
+                        // Update localStorage if applicable
+                        if (window.TPStorageService && window.TPStorageService.isAvailable()) {
+                            const storedData = window.TPStorageService.getShortcodeData();
+                            if (storedData && storedData.shortcode === self.currentRecord.key) {
+                                window.TPStorageService.saveShortcodeData({
+                                    ...storedData,
+                                    destination: newDestination
+                                });
+                            }
+                        }
+                    } else {
+                        self.showSnackbar(response.data.message || 'Failed to update link.', 'error');
+                    }
+                },
+                error: function(xhr, status, error) {
+                    self.$loading.hide();
+                    self.showSnackbar('An error occurred while updating the link.', 'error');
+                }
             });
         },
 
@@ -409,33 +427,6 @@
                 } else {
                     this.showError(response.data.message || tpAjax.strings.error);
                 }
-            }
-        },
-
-        /**
-         * Handle successful update response
-         */
-        handleUpdateSuccess: function(response) {
-            if (response.success) {
-                this.showSnackbar('Link updated successfully!');
-
-                const newDestination = this.$destinationInput.val().trim();
-                this.currentRecord.destination = newDestination;
-
-                this.captureScreenshot(newDestination);
-
-                // Update localStorage if applicable
-                if (window.TPStorageService && window.TPStorageService.isAvailable()) {
-                    const storedData = window.TPStorageService.getShortcodeData();
-                    if (storedData && storedData.shortcode === this.currentRecord.key) {
-                        window.TPStorageService.saveShortcodeData({
-                            ...storedData,
-                            destination: newDestination
-                        });
-                    }
-                }
-            } else {
-                this.showError(response.data.message || 'Failed to update link.');
             }
         },
 
