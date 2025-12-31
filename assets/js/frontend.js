@@ -308,18 +308,22 @@
                 return;
             }
 
-            // Get the current key (could be 'key' or 'tpKey' depending on source)
-            const currentKey = this.currentRecord.tpKey || this.currentRecord.key;
+            // Get the tpKey from the custom key input (Magic Keyword box)
+            // If empty, use the current key from the record
+            let tpKey = this.$customKeyInput.val().trim();
+            if (!tpKey) {
+                tpKey = this.currentRecord.tpKey || this.currentRecord.key;
+            }
 
-            if (!currentKey) {
-                console.error('TP Update: No key found in currentRecord', this.currentRecord);
+            if (!tpKey) {
+                console.error('TP Update: No key found', this.currentRecord);
                 this.showSnackbar('Unable to find link key.', 'error');
                 return;
             }
 
             console.log('TP Update: currentRecord.mid:', this.currentRecord.mid);
             console.log('TP Update: currentRecord.domain:', this.currentRecord.domain);
-            console.log('TP Update: currentKey:', currentKey);
+            console.log('TP Update: tpKey:', tpKey);
             console.log('TP Update: All currentRecord keys:', Object.keys(this.currentRecord));
 
             const updateData = {
@@ -328,7 +332,7 @@
                 mid: this.currentRecord.mid,
                 destination: newDestination,
                 domain: this.currentRecord.domain,
-                tpKey: currentKey
+                tpKey: tpKey
             };
 
             console.log('TP Update: Sending request with data:', updateData);
@@ -806,8 +810,13 @@
             // Ensure the destination input is enabled in update mode
             this.$destinationInput.prop('disabled', false);
 
+            // Show custom key group and populate with current key
             if (this.$customKeyGroup && this.$customKeyGroup.length) {
-                this.$customKeyGroup.slideUp(300);
+                const currentKey = this.currentRecord.tpKey || this.currentRecord.key;
+                if (currentKey) {
+                    this.$customKeyInput.val(currentKey);
+                }
+                this.$customKeyGroup.slideDown(300);
             }
 
             // Trigger validation for pre-filled URL
