@@ -837,8 +837,15 @@
         /**
          * Show snackbar notification
          */
-        showSnackbar: function(message, duration) {
-            duration = duration || 3000; // Default 3 seconds
+        showSnackbar: function(message, type, duration) {
+            // Handle parameters - second param could be type or duration
+            if (typeof type === 'number') {
+                duration = type;
+                type = 'success';
+            } else {
+                type = type || 'success';
+                duration = duration || 3000; // Default 3 seconds
+            }
 
             // Remove any existing snackbar
             $('.tp-snackbar').remove();
@@ -849,10 +856,25 @@
                 this.snackbarTimer = null;
             }
 
+            // Determine icon and class based on type
+            let icon = 'fas fa-check-circle';
+            let typeClass = 'tp-snackbar-success';
+
+            if (type === 'error') {
+                icon = 'fas fa-exclamation-circle';
+                typeClass = 'tp-snackbar-error';
+            } else if (type === 'warning') {
+                icon = 'fas fa-exclamation-triangle';
+                typeClass = 'tp-snackbar-warning';
+            } else if (type === 'info') {
+                icon = 'fas fa-info-circle';
+                typeClass = 'tp-snackbar-info';
+            }
+
             // Create snackbar element
             const $snackbar = $('<div>')
-                .addClass('tp-snackbar')
-                .html('<i class="fas fa-check-circle"></i><span>' + message + '</span>')
+                .addClass('tp-snackbar ' + typeClass)
+                .html('<i class="' + icon + '"></i><span>' + message + '</span>')
                 .appendTo('body');
 
             // Trigger reflow to ensure animation plays
