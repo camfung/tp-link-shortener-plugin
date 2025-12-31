@@ -122,10 +122,25 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                     </div>
                     <?php endif; ?>
 
+                    <!-- Update Mode Message (hidden by default) -->
+                    <div id="tp-update-mode-message" class="alert alert-info d-none mb-4">
+                        <div class="d-flex align-items-start gap-3">
+                            <i class="fas fa-info-circle fs-5 mt-1"></i>
+                            <div class="flex-grow-1">
+                                <strong>Update your existing link</strong>
+                                <p class="mb-0 mt-1">You can update the destination URL for your existing short link below.</p>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-sm tp-btn tp-btn-secondary mt-2" id="tp-switch-to-create-btn">
+                            <i class="fas fa-plus me-2"></i>
+                            Create new link instead
+                        </button>
+                    </div>
+
                     <div class="tp-submit-row">
                         <button type="submit" class="btn tp-btn tp-btn-primary tp-cta-button w-100" id="tp-submit-btn">
-                            <i class="fas fa-link me-2"></i>
-                            <?php esc_html_e('Save the link and it never expires', 'tp-link-shortener'); ?>
+                            <i class="fas fa-link me-2" id="tp-submit-icon"></i>
+                            <span id="tp-submit-text"><?php esc_html_e('Save the link and it never expires', 'tp-link-shortener'); ?></span>
                         </button>
                     </div>
 
@@ -195,24 +210,6 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
 
                     <div id="tp-save-link-reminder" class="tp-save-link-reminder d-none mt-3" role="status">
                         <span class="fw-semibold"><?php esc_html_e('Save the link and it never expires', 'tp-link-shortener'); ?></span>
-                    </div>
-
-                    <!-- Update Link Section (shown after link creation) -->
-                    <div id="tp-update-section" class="tp-update-section mt-4 p-3 border rounded d-none">
-                        <h4 class="mb-3">Update Link Destination</h4>
-                        <div class="mb-3">
-                            <label for="tp-update-destination" class="form-label">New Destination URL</label>
-                            <input
-                                type="url"
-                                id="tp-update-destination"
-                                class="form-control"
-                                placeholder="https://example.com/new-page"
-                            />
-                        </div>
-                        <button type="button" class="btn btn-primary" id="tp-update-btn">
-                            <i class="fas fa-edit me-2"></i>
-                            Update Link
-                        </button>
                     </div>
                 </form>
             </div>

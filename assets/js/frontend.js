@@ -37,6 +37,7 @@
         expiryTimer: null,
         urlValidator: null,
         debouncedValidate: null,
+        formMode: 'create', // 'create' or 'update'
 
         // Configuration
         config: {
@@ -94,10 +95,11 @@
             this.$validationMessage = $('#tp-url-validation-message');
             this.$tryItMessage = $('#tp-try-it-message');
 
-            // Update section elements
-            this.$updateSection = $('#tp-update-section');
-            this.$updateDestinationInput = $('#tp-update-destination');
-            this.$updateBtn = $('#tp-update-btn');
+            // Update mode elements
+            this.$updateModeMessage = $('#tp-update-mode-message');
+            this.$switchToCreateBtn = $('#tp-switch-to-create-btn');
+            this.$submitText = $('#tp-submit-text');
+            this.$submitIcon = $('#tp-submit-icon');
         },
 
         /**
@@ -206,9 +208,9 @@
                 this.$suggestBtn.on('click', this.handleSuggestClick.bind(this));
             }
 
-            // Update button
-            if (this.$updateBtn.length) {
-                this.$updateBtn.on('click', this.updateLink.bind(this));
+            // Switch to create mode button
+            if (this.$switchToCreateBtn.length) {
+                this.$switchToCreateBtn.on('click', this.switchToCreateMode.bind(this));
             }
         },
 
@@ -218,6 +220,18 @@
         handleSubmit: function(e) {
             e.preventDefault();
 
+            // Route based on form mode
+            if (this.formMode === 'update') {
+                this.submitUpdate();
+            } else {
+                this.submitCreate();
+            }
+        },
+
+        /**
+         * Submit create link request
+         */
+        submitCreate: function() {
             // Get form data
             const destination = this.$destinationInput.val().trim();
             const customKey = this.$customKeyInput.val().trim();
@@ -271,7 +285,7 @@
                 url: tpAjax.ajaxUrl,
                 type: 'POST',
                 data: data,
-                success: this.handleSuccess.bind(this),
+                success: this.handleCreateSuccess.bind(this),
                 error: this.handleError.bind(this),
                 complete: function() {
                     this.setLoadingState(false);
@@ -280,9 +294,57 @@
         },
 
         /**
-         * Handle successful response
+         * Submit update link request
          */
-        handleSuccess: function(response) {
+        submitUpdate: function() {
+            if (!this.currentRecord || !this.currentRecord.mid) {
+                this.showError('No link to update.');
+                return;
+            }
+
+            const newDestination = this.$destinationInput.val().trim();
+
+            if (!newDestination) {
+                this.showError('Please enter a destination URL.');
+                return;
+            }
+
+            if (!this.validateUrl(newDestination)) {
+                this.showError(tpAjax.strings.invalidUrl);
+                return;
+            }
+
+            if (!this.isValid) {
+                this.showError('Please enter a valid and accessible URL.');
+                this.$destinationInput.addClass('is-invalid');
+                return;
+            }
+
+            this.setLoadingState(true);
+            this.hideError();
+
+            $.ajax({
+                url: tpAjax.ajaxUrl,
+                type: 'POST',
+                data: {
+                    action: 'tp_update_link',
+                    nonce: tpAjax.nonce,
+                    mid: this.currentRecord.mid,
+                    destination: newDestination,
+                    domain: this.currentRecord.domain
+                },
+                success: this.handleUpdateSuccess.bind(this),
+                error: this.handleError.bind(this),
+                complete: function() {
+                    this.setLoadingState(false);
+                }.bind(this)
+            });
+        },
+
+        /**
+         * Handle successful create response
+         */
+        handleCreateSuccess: function(response) {
             if (response.success && response.data) {
                 const shortUrl = response.data.short_url;
                 const key = response.data.key;
@@ -340,18 +402,11 @@
                     this.startExpiryCountdown();
                 }
 
-                // Show update section and pre-fill with current destination
-                this.showUpdateSection(destination);
+                // Switch to update mode
+                this.switchToUpdateMode();
 
-                // Reset form
-                this.$destinationInput.val('');
+                // Clear custom key input
                 this.$customKeyInput.val('');
-                this.$destinationInput.removeClass('is-valid is-invalid');
-
-                // Hide custom key group after successful submission
-                if (this.$customKeyGroup && this.$customKeyGroup.length) {
-                    this.$customKeyGroup.hide();
-                }
             } else {
                 // Check if this is a rate limit error (429)
                 if (response.data && response.data.error_type === 'rate_limit') {
@@ -359,6 +414,33 @@
                 } else {
                     this.showError(response.data.message || tpAjax.strings.error);
                 }
+            }
+        },
+
+        /**
+         * Handle successful update response
+         */
+        handleUpdateSuccess: function(response) {
+            if (response.success) {
+                this.showSnackbar('Link updated successfully!');
+
+                const newDestination = this.$destinationInput.val().trim();
+                this.currentRecord.destination = newDestination;
+
+                this.captureScreenshot(newDestination);
+
+                // Update localStorage if applicable
+                if (window.TPStorageService && window.TPStorageService.isAvailable()) {
+                    const storedData = window.TPStorageService.getShortcodeData();
+                    if (storedData && storedData.shortcode === this.currentRecord.key) {
+                        window.TPStorageService.saveShortcodeData({
+                            ...storedData,
+                            destination: newDestination
+                        });
+                    }
+                }
+            } else {
+                this.showError(response.data.message || 'Failed to update link.');
             }
         },
 
@@ -695,6 +777,56 @@
         },
 
         /**
+         * Switch to update mode
+         */
+        switchToUpdateMode: function() {
+            this.formMode = 'update';
+
+            this.$submitText.text('Update Link');
+            this.$submitIcon.removeClass('fa-link').addClass('fa-edit');
+
+            this.$updateModeMessage.removeClass('d-none');
+
+            if (this.$customKeyGroup && this.$customKeyGroup.length) {
+                this.$customKeyGroup.slideUp(300);
+            }
+
+            // Trigger validation for pre-filled URL
+            if (this.urlValidator && this.debouncedValidate) {
+                const currentUrl = this.$destinationInput.val().trim();
+                if (currentUrl) {
+                    this.debouncedValidate(currentUrl, null, null);
+                }
+            }
+        },
+
+        /**
+         * Switch to create mode
+         */
+        switchToCreateMode: function() {
+            this.formMode = 'create';
+
+            this.$submitText.text('Save the link and it never expires');
+            this.$submitIcon.removeClass('fa-edit').addClass('fa-link');
+
+            this.$updateModeMessage.addClass('d-none');
+
+            this.$destinationInput.val('');
+            this.$customKeyInput.val('');
+            this.$destinationInput.removeClass('is-valid is-invalid');
+
+            this.hideResult();
+
+            if (this.$validationMessage) {
+                this.$validationMessage.hide();
+            }
+
+            this.currentRecord = null;
+            this.isValid = false;
+            this.$submitBtn.prop('disabled', true);
+        },
+
+        /**
          * Show snackbar notification
          */
         showSnackbar: function(message, duration) {
@@ -746,7 +878,6 @@
             this.$resultSection.addClass('d-none');
             this.hideQRSection();
             this.stopExpiryCountdown();
-            this.hideUpdateSection();
             // Hide "Try It Now" message
             if (this.$tryItMessage && this.$tryItMessage.length) {
                 this.$tryItMessage.addClass('d-none');
@@ -1218,98 +1349,8 @@
                 this.startExpiryCountdown(record.expires_at);
             }
 
-            if (!tpAjax.isLoggedIn) {
-                this.showUpdateButton();
-            }
-        },
-
-        /**
-         * Show update button for anonymous users
-         */
-        showUpdateButton: function() {
-            if ($('#tp-update-btn').length === 0) {
-                const updateBtn = $('<button>')
-                    .attr('type', 'button')
-                    .attr('id', 'tp-update-btn')
-                    .addClass('btn btn-primary mt-3')
-                    .html('<i class="fas fa-edit me-2"></i>' + 'Update Link');
-
-                this.$resultSection.append(updateBtn);
-
-                const self = this;
-                updateBtn.on('click', function() {
-                    self.updateLink();
-                });
-            }
-        },
-
-        /**
-         * Show update section
-         */
-        showUpdateSection: function(currentDestination) {
-            if (this.$updateSection && this.$updateSection.length) {
-                this.$updateDestinationInput.val(currentDestination);
-                this.$updateSection.removeClass('d-none');
-            }
-        },
-
-        /**
-         * Hide update section
-         */
-        hideUpdateSection: function() {
-            if (this.$updateSection && this.$updateSection.length) {
-                this.$updateSection.addClass('d-none');
-            }
-        },
-
-        /**
-         * Update existing link
-         */
-        updateLink: function() {
-            if (!this.currentRecord || !this.currentRecord.mid) {
-                this.showSnackbar('No link to update.', 'error');
-                return;
-            }
-
-            const newDestination = this.$updateDestinationInput.val().trim();
-
-            if (!newDestination) {
-                this.showSnackbar('Please enter a destination URL.', 'error');
-                return;
-            }
-
-            this.$loading.show();
-
-            const self = this;
-
-            $.ajax({
-                url: tpAjax.ajaxUrl,
-                type: 'POST',
-                data: {
-                    action: 'tp_update_link',
-                    nonce: tpAjax.nonce,
-                    mid: this.currentRecord.mid,
-                    destination: newDestination,
-                    domain: this.currentRecord.domain
-                },
-                success: function(response) {
-                    self.$loading.hide();
-
-                    if (response.success) {
-                        self.showSnackbar('Link updated successfully!', 'success');
-                        // Update the stored record
-                        self.currentRecord.destination = newDestination;
-                        // Capture new screenshot
-                        self.captureScreenshot(newDestination);
-                    } else {
-                        self.showSnackbar(response.data.message || 'Failed to update link.', 'error');
-                    }
-                },
-                error: function(xhr, status, error) {
-                    self.$loading.hide();
-                    self.showSnackbar('An error occurred while updating the link.', 'error');
-                }
-            });
+            // Switch to update mode
+            this.switchToUpdateMode();
         },
 
         /**
