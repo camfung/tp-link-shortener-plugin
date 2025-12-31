@@ -248,17 +248,25 @@ class TrafficPortalApiClient
     {
         $url = $this->apiEndpoint . '/items/' . $mid;
 
+        error_log('TP API Client - updateMaskedRecord called');
+        error_log('TP API Client - URL: ' . $url);
+        error_log('TP API Client - MID: ' . $mid);
+        error_log('TP API Client - Update data: ' . json_encode($updateData));
+
         // Initialize cURL
         $ch = curl_init($url);
         if ($ch === false) {
             throw new NetworkException('Failed to initialize cURL');
         }
 
+        $jsonData = json_encode($updateData);
+        error_log('TP API Client - JSON payload: ' . $jsonData);
+
         // Set cURL options
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_CUSTOMREQUEST => 'PUT',
-            CURLOPT_POSTFIELDS => json_encode($updateData),
+            CURLOPT_POSTFIELDS => $jsonData,
             CURLOPT_HTTPHEADER => [
                 'Content-Type: application/json',
                 'x-api-key: ' . $this->apiKey,
@@ -273,6 +281,10 @@ class TrafficPortalApiClient
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $curlError = curl_error($ch);
         $curlErrno = curl_errno($ch);
+
+        error_log('TP API Client - HTTP Code: ' . $httpCode);
+        error_log('TP API Client - cURL errno: ' . $curlErrno);
+        error_log('TP API Client - Response: ' . substr($response, 0, 500));
 
         curl_close($ch);
 
@@ -297,6 +309,8 @@ class TrafficPortalApiClient
                 $httpCode
             );
         }
+
+        error_log('TP API Client - Decoded response: ' . json_encode($data));
 
         // Handle HTTP errors
         $this->handleHttpErrors($httpCode, $data);

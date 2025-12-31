@@ -883,9 +883,8 @@ class TP_API_Handler {
             $user_id = is_user_logged_in() ? get_current_user_id() : -1;
             error_log('TP Update Link - User ID: ' . $user_id);
 
-            // Prepare update data (no tpTkn required)
+            // Prepare update data (uid is NOT sent in updates - it's tied to the record)
             $updateData = array(
-                'uid' => $user_id,
                 'domain' => $domain,
                 'destination' => $destination,
                 'status' => $user_id === -1 ? 'intro' : 'active',
