@@ -298,6 +298,7 @@
          */
         submitUpdate: function() {
             if (!this.currentRecord || !this.currentRecord.mid) {
+                console.error('TP Update: No current record or mid', this.currentRecord);
                 this.showSnackbar('No link to update.', 'error');
                 return;
             }
@@ -305,9 +306,20 @@
             const newDestination = this.$destinationInput.val().trim();
 
             if (!newDestination) {
+                console.error('TP Update: Empty destination');
                 this.showSnackbar('Please enter a destination URL.', 'error');
                 return;
             }
+
+            const updateData = {
+                action: 'tp_update_link',
+                nonce: tpAjax.nonce,
+                mid: this.currentRecord.mid,
+                destination: newDestination,
+                domain: this.currentRecord.domain
+            };
+
+            console.log('TP Update: Sending request with data:', updateData);
 
             this.$loading.show();
 
@@ -316,14 +328,9 @@
             $.ajax({
                 url: tpAjax.ajaxUrl,
                 type: 'POST',
-                data: {
-                    action: 'tp_update_link',
-                    nonce: tpAjax.nonce,
-                    mid: this.currentRecord.mid,
-                    destination: newDestination,
-                    domain: this.currentRecord.domain
-                },
+                data: updateData,
                 success: function(response) {
+                    console.log('TP Update: Success response:', response);
                     self.$loading.hide();
 
                     if (response.success) {
@@ -344,12 +351,34 @@
                             }
                         }
                     } else {
-                        self.showSnackbar(response.data.message || 'Failed to update link.', 'error');
+                        console.error('TP Update: Server returned success=false', response);
+                        const errorMsg = response.data ? response.data.message : 'Failed to update link.';
+                        const debugInfo = response.data ? JSON.stringify(response.data, null, 2) : '';
+                        console.error('TP Update: Debug info:', debugInfo);
+                        self.showSnackbar(errorMsg, 'error');
+                        // Show debug info in console
+                        if (response.data && response.data.debug) {
+                            console.error('TP Update: Debug details:', response.data.debug);
+                        }
                     }
                 },
                 error: function(xhr, status, error) {
+                    console.error('TP Update: AJAX error', {xhr: xhr, status: status, error: error});
+                    console.error('TP Update: Response text:', xhr.responseText);
                     self.$loading.hide();
-                    self.showSnackbar('An error occurred while updating the link.', 'error');
+
+                    let errorMessage = 'An error occurred while updating the link.';
+                    try {
+                        const errorData = JSON.parse(xhr.responseText);
+                        if (errorData && errorData.data && errorData.data.message) {
+                            errorMessage = errorData.data.message;
+                        }
+                        console.error('TP Update: Parsed error data:', errorData);
+                    } catch(e) {
+                        console.error('TP Update: Could not parse error response');
+                    }
+
+                    self.showSnackbar(errorMessage, 'error');
                 }
             });
         },

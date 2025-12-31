@@ -849,6 +849,9 @@ class TP_API_Handler {
      */
     public function ajax_update_link() {
         try {
+            // Log incoming request for debugging
+            error_log('TP Update Link - Request received: ' . json_encode($_POST));
+
             // Verify nonce
             check_ajax_referer('tp_link_shortener_nonce', 'nonce');
 
@@ -857,15 +860,28 @@ class TP_API_Handler {
             $destination = isset($_POST['destination']) ? sanitize_text_field($_POST['destination']) : '';
             $domain = isset($_POST['domain']) ? sanitize_text_field($_POST['domain']) : '';
 
+            error_log('TP Update Link - Parsed params: mid=' . $mid . ', destination=' . $destination . ', domain=' . $domain);
+
             if (empty($mid) || empty($destination) || empty($domain)) {
+                $error_details = array(
+                    'mid_empty' => empty($mid),
+                    'destination_empty' => empty($destination),
+                    'domain_empty' => empty($domain),
+                    'mid_value' => $mid,
+                    'destination_value' => $destination,
+                    'domain_value' => $domain
+                );
+                error_log('TP Update Link - Missing params: ' . json_encode($error_details));
                 wp_send_json_error(array(
-                    'message' => __('Missing required parameters.', 'tp-link-shortener')
+                    'message' => __('Missing required parameters.', 'tp-link-shortener'),
+                    'debug' => $error_details
                 ));
                 return;
             }
 
             // Get user ID (-1 for anonymous)
             $user_id = is_user_logged_in() ? get_current_user_id() : -1;
+            error_log('TP Update Link - User ID: ' . $user_id);
 
             // Prepare update data (no tpTkn required)
             $updateData = array(
@@ -879,8 +895,12 @@ class TP_API_Handler {
                 'settings' => '{}',
             );
 
+            error_log('TP Update Link - Update data prepared: ' . json_encode($updateData));
+
             // Update the record
             $response = $this->client->updateMaskedRecord($mid, $updateData);
+
+            error_log('TP Update Link - API Response: ' . json_encode($response));
 
             if ($response['success']) {
                 wp_send_json_success(array(
@@ -888,20 +908,34 @@ class TP_API_Handler {
                     'data' => $response
                 ));
             } else {
+                error_log('TP Update Link - API returned success=false: ' . json_encode($response));
                 wp_send_json_error(array(
-                    'message' => __('Failed to update link.', 'tp-link-shortener')
+                    'message' => __('Failed to update link.', 'tp-link-shortener'),
+                    'api_response' => $response,
+                    'debug' => array(
+                        'mid' => $mid,
+                        'update_data' => $updateData
+                    )
                 ));
             }
 
         } catch (ValidationException $e) {
+            error_log('TP Update Link - ValidationException: ' . $e->getMessage());
+            error_log('TP Update Link - ValidationException trace: ' . $e->getTraceAsString());
             wp_send_json_error(array(
-                'message' => __('Validation error: ', 'tp-link-shortener') . $e->getMessage()
+                'message' => __('Validation error: ', 'tp-link-shortener') . $e->getMessage(),
+                'exception_type' => 'ValidationException',
+                'trace' => $e->getTraceAsString()
             ));
         } catch (Exception $e) {
             error_log('TP Link Shortener Update Error: ' . $e->getMessage());
+            error_log('TP Link Shortener Update Error Trace: ' . $e->getTraceAsString());
             wp_send_json_error(array(
-                'message' => __('Failed to update link.', 'tp-link-shortener'),
-                'debug_error' => $e->getMessage()
+                'message' => __('Failed to update link: ', 'tp-link-shortener') . $e->getMessage(),
+                'exception_type' => get_class($e),
+                'exception_message' => $e->getMessage(),
+                'exception_code' => $e->getCode(),
+                'trace' => $e->getTraceAsString()
             ));
         }
     }
