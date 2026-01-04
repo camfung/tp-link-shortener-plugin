@@ -682,15 +682,7 @@
             }
 
             const currentValue = this.$customKeyInput.val().trim();
-            console.log('Current custom key value:', currentValue);
-
-            // Don't fetch if custom key is already filled
-            if (currentValue) {
-                console.log('Custom key already has value, skipping suggestion');
-                console.log('=== FETCH SHORTCODE SUGGESTION END ===');
-                return;
-            }
-
+            console.log('Current custom key value (will be replaced):', currentValue);
             console.log('Proceeding with suggestion fetch...');
 
             // Show loading state in custom key input
