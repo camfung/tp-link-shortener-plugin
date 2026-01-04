@@ -21,7 +21,7 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                         <i class="fas fa-link"></i>
                     </span>
                     <h2 class="tp-title mb-0">
-                        <?php esc_html_e('Instant FREE Link Shortener', 'tp-link-shortener'); ?>
+                        <?php esc_html_e('Instant FREE Link Simplifier', 'tp-link-shortener'); ?>
                     </h2>
                 </div>
 
