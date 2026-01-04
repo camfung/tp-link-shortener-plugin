@@ -73,24 +73,19 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.75rem;
+    gap: 0.5rem;
 }
 
 .tp-title-icon {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 58px;
-    height: 58px;
-    border-radius: 18px;
-    background: linear-gradient(135deg, rgba(60, 122, 229, 0.14), rgba(34, 181, 115, 0.18));
     color: var(--tp-primary-contrast);
-    font-size: 1.65rem;
-    box-shadow: 0 12px 30px -22px rgba(30, 79, 159, 0.85);
+    font-size: 1.5rem;
 }
 
 .tp-title {
-    font-size: clamp(1.4rem, 2vw, 1.7rem);
+    font-size: clamp(1.2rem, 1.8vw, 1.5rem);
     font-weight: 700;
     color: var(--tp-primary-contrast);
     letter-spacing: 0.01em;
