@@ -180,6 +180,9 @@
                 if (this.$customKeyGroup && this.$customKeyGroup.length) {
                     this.$customKeyGroup.slideDown(300);
                 }
+
+                // After validation succeeds, get Gemini shortcode suggestion
+                this.fetchShortcodeSuggestion(url);
             }
         },
 
@@ -619,8 +622,70 @@
          * Handle suggest button click (lightbulb)
          */
         handleSuggestClick: function() {
-            const randomKey = this.generateRandomKey();
-            this.$customKeyInput.val(randomKey);
+            const destination = this.$destinationInput.val().trim();
+
+            // If URL is valid, fetch AI suggestion; otherwise generate random
+            if (this.isValid && destination) {
+                this.fetchShortcodeSuggestion(destination);
+            } else {
+                const randomKey = this.generateRandomKey();
+                this.$customKeyInput.val(randomKey);
+            }
+        },
+
+        /**
+         * Fetch AI-powered shortcode suggestion from backend
+         */
+        fetchShortcodeSuggestion: function(destination) {
+            const self = this;
+
+            // Don't fetch if custom key is already filled
+            if (this.$customKeyInput.val().trim()) {
+                return;
+            }
+
+            // Show loading state in custom key input
+            const originalPlaceholder = this.$customKeyInput.attr('placeholder');
+            this.$customKeyInput.attr('placeholder', 'Generating suggestion...');
+            this.$customKeyInput.prop('disabled', true);
+
+            // Send AJAX request for suggestion
+            $.ajax({
+                url: tpAjax.ajaxUrl,
+                type: 'POST',
+                data: {
+                    action: 'tp_suggest_shortcode',
+                    nonce: tpAjax.nonce,
+                    destination: destination
+                },
+                success: function(response) {
+                    if (response.success && response.data && response.data.shortcode) {
+                        // Auto-populate the custom key input with suggestion
+                        self.$customKeyInput.val(response.data.shortcode);
+
+                        // Log source for debugging
+                        if (response.data.source === 'gemini') {
+                            console.log('TP Link Shortener: Gemini suggestion:', response.data.shortcode);
+                        } else {
+                            console.log('TP Link Shortener: Random suggestion:', response.data.shortcode);
+                        }
+                    } else {
+                        // Fallback to client-side random generation
+                        console.log('TP Link Shortener: Suggestion failed, using random key');
+                        self.$customKeyInput.val(self.generateRandomKey());
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('TP Link Shortener: Suggestion request failed:', error);
+                    // Fallback to client-side random generation
+                    self.$customKeyInput.val(self.generateRandomKey());
+                },
+                complete: function() {
+                    // Restore placeholder and enable input
+                    self.$customKeyInput.attr('placeholder', originalPlaceholder);
+                    self.$customKeyInput.prop('disabled', false);
+                }
+            });
         },
 
         /**
