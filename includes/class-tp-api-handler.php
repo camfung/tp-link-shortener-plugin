@@ -132,6 +132,7 @@ class TP_API_Handler {
         add_action('wp_ajax_tp_capture_screenshot', array($this, 'ajax_capture_screenshot'));
         add_action('wp_ajax_tp_search_by_ip', array($this, 'ajax_search_by_ip'));
         add_action('wp_ajax_tp_update_link', array($this, 'ajax_update_link'));
+        add_action('wp_ajax_tp_suggest_shortcode', array($this, 'ajax_suggest_shortcode'));
 
         // For non-logged-in users
         add_action('wp_ajax_nopriv_tp_create_link', array($this, 'ajax_create_link'));
@@ -140,6 +141,7 @@ class TP_API_Handler {
         add_action('wp_ajax_nopriv_tp_capture_screenshot', array($this, 'ajax_capture_screenshot'));
         add_action('wp_ajax_nopriv_tp_search_by_ip', array($this, 'ajax_search_by_ip'));
         add_action('wp_ajax_nopriv_tp_update_link', array($this, 'ajax_update_link'));
+        add_action('wp_ajax_nopriv_tp_suggest_shortcode', array($this, 'ajax_suggest_shortcode'));
     }
 
     /**
@@ -1014,5 +1016,62 @@ class TP_API_Handler {
         } else {
             return $_SERVER['REMOTE_ADDR'];
         }
+    }
+
+    /**
+     * AJAX handler for suggesting AI-generated shortcode
+     * Called after URL validation to get Gemini-powered short code suggestion
+     */
+    public function ajax_suggest_shortcode() {
+        $this->log_to_file('=== SUGGEST SHORTCODE REQUEST START ===');
+        error_log('TP Link Shortener: ajax_suggest_shortcode called');
+
+        // Verify nonce
+        check_ajax_referer('tp_link_shortener_nonce', 'nonce');
+
+        // Get destination URL
+        $destination = isset($_POST['destination']) ? sanitize_url($_POST['destination']) : '';
+
+        $this->log_to_file('Destination URL: ' . $destination);
+        error_log('TP Link Shortener: Suggesting shortcode for URL: ' . $destination);
+
+        // Validate destination URL
+        if (empty($destination) || !filter_var($destination, FILTER_VALIDATE_URL)) {
+            $this->log_to_file('ERROR - Invalid destination URL: ' . $destination);
+            $this->log_to_file('=== SUGGEST SHORTCODE REQUEST END ===');
+            error_log('TP Link Shortener: Invalid destination URL for shortcode suggestion: ' . $destination);
+            wp_send_json_error(array(
+                'message' => __('Please enter a valid URL', 'tp-link-shortener')
+            ));
+            return;
+        }
+
+        // Check if Gemini generation is enabled
+        if (!TP_Link_Shortener::use_gemini_generation()) {
+            $this->log_to_file('Gemini generation disabled, returning random key');
+            $random_key = $this->generate_random_key();
+            $this->log_to_file('Generated random key: ' . $random_key);
+            $this->log_to_file('=== SUGGEST SHORTCODE REQUEST END ===');
+            wp_send_json_success(array(
+                'shortcode' => $random_key,
+                'source' => 'random',
+                'message' => __('Random shortcode generated', 'tp-link-shortener')
+            ));
+            return;
+        }
+
+        // Generate shortcode using Gemini
+        $this->log_to_file('Gemini generation enabled, calling generate_short_code');
+        $suggested_code = $this->generate_short_code($destination);
+
+        $this->log_to_file('Suggested shortcode: ' . $suggested_code);
+        $this->log_to_file('=== SUGGEST SHORTCODE REQUEST END ===');
+        error_log('TP Link Shortener: Suggested shortcode: ' . $suggested_code);
+
+        wp_send_json_success(array(
+            'shortcode' => $suggested_code,
+            'source' => 'gemini',
+            'message' => __('AI-generated shortcode suggestion', 'tp-link-shortener')
+        ));
     }
 }
