@@ -482,11 +482,8 @@
                     this.startExpiryCountdown();
                 }
 
-                // Switch to update mode
+                // Switch to update mode (this will populate the custom key input with the current key)
                 this.switchToUpdateMode();
-
-                // Clear custom key input
-                this.$customKeyInput.val('');
             } else {
                 // Check if this is a rate limit error (429)
                 if (response.data && response.data.error_type === 'rate_limit') {
