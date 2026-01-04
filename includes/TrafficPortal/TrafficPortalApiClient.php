@@ -60,6 +60,7 @@ class TrafficPortalApiClient
         $payload = $request->toArray();
 
         $this->log_to_file('createMaskedRecord called');
+        $this->log_to_file('Client IP: ' . $this->get_client_ip());
         $this->log_to_file('URL: ' . $url);
         $this->log_to_file('Payload: ' . json_encode($payload));
 
@@ -273,11 +274,37 @@ class TrafficPortalApiClient
         file_put_contents($log_file, "[$timestamp] API CLIENT: $message\n", FILE_APPEND);
     }
 
+    /**
+     * Get client IP address
+     */
+    private function get_client_ip(): string {
+        $ip_keys = [
+            'HTTP_CF_CONNECTING_IP',
+            'HTTP_X_FORWARDED_FOR',
+            'HTTP_X_REAL_IP',
+            'REMOTE_ADDR'
+        ];
+
+        foreach ($ip_keys as $key) {
+            if (isset($_SERVER[$key]) && !empty($_SERVER[$key])) {
+                $ip = $_SERVER[$key];
+                if ($key === 'HTTP_X_FORWARDED_FOR' && strpos($ip, ',') !== false) {
+                    $ips = explode(',', $ip);
+                    $ip = trim($ips[0]);
+                }
+                return $ip;
+            }
+        }
+
+        return 'UNKNOWN';
+    }
+
     public function updateMaskedRecord(int $mid, array $updateData): array
     {
         $url = $this->apiEndpoint . '/items/' . $mid;
 
         $this->log_to_file('updateMaskedRecord called');
+        $this->log_to_file('Client IP: ' . $this->get_client_ip());
         $this->log_to_file('URL: ' . $url);
         $this->log_to_file('MID: ' . $mid);
         $this->log_to_file('Update data: ' . json_encode($updateData));
