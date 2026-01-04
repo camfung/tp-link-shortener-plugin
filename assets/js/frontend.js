@@ -367,7 +367,8 @@
             console.log('TP Update: Data as JSON:', JSON.stringify(updateData, null, 2));
             console.log('TP Update: tpKey value type:', typeof tpKey, 'value:', tpKey);
 
-            this.$loading.show();
+            // Show loading state (spinner + disable button)
+            this.setLoadingState(true);
 
             const self = this;
 
@@ -380,7 +381,6 @@
                 },
                 success: function(response) {
                     console.log('TP Update: Success response:', response);
-                    self.$loading.hide();
 
                     if (response.success) {
                         self.showSnackbar('Link updated successfully!', 'success');
@@ -403,7 +403,6 @@
                 error: function(xhr, status, error) {
                     console.error('TP Update: AJAX error', {xhr: xhr, status: status, error: error});
                     console.error('TP Update: Response text:', xhr.responseText);
-                    self.$loading.hide();
 
                     let errorMessage = 'An error occurred while updating the link.';
                     try {
@@ -417,6 +416,10 @@
                     }
 
                     self.showSnackbar(errorMessage, 'error');
+                },
+                complete: function() {
+                    // Hide loading state (re-enable button)
+                    self.setLoadingState(false);
                 }
             });
         },
