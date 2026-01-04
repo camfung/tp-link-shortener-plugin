@@ -14,7 +14,7 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
 
 <div class="tp-link-shortener-wrapper py-5">
 
-                <div class="tp-hero-header text-center mb-4">
+                <div class="tp-hero-header text-center mb-4 d-flex flex-row">
                     <span class="tp-title-icon">
                         <i class="fas fa-link"></i>
                     </span>
