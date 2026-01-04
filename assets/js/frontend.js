@@ -62,7 +62,7 @@
             this.initializeURLValidator();
             this.bindEvents();
             this.checkClipboardSupport();
-            this.checkReturningVisitor();
+            // this.checkReturningVisitor(); // Disabled: using IP-based detection only
 
             // Search for existing links by IP for anonymous users
             if (!tpAjax.isLoggedIn) {
@@ -423,16 +423,16 @@
                     // Ignore
                 }
 
-                // Save to local storage (screenshots always fetched fresh from API)
-                if (window.TPStorageService && window.TPStorageService.isAvailable()) {
-                    window.TPStorageService.saveShortcodeData({
-                        shortcode: key,
-                        destination: destination,
-                        expiresInHours: 24,
-                        uid: uid
-                    });
-                    console.log('TP Link Shortener: Shortcode data saved to localStorage');
-                }
+                // Disabled: using IP-based detection only, not localStorage
+                // if (window.TPStorageService && window.TPStorageService.isAvailable()) {
+                //     window.TPStorageService.saveShortcodeData({
+                //         shortcode: key,
+                //         destination: destination,
+                //         expiresInHours: 24,
+                //         uid: uid
+                //     });
+                //     console.log('TP Link Shortener: Shortcode data saved to localStorage');
+                // }
 
                 // Display result
                 this.$shortUrlOutput.val(shortUrl);
