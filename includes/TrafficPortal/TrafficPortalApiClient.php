@@ -59,17 +59,26 @@ class TrafficPortalApiClient
         $url = $this->apiEndpoint . '/items';
         $payload = $request->toArray();
 
+        $this->log_to_file('createMaskedRecord called');
+        $this->log_to_file('URL: ' . $url);
+        $this->log_to_file('Payload: ' . json_encode($payload));
+        error_log('TP API Client - createMaskedRecord called');
+        error_log('TP API Client - URL: ' . $url);
+        error_log('TP API Client - Payload: ' . json_encode($payload));
+
         // Initialize cURL
         $ch = curl_init($url);
         if ($ch === false) {
             throw new NetworkException('Failed to initialize cURL');
         }
 
+        $jsonData = json_encode($payload);
+
         // Set cURL options
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_POST => true,
-            CURLOPT_POSTFIELDS => json_encode($payload),
+            CURLOPT_POSTFIELDS => $jsonData,
             CURLOPT_HTTPHEADER => [
                 'Content-Type: application/json',
                 'x-api-key: ' . $this->apiKey,
@@ -79,16 +88,26 @@ class TrafficPortalApiClient
             CURLOPT_FOLLOWLOCATION => false,
         ]);
 
+        $this->log_to_file('Sending POST request to API...');
+
         // Execute request
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $curlError = curl_error($ch);
         $curlErrno = curl_errno($ch);
 
+        $this->log_to_file('HTTP Code: ' . $httpCode);
+        $this->log_to_file('cURL errno: ' . $curlErrno);
+        $this->log_to_file('Response (first 500 chars): ' . substr($response, 0, 500));
+        error_log('TP API Client - HTTP Code: ' . $httpCode);
+        error_log('TP API Client - cURL errno: ' . $curlErrno);
+        error_log('TP API Client - Response: ' . substr($response, 0, 500));
+
         curl_close($ch);
 
         // Handle cURL errors
         if ($curlErrno !== 0) {
+            $this->log_to_file('cURL ERROR: ' . $curlError);
             throw new NetworkException(
                 sprintf('cURL error: %s', $curlError),
                 $curlErrno
@@ -97,20 +116,28 @@ class TrafficPortalApiClient
 
         // Handle empty response
         if ($response === false || $response === '') {
+            $this->log_to_file('ERROR: Empty response from API');
             throw new NetworkException('Empty response from API');
         }
 
         // Decode JSON response
         $data = json_decode($response, true);
         if (json_last_error() !== JSON_ERROR_NONE) {
+            $this->log_to_file('ERROR: Invalid JSON response: ' . json_last_error_msg());
             throw new ApiException(
                 sprintf('Invalid JSON response: %s', json_last_error_msg()),
                 $httpCode
             );
         }
 
+        $this->log_to_file('Decoded response: ' . json_encode($data));
+        error_log('TP API Client - Decoded response: ' . json_encode($data));
+
         // Handle HTTP errors
+        $this->log_to_file('Checking for HTTP errors...');
         $this->handleHttpErrors($httpCode, $data);
+
+        $this->log_to_file('Request completed successfully');
 
         // Parse and return response
         return CreateMapResponse::fromArray($data);
