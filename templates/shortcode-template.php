@@ -12,7 +12,7 @@ $is_premium_only = TP_Link_Shortener::is_premium_only();
 $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener::get_domain();
 ?>
 
-<div class="tp-link-shortener-wrapper py-5">
+<div class="tp-link-shortener-wrapper pb-5">
 
                 <div class="tp-hero-header text-center mb-2 d-flex flex-row">
                     <span class="tp-title-icon">
