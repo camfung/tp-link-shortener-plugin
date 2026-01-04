@@ -688,6 +688,9 @@
             // Show loading state in custom key input
             const originalPlaceholder = this.$customKeyInput.attr('placeholder');
             console.log('Original placeholder:', originalPlaceholder);
+
+            // Clear the input first so placeholder is visible
+            this.$customKeyInput.val('');
             this.$customKeyInput.attr('placeholder', 'Generating suggestion...');
             this.$customKeyInput.prop('disabled', true);
 
