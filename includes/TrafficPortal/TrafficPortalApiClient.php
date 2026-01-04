@@ -95,7 +95,7 @@ class TrafficPortalApiClient
 
         $this->log_to_file('HTTP Code: ' . $httpCode);
         $this->log_to_file('cURL errno: ' . $curlErrno);
-        $this->log_to_file('Response (first 500 chars): ' . substr($response, 0, 500));
+        $this->log_to_file('Raw response: ' . $response);
 
         curl_close($ch);
 
@@ -315,7 +315,7 @@ class TrafficPortalApiClient
 
         $this->log_to_file('HTTP Code: ' . $httpCode);
         $this->log_to_file('cURL errno: ' . $curlErrno);
-        $this->log_to_file('Response (first 500 chars): ' . substr($response, 0, 500));
+        $this->log_to_file('Raw response: ' . $response);
 
         curl_close($ch);
 
