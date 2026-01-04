@@ -232,6 +232,17 @@ form .tp-plain-input:focus,
     box-shadow: 0 18px 40px -28px rgba(95, 140, 243, 0.95);
 }
 
+/* Keyword field icon button */
+.tp-keyword-field .tp-icon-btn {
+    color: var(--tp-secondary);
+    transition: color 0.2s ease;
+}
+
+/* Keyword field floating label */
+.tp-keyword-field .tp-floating-label {
+    color: var(--tp-secondary);
+}
+
 .tp-icon-btn {
     display: inline-flex;
     align-items: center;

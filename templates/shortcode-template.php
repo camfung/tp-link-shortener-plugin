@@ -75,9 +75,6 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                     <!-- Custom Shortcode Input (only show if not premium-only OR user is premium) -->
                     <?php if (!$is_premium_only || is_user_logged_in()): ?>
                     <div id="tp-custom-key-group" class="tp-form-group tp-custom-key-group tp-keyword-field mb-4" style="display: none;">
-                        <label id="tp-custom-key-label" for="tp-custom-key" class="tp-label mb-2 text-uppercase">
-                            <?php esc_html_e('Magic Keyword', 'tp-link-shortener'); ?>
-                        </label>
                         <div id="tp-custom-key-input-visual" class="tp-input-visual">
                             <button
                                 type="button"
@@ -88,14 +85,19 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                             >
                                 <i id="tp-suggest-icon" class="fa-solid fa-lightbulb" aria-hidden="true"></i>
                             </button>
-                            <input
-                                type="text"
-                                id="tp-custom-key"
-                                name="custom_key"
-                                class="form-control tp-form-control tp-plain-input"
-                                placeholder="<?php esc_attr_e('educator', 'tp-link-shortener'); ?>"
-                                pattern="[a-zA-Z0-9\.\-_]+"
-                            />
+                            <div class="tp-floating-label-wrapper">
+                                <input
+                                    type="text"
+                                    id="tp-custom-key"
+                                    name="custom_key"
+                                    class="form-control tp-form-control tp-plain-input"
+                                    placeholder=" "
+                                    pattern="[a-zA-Z0-9\.\-_]+"
+                                />
+                                <label id="tp-custom-key-label" for="tp-custom-key" class="tp-label tp-floating-label text-uppercase">
+                                    <?php esc_html_e('Magic Keyword', 'tp-link-shortener'); ?>
+                                </label>
+                            </div>
                         </div>
                     </div>
                     <?php endif; ?>
