@@ -192,7 +192,7 @@ form .tp-plain-input:focus,
     font-weight: 700;
     pointer-events: none;
     transition: color 0.2s ease;
-    background: linear-gradient(180deg, #f8fcff 0%, #eef5ff 100%);
+    background: white;
     padding: 0 0.25rem;
     margin-bottom: 0;
     letter-spacing: 0.04em;
