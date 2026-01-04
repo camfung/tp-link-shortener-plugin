@@ -176,8 +176,13 @@
                 }
 
                 // After validation succeeds with warning, get Gemini shortcode suggestion
-                console.log('Calling fetchShortcodeSuggestion with URL (warning case):', url);
-                this.fetchShortcodeSuggestion(url);
+                // Only fetch suggestion in create mode (not update mode)
+                if (this.formMode === 'create') {
+                    console.log('Calling fetchShortcodeSuggestion with URL (warning case):', url);
+                    this.fetchShortcodeSuggestion(url);
+                } else {
+                    console.log('Skipping suggestion fetch - in update mode');
+                }
             } else {
                 console.log('Validation succeeded - proceeding to fetch suggestion');
                 this.isValid = true;
@@ -195,8 +200,13 @@
                 }
 
                 // After validation succeeds, get Gemini shortcode suggestion
-                console.log('Calling fetchShortcodeSuggestion with URL:', url);
-                this.fetchShortcodeSuggestion(url);
+                // Only fetch suggestion in create mode (not update mode)
+                if (this.formMode === 'create') {
+                    console.log('Calling fetchShortcodeSuggestion with URL:', url);
+                    this.fetchShortcodeSuggestion(url);
+                } else {
+                    console.log('Skipping suggestion fetch - in update mode');
+                }
             }
             console.log('=== VALIDATION RESULT END ===');
         },
