@@ -62,9 +62,6 @@ class TrafficPortalApiClient
         $this->log_to_file('createMaskedRecord called');
         $this->log_to_file('URL: ' . $url);
         $this->log_to_file('Payload: ' . json_encode($payload));
-        error_log('TP API Client - createMaskedRecord called');
-        error_log('TP API Client - URL: ' . $url);
-        error_log('TP API Client - Payload: ' . json_encode($payload));
 
         // Initialize cURL
         $ch = curl_init($url);
@@ -99,9 +96,6 @@ class TrafficPortalApiClient
         $this->log_to_file('HTTP Code: ' . $httpCode);
         $this->log_to_file('cURL errno: ' . $curlErrno);
         $this->log_to_file('Response (first 500 chars): ' . substr($response, 0, 500));
-        error_log('TP API Client - HTTP Code: ' . $httpCode);
-        error_log('TP API Client - cURL errno: ' . $curlErrno);
-        error_log('TP API Client - Response: ' . substr($response, 0, 500));
 
         curl_close($ch);
 
@@ -131,7 +125,6 @@ class TrafficPortalApiClient
         }
 
         $this->log_to_file('Decoded response: ' . json_encode($data));
-        error_log('TP API Client - Decoded response: ' . json_encode($data));
 
         // Handle HTTP errors
         $this->log_to_file('Checking for HTTP errors...');
@@ -288,10 +281,6 @@ class TrafficPortalApiClient
         $this->log_to_file('URL: ' . $url);
         $this->log_to_file('MID: ' . $mid);
         $this->log_to_file('Update data: ' . json_encode($updateData));
-        error_log('TP API Client - updateMaskedRecord called');
-        error_log('TP API Client - URL: ' . $url);
-        error_log('TP API Client - MID: ' . $mid);
-        error_log('TP API Client - Update data: ' . json_encode($updateData));
 
         // Initialize cURL
         $ch = curl_init($url);
@@ -301,7 +290,6 @@ class TrafficPortalApiClient
 
         $jsonData = json_encode($updateData);
         $this->log_to_file('JSON payload: ' . $jsonData);
-        error_log('TP API Client - JSON payload: ' . $jsonData);
 
         // Set cURL options
         curl_setopt_array($ch, [
@@ -328,9 +316,6 @@ class TrafficPortalApiClient
         $this->log_to_file('HTTP Code: ' . $httpCode);
         $this->log_to_file('cURL errno: ' . $curlErrno);
         $this->log_to_file('Response (first 500 chars): ' . substr($response, 0, 500));
-        error_log('TP API Client - HTTP Code: ' . $httpCode);
-        error_log('TP API Client - cURL errno: ' . $curlErrno);
-        error_log('TP API Client - Response: ' . substr($response, 0, 500));
 
         curl_close($ch);
 
@@ -360,7 +345,6 @@ class TrafficPortalApiClient
         }
 
         $this->log_to_file('Decoded response: ' . json_encode($data));
-        error_log('TP API Client - Decoded response: ' . json_encode($data));
 
         // Handle HTTP errors
         $this->log_to_file('Checking for HTTP errors...');
