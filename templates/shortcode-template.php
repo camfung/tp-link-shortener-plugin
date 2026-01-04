@@ -13,9 +13,7 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
 ?>
 
 <div class="tp-link-shortener-wrapper py-5">
-    <div class="row justify-content-center">
-        <div class="col-12">
-            <div class="tp-hero-shell border-0 shadow-sm tp-card">
+
                 <div class="tp-hero-header text-center mb-4">
                     <span class="tp-title-icon">
                         <i class="fas fa-link"></i>
@@ -24,6 +22,9 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                         <?php esc_html_e('Instant FREE Link Simplifier', 'tp-link-shortener'); ?>
                     </h2>
                 </div>
+    <div class="row justify-content-center">
+        <div class="col-12">
+            <div class="tp-hero-shell border-0 shadow-sm tp-card">
 
                 <form id="tp-shortener-form" class="tp-shortener-form">
                     <!-- Try It Now Message (for non-logged-in users, shown after link creation) -->
