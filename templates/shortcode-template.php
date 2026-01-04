@@ -66,10 +66,7 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                                 </label>
                             </div>
                         </div>
-                        <small id="tp-destination-hint" class="tp-field-hint">
-                            <?php esc_html_e('Enter the full URL where this short link should redirect', 'tp-link-shortener'); ?>
-                        </small>
-                        <div id="tp-url-validation-message" class="form-text mt-2" style="display: none;"></div>
+                        <div id="tp-url-validation-message" class="form-text mt-2 text-end" style="display: none;"></div>
                     </div>
 
                     <!-- Custom Shortcode Input (only show if not premium-only OR user is premium) -->
