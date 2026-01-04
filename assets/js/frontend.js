@@ -174,6 +174,10 @@
                 if (this.$customKeyGroup && this.$customKeyGroup.length) {
                     this.$customKeyGroup.slideDown(300);
                 }
+
+                // After validation succeeds with warning, get Gemini shortcode suggestion
+                console.log('Calling fetchShortcodeSuggestion with URL (warning case):', url);
+                this.fetchShortcodeSuggestion(url);
             } else {
                 console.log('Validation succeeded - proceeding to fetch suggestion');
                 this.isValid = true;
