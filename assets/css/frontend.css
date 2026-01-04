@@ -215,6 +215,12 @@ form .tp-plain-input:focus,
 }
 
 .tp-destination-field .tp-icon-btn {
+    color: rgb(43, 77, 236);
+    transition: color 0.2s ease;
+}
+
+/* Green icon when valid */
+.tp-destination-field .tp-input-visual:has(.is-valid) .tp-icon-btn {
     color: var(--tp-accent);
 }
 
