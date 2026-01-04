@@ -129,6 +129,12 @@
          * Handle URL validation result
          */
         handleValidationResult: function(result, url) {
+            console.log('=== VALIDATION RESULT START ===');
+            console.log('URL:', url);
+            console.log('Result:', result);
+            console.log('isError:', result.isError);
+            console.log('isWarning:', result.isWarning);
+
             // Check if protocol was updated (HTTPS -> HTTP fallback)
             if (result.protocolUpdated && result.updatedUrl) {
                 // Update the input field with the HTTP URL
@@ -138,6 +144,7 @@
 
             // Update UI based on validation result
             if (result.isError) {
+                console.log('Validation failed - showing error');
                 this.isValid = false;
                 this.$destinationInput.removeClass('is-valid').addClass('is-invalid');
                 // Show error message in validation message area (not main error area)
@@ -152,6 +159,7 @@
                     this.$customKeyGroup.slideUp(300);
                 }
             } else if (result.isWarning) {
+                console.log('Validation succeeded with warning');
                 // Warnings still allow submission but show warning message
                 this.isValid = true;
                 this.$destinationInput.removeClass('is-invalid').addClass('is-valid');
@@ -167,6 +175,7 @@
                     this.$customKeyGroup.slideDown(300);
                 }
             } else {
+                console.log('Validation succeeded - proceeding to fetch suggestion');
                 this.isValid = true;
                 this.$destinationInput.removeClass('is-invalid').addClass('is-valid');
                 // Show success message in validation message area
@@ -182,8 +191,10 @@
                 }
 
                 // After validation succeeds, get Gemini shortcode suggestion
+                console.log('Calling fetchShortcodeSuggestion with URL:', url);
                 this.fetchShortcodeSuggestion(url);
             }
+            console.log('=== VALIDATION RESULT END ===');
         },
 
         /**
@@ -559,6 +570,10 @@
 
             // Trigger online validation if URLValidator is available
             if (this.urlValidator && this.debouncedValidate && value.trim().length > 0) {
+                console.log('Triggering URL validation for:', value.trim());
+                console.log('URLValidator exists:', !!this.urlValidator);
+                console.log('debouncedValidate exists:', !!this.debouncedValidate);
+
                 // Show validating message
                 if (this.$validationMessage) {
                     this.$validationMessage.html('<i class="fas fa-spinner fa-spin me-2"></i>Validating URL...');
@@ -573,11 +588,14 @@
 
                 // Note: We pass null for the message element because we handle
                 // the styling ourselves in handleValidationResult
+                console.log('Calling debouncedValidate...');
                 this.debouncedValidate(
                     value.trim(),
                     null,  // Don't let URLValidator apply styles directly
                     null   // Don't let URLValidator apply message directly
                 );
+            } else {
+                console.log('Skipping validation - urlValidator:', !!this.urlValidator, 'debouncedValidate:', !!this.debouncedValidate, 'valueLength:', value.trim().length);
             }
         },
 
@@ -637,19 +655,44 @@
          * Fetch AI-powered shortcode suggestion from backend
          */
         fetchShortcodeSuggestion: function(destination) {
+            console.log('=== FETCH SHORTCODE SUGGESTION START ===');
+            console.log('Destination URL:', destination);
+
             const self = this;
 
-            // Don't fetch if custom key is already filled
-            if (this.$customKeyInput.val().trim()) {
+            // Check if custom key input exists
+            if (!this.$customKeyInput || !this.$customKeyInput.length) {
+                console.log('ERROR: Custom key input element not found');
+                console.log('=== FETCH SHORTCODE SUGGESTION END ===');
                 return;
             }
 
+            const currentValue = this.$customKeyInput.val().trim();
+            console.log('Current custom key value:', currentValue);
+
+            // Don't fetch if custom key is already filled
+            if (currentValue) {
+                console.log('Custom key already has value, skipping suggestion');
+                console.log('=== FETCH SHORTCODE SUGGESTION END ===');
+                return;
+            }
+
+            console.log('Proceeding with suggestion fetch...');
+
             // Show loading state in custom key input
             const originalPlaceholder = this.$customKeyInput.attr('placeholder');
+            console.log('Original placeholder:', originalPlaceholder);
             this.$customKeyInput.attr('placeholder', 'Generating suggestion...');
             this.$customKeyInput.prop('disabled', true);
 
             // Send AJAX request for suggestion
+            console.log('Sending AJAX request to:', tpAjax.ajaxUrl);
+            console.log('Request data:', {
+                action: 'tp_suggest_shortcode',
+                nonce: tpAjax.nonce,
+                destination: destination
+            });
+
             $.ajax({
                 url: tpAjax.ajaxUrl,
                 type: 'POST',
@@ -658,9 +701,15 @@
                     nonce: tpAjax.nonce,
                     destination: destination
                 },
+                beforeSend: function() {
+                    console.log('AJAX request being sent...');
+                },
                 success: function(response) {
+                    console.log('AJAX success response:', response);
+
                     if (response.success && response.data && response.data.shortcode) {
                         // Auto-populate the custom key input with suggestion
+                        console.log('Setting custom key to:', response.data.shortcode);
                         self.$customKeyInput.val(response.data.shortcode);
 
                         // Log source for debugging
@@ -672,18 +721,30 @@
                     } else {
                         // Fallback to client-side random generation
                         console.log('TP Link Shortener: Suggestion failed, using random key');
-                        self.$customKeyInput.val(self.generateRandomKey());
+                        console.log('Response data:', response.data);
+                        const randomKey = self.generateRandomKey();
+                        console.log('Generated random key:', randomKey);
+                        self.$customKeyInput.val(randomKey);
                     }
                 },
                 error: function(xhr, status, error) {
-                    console.error('TP Link Shortener: Suggestion request failed:', error);
+                    console.error('TP Link Shortener: Suggestion AJAX error');
+                    console.error('Status:', status);
+                    console.error('Error:', error);
+                    console.error('XHR:', xhr);
+                    console.error('Response text:', xhr.responseText);
+
                     // Fallback to client-side random generation
-                    self.$customKeyInput.val(self.generateRandomKey());
+                    const randomKey = self.generateRandomKey();
+                    console.log('Using fallback random key:', randomKey);
+                    self.$customKeyInput.val(randomKey);
                 },
                 complete: function() {
+                    console.log('AJAX request complete');
                     // Restore placeholder and enable input
                     self.$customKeyInput.attr('placeholder', originalPlaceholder);
                     self.$customKeyInput.prop('disabled', false);
+                    console.log('=== FETCH SHORTCODE SUGGESTION END ===');
                 }
             });
         },
