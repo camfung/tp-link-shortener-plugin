@@ -39,9 +39,6 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
 
                     <!-- Main URL Input -->
                     <div id="tp-destination-field-group" class="tp-form-group tp-destination-field mb-4">
-                        <label id="tp-destination-label" for="tp-destination" class="tp-label mb-2 text-uppercase">
-                            <?php esc_html_e('Destination URL', 'tp-link-shortener'); ?>
-                        </label>
                         <div id="tp-destination-input-visual" class="tp-input-visual">
                             <button
                                 type="button"
@@ -52,17 +49,22 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                             >
                                 <i id="tp-paste-icon" class="fas fa-paste" aria-hidden="true"></i>
                             </button>
-                            <input
-                                type="url"
-                                id="tp-destination"
-                                name="destination"
-                                class="form-control tp-form-control tp-plain-input"
-                                placeholder="<?php esc_attr_e('Paste the destination URL you want to shorten (e.g., https://example.com/your-page)', 'tp-link-shortener'); ?>"
-                                required
-                                autocomplete="off"
-                                maxlength="2000"
-                                aria-describedby="tp-destination-hint"
-                            />
+                            <div class="tp-floating-label-wrapper">
+                                <input
+                                    type="url"
+                                    id="tp-destination"
+                                    name="destination"
+                                    class="form-control tp-form-control tp-plain-input"
+                                    placeholder=" "
+                                    required
+                                    autocomplete="off"
+                                    maxlength="2000"
+                                    aria-describedby="tp-destination-hint"
+                                />
+                                <label id="tp-destination-label" for="tp-destination" class="tp-label tp-floating-label text-uppercase">
+                                    <?php esc_html_e('Destination URL', 'tp-link-shortener'); ?>
+                                </label>
+                            </div>
                         </div>
                         <small id="tp-destination-hint" class="tp-field-hint">
                             <?php esc_html_e('Enter the full URL where this short link should redirect', 'tp-link-shortener'); ?>
