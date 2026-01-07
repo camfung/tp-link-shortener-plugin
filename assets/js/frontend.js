@@ -38,6 +38,7 @@
         urlValidator: null,
         debouncedValidate: null,
         formMode: 'create', // 'create' or 'update'
+        fpPromise: null, // FingerprintJS promise
 
         // Configuration
         config: {
@@ -60,6 +61,7 @@
         init: function() {
             this.cacheElements();
             this.initializeURLValidator();
+            this.initializeFingerprintJS();
             this.bindEvents();
             this.checkClipboardSupport();
             // this.checkReturningVisitor(); // Disabled: using IP-based detection only
@@ -123,6 +125,39 @@
                 this.handleValidationResult.bind(this),
                 800 // 800ms delay
             );
+        },
+
+        /**
+         * Initialize FingerprintJS
+         */
+        initializeFingerprintJS: function() {
+            // Check if FingerprintJS is loaded
+            if (typeof FingerprintJS === 'undefined') {
+                console.warn('FingerprintJS library not loaded. Fingerprinting disabled.');
+                return;
+            }
+
+            // Initialize FingerprintJS
+            this.fpPromise = FingerprintJS.load();
+        },
+
+        /**
+         * Get browser fingerprint
+         */
+        getFingerprint: async function() {
+            if (!this.fpPromise) {
+                console.warn('FingerprintJS not initialized');
+                return null;
+            }
+
+            try {
+                const fp = await this.fpPromise;
+                const result = await fp.get();
+                return result.visitorId;
+            } catch (error) {
+                console.error('Error getting fingerprint:', error);
+                return null;
+            }
         },
 
         /**
@@ -253,7 +288,7 @@
         /**
          * Submit create link request
          */
-        submitCreate: function() {
+        submitCreate: async function() {
             // Get form data
             const destination = this.$destinationInput.val().trim();
             const customKey = this.$customKeyInput.val().trim();
@@ -290,6 +325,13 @@
             this.hideResult();
             this.showSaveLinkReminder();
 
+            // Get fingerprint for anonymous users
+            let fingerprint = null;
+            if (!tpAjax.isLoggedIn) {
+                fingerprint = await this.getFingerprint();
+                console.log('Fingerprint generated:', fingerprint);
+            }
+
             // Prepare data
             const data = {
                 action: 'tp_create_link',
@@ -300,6 +342,10 @@
 
             if (uidFromStorage !== null) {
                 data.uid = uidFromStorage;
+            }
+
+            if (fingerprint !== null) {
+                data.fingerprint = fingerprint;
             }
 
             // Send AJAX request

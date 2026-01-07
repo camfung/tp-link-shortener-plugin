@@ -55,6 +55,15 @@ class TP_Assets {
             true
         );
 
+        // Enqueue FingerprintJS library
+        wp_enqueue_script(
+            'tp-fingerprintjs',
+            'https://openfpcdn.io/fingerprintjs/v4/iife.min.js',
+            array(),
+            '4.0.0',
+            true
+        );
+
         // Enqueue Bootstrap JS
         wp_enqueue_script(
             'tp-bootstrap-js',
@@ -86,7 +95,7 @@ class TP_Assets {
         wp_enqueue_script(
             'tp-link-shortener-js',
             TP_LINK_SHORTENER_PLUGIN_URL . 'assets/js/frontend.js',
-            array('jquery', 'tp-qrcode', 'tp-bootstrap-js', 'tp-storage-service', 'tp-url-validator'),
+            array('jquery', 'tp-qrcode', 'tp-fingerprintjs', 'tp-bootstrap-js', 'tp-storage-service', 'tp-url-validator'),
             TP_LINK_SHORTENER_VERSION,
             true
         );

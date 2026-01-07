@@ -160,9 +160,10 @@ class TP_API_Handler {
         $destination = isset($_POST['destination']) ? sanitize_url($_POST['destination']) : '';
         $custom_key = isset($_POST['custom_key']) ? sanitize_text_field($_POST['custom_key']) : '';
         $uid = isset($_POST['uid']) ? intval($_POST['uid']) : 0;
+        $fingerprint = isset($_POST['fingerprint']) ? sanitize_text_field($_POST['fingerprint']) : null;
 
-        $this->log_to_file('Initial POST data - destination: ' . $destination . ', custom_key: ' . $custom_key . ', uid: ' . $uid);
-        error_log('TP Link Shortener: Initial POST data - destination: ' . $destination . ', custom_key: ' . $custom_key . ', uid: ' . $uid);
+        $this->log_to_file('Initial POST data - destination: ' . $destination . ', custom_key: ' . $custom_key . ', uid: ' . $uid . ', fingerprint: ' . ($fingerprint ?: 'null'));
+        error_log('TP Link Shortener: Initial POST data - destination: ' . $destination . ', custom_key: ' . $custom_key . ', uid: ' . $uid . ', fingerprint: ' . ($fingerprint ?: 'null'));
 
         // If user is not logged in, set uid to -1
         if (!is_user_logged_in()) {
@@ -214,9 +215,9 @@ class TP_API_Handler {
         }
 
         // Create the short link
-        $this->log_to_file('Creating short link - destination: ' . $destination . ', key: ' . $custom_key . ', uid: ' . $uid);
-        error_log('TP Link Shortener: Creating short link - destination: ' . $destination . ', key: ' . $custom_key . ', uid: ' . $uid);
-        $result = $this->create_short_link($destination, $custom_key, $uid);
+        $this->log_to_file('Creating short link - destination: ' . $destination . ', key: ' . $custom_key . ', uid: ' . $uid . ', fingerprint: ' . ($fingerprint ?: 'null'));
+        error_log('TP Link Shortener: Creating short link - destination: ' . $destination . ', key: ' . $custom_key . ', uid: ' . $uid . ', fingerprint: ' . ($fingerprint ?: 'null'));
+        $result = $this->create_short_link($destination, $custom_key, $uid, $fingerprint);
 
         if ($result['success']) {
             $this->log_to_file('SUCCESS - Link created successfully: ' . json_encode($result['data']));
@@ -250,10 +251,10 @@ class TP_API_Handler {
     /**
      * Create short link via API
      */
-    private function create_short_link(string $destination, string $key, int $uid): array {
+    private function create_short_link(string $destination, string $key, int $uid, ?string $fingerprint = null): array {
         try {
-            $this->log_to_file('Building CreateMapRequest with uid=' . $uid . ', key=' . $key . ', domain=' . TP_Link_Shortener::get_domain());
-            error_log('TP Link Shortener: Building CreateMapRequest with uid=' . $uid . ', key=' . $key . ', domain=' . TP_Link_Shortener::get_domain());
+            $this->log_to_file('Building CreateMapRequest with uid=' . $uid . ', key=' . $key . ', domain=' . TP_Link_Shortener::get_domain() . ', fingerprint=' . ($fingerprint ?: 'null'));
+            error_log('TP Link Shortener: Building CreateMapRequest with uid=' . $uid . ', key=' . $key . ', domain=' . TP_Link_Shortener::get_domain() . ', fingerprint=' . ($fingerprint ?: 'null'));
 
             $request = new CreateMapRequest(
                 uid: $uid,
@@ -266,7 +267,9 @@ class TP_API_Handler {
                 tags: 'wordpress,plugin',
                 notes: 'Created via WordPress plugin',
                 settings: '{}',
-                cacheContent: 0
+                cacheContent: 0,
+                expiresAt: null,
+                fingerprint: $fingerprint
             );
 
             $this->log_to_file('Sending request to API: ' . json_encode($request->toArray()));

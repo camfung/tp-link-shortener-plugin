@@ -25,6 +25,7 @@ class CreateMapRequest
     private string $settings;
     private int $cacheContent;
     private ?string $expiresAt;
+    private ?string $fingerprint;
 
     /**
      * Constructor
@@ -41,6 +42,7 @@ class CreateMapRequest
      * @param string $settings Settings JSON string (default: '{}')
      * @param int $cacheContent Whether to cache content (0 or 1, default: 0)
      * @param string|null $expiresAt Expiry datetime in 'Y-m-d H:i:s' format, or null for no expiry (default: null)
+     * @param string|null $fingerprint Browser fingerprint for anonymous users (default: null)
      */
     public function __construct(
         int $uid,
@@ -54,7 +56,8 @@ class CreateMapRequest
         string $notes = '',
         string $settings = '{}',
         int $cacheContent = 0,
-        ?string $expiresAt = null
+        ?string $expiresAt = null,
+        ?string $fingerprint = null
     ) {
         $this->uid = $uid;
         $this->tpKey = $tpKey;
@@ -68,6 +71,7 @@ class CreateMapRequest
         $this->settings = $settings;
         $this->cacheContent = $cacheContent;
         $this->expiresAt = $expiresAt;
+        $this->fingerprint = $fingerprint;
     }
 
     /**
@@ -95,6 +99,10 @@ class CreateMapRequest
             $data['expires_at'] = $this->expiresAt;
         }
 
+        if ($this->fingerprint !== null) {
+            $data['fingerprint'] = $this->fingerprint;
+        }
+
         return $data;
     }
 
@@ -111,4 +119,5 @@ class CreateMapRequest
     public function getSettings(): string { return $this->settings; }
     public function getCacheContent(): int { return $this->cacheContent; }
     public function getExpiresAt(): ?string { return $this->expiresAt; }
+    public function getFingerprint(): ?string { return $this->fingerprint; }
 }
