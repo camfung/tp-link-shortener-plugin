@@ -59,17 +59,36 @@
          * Initialize
          */
         init: function() {
+            console.log('=== TP LINK SHORTENER INITIALIZATION ===');
+            console.log('User logged in:', tpAjax.isLoggedIn);
+            console.log('Domain:', tpAjax.domain);
+            console.log('AJAX URL:', tpAjax.ajaxUrl);
+
             this.cacheElements();
+            console.log('DOM elements cached');
+
             this.initializeURLValidator();
+            console.log('URL validator initialized');
+
             this.initializeFingerprintJS();
+            console.log('FingerprintJS initialized');
+
             this.bindEvents();
+            console.log('Events bound');
+
             this.checkClipboardSupport();
+            console.log('Clipboard support checked');
             // this.checkReturningVisitor(); // Disabled: using IP-based detection only
 
             // Search for existing links by IP for anonymous users
             if (!tpAjax.isLoggedIn) {
+                console.log('User is anonymous - searching for existing links by IP...');
                 this.searchByIP();
+            } else {
+                console.log('User is logged in - skipping IP search');
             }
+
+            console.log('=== TP LINK SHORTENER INITIALIZATION COMPLETE ===');
         },
 
         /**
@@ -131,31 +150,49 @@
          * Initialize FingerprintJS
          */
         initializeFingerprintJS: function() {
+            console.log('=== FINGERPRINT JS INITIALIZATION ===');
             // Check if FingerprintJS is loaded
             if (typeof FingerprintJS === 'undefined') {
                 console.warn('FingerprintJS library not loaded. Fingerprinting disabled.');
+                console.log('=== FINGERPRINT JS INITIALIZATION FAILED ===');
                 return;
             }
 
+            console.log('FingerprintJS library loaded successfully');
             // Initialize FingerprintJS
             this.fpPromise = FingerprintJS.load();
+            console.log('FingerprintJS.load() called - promise created');
+            console.log('=== FINGERPRINT JS INITIALIZATION COMPLETE ===');
         },
 
         /**
          * Get browser fingerprint
          */
         getFingerprint: async function() {
+            console.log('=== GET FINGERPRINT START ===');
             if (!this.fpPromise) {
-                console.warn('FingerprintJS not initialized');
+                console.warn('FingerprintJS not initialized - promise is null');
+                console.log('=== GET FINGERPRINT END (NOT INITIALIZED) ===');
                 return null;
             }
 
             try {
+                console.log('Awaiting FingerprintJS agent...');
                 const fp = await this.fpPromise;
+                console.log('FingerprintJS agent loaded:', fp);
+
+                console.log('Getting fingerprint result...');
                 const result = await fp.get();
+                console.log('Full fingerprint result:', result);
+                console.log('Visitor ID:', result.visitorId);
+                console.log('Confidence score:', result.confidence);
+                console.log('Components count:', result.components ? Object.keys(result.components).length : 0);
+                console.log('=== GET FINGERPRINT END (SUCCESS) ===');
                 return result.visitorId;
             } catch (error) {
                 console.error('Error getting fingerprint:', error);
+                console.error('Error stack:', error.stack);
+                console.log('=== GET FINGERPRINT END (ERROR) ===');
                 return null;
             }
         },
@@ -289,29 +326,38 @@
          * Submit create link request
          */
         submitCreate: async function() {
+            console.log('=== SUBMIT CREATE LINK START ===');
+
             // Get form data
             const destination = this.$destinationInput.val().trim();
             const customKey = this.$customKeyInput.val().trim();
             let uidFromStorage = null;
+
+            console.log('Form data:', { destination, customKey });
+            console.log('User logged in:', tpAjax.isLoggedIn);
 
             try {
                 const storedUid = window.localStorage.getItem('tpUid');
                 if (storedUid && storedUid.trim() !== '') {
                     uidFromStorage = storedUid;
                 }
+                console.log('UID from storage:', uidFromStorage);
             } catch (storageError) {
                 // Unable to access localStorage (likely disabled or restricted)
+                console.warn('localStorage not available:', storageError);
                 uidFromStorage = null;
             }
 
             // Validate URL format
             if (!this.validateUrl(destination)) {
+                console.error('URL validation failed:', destination);
                 this.showError(tpAjax.strings.invalidUrl);
                 return;
             }
 
             // Check if online validation has been performed and passed
             if (!this.isValid) {
+                console.error('Online validation not passed');
                 this.showError('Please enter a valid and accessible URL. The URL validation failed.');
                 this.$destinationInput.addClass('is-invalid');
                 // Scroll to the error
@@ -328,8 +374,13 @@
             // Get fingerprint for anonymous users
             let fingerprint = null;
             if (!tpAjax.isLoggedIn) {
+                console.log('User is anonymous - generating fingerprint...');
                 fingerprint = await this.getFingerprint();
                 console.log('Fingerprint generated:', fingerprint);
+                console.log('Fingerprint type:', typeof fingerprint);
+                console.log('Fingerprint length:', fingerprint ? fingerprint.length : 0);
+            } else {
+                console.log('User is logged in - skipping fingerprint generation');
             }
 
             // Prepare data
@@ -342,20 +393,38 @@
 
             if (uidFromStorage !== null) {
                 data.uid = uidFromStorage;
+                console.log('Added UID to request data:', uidFromStorage);
             }
 
             if (fingerprint !== null) {
                 data.fingerprint = fingerprint;
+                console.log('Added fingerprint to request data:', fingerprint);
             }
 
+            console.log('Complete AJAX request data:', JSON.stringify(data, null, 2));
+
             // Send AJAX request
+            console.log('Sending AJAX request to:', tpAjax.ajaxUrl);
             $.ajax({
                 url: tpAjax.ajaxUrl,
                 type: 'POST',
                 data: data,
-                success: this.handleCreateSuccess.bind(this),
-                error: this.handleError.bind(this),
+                beforeSend: function() {
+                    console.log('AJAX request being sent...');
+                },
+                success: function(response) {
+                    console.log('AJAX response received:', response);
+                    console.log('=== SUBMIT CREATE LINK END ===');
+                    this.handleCreateSuccess(response);
+                }.bind(this),
+                error: function(xhr, status, error) {
+                    console.error('AJAX error:', { xhr, status, error });
+                    console.error('Response text:', xhr.responseText);
+                    console.log('=== SUBMIT CREATE LINK END (ERROR) ===');
+                    this.handleError(xhr, status, error);
+                }.bind(this),
                 complete: function() {
+                    console.log('AJAX request complete');
                     this.setLoadingState(false);
                 }.bind(this)
             });
