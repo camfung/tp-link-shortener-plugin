@@ -59,10 +59,15 @@ class TrafficPortalApiClient
         $url = $this->apiEndpoint . '/items';
         $payload = $request->toArray();
 
+        $this->log_to_file('=== CREATE MASKED RECORD REQUEST ===');
         $this->log_to_file('createMaskedRecord called');
         $this->log_to_file('Client IP: ' . $this->get_client_ip());
         $this->log_to_file('URL: ' . $url);
-        $this->log_to_file('Payload: ' . json_encode($payload));
+        $this->log_to_file('Fingerprint: ' . (isset($payload['fingerprint']) ? $payload['fingerprint'] : 'NOT SET'));
+        $this->log_to_file('UID: ' . (isset($payload['uid']) ? $payload['uid'] : 'NOT SET'));
+        $this->log_to_file('Destination: ' . (isset($payload['destination']) ? $payload['destination'] : 'NOT SET'));
+        $this->log_to_file('tpKey: ' . (isset($payload['tpKey']) ? $payload['tpKey'] : 'NOT SET'));
+        $this->log_to_file('Full Payload: ' . json_encode($payload, JSON_PRETTY_PRINT));
 
         // Initialize cURL
         $ch = curl_init($url);
@@ -71,6 +76,14 @@ class TrafficPortalApiClient
         }
 
         $jsonData = json_encode($payload);
+
+        $this->log_to_file('JSON Payload Size: ' . strlen($jsonData) . ' bytes');
+
+        // Prepare headers
+        $headers = [
+            'Content-Type: application/json',
+            'x-api-key: ' . substr($this->apiKey, 0, 10) . '...' // Masked for security
+        ];
 
         // Set cURL options
         curl_setopt_array($ch, [
@@ -86,6 +99,7 @@ class TrafficPortalApiClient
             CURLOPT_FOLLOWLOCATION => false,
         ]);
 
+        $this->log_to_file('Request Headers: ' . json_encode($headers));
         $this->log_to_file('Sending POST request to API...');
 
         // Execute request
@@ -125,13 +139,14 @@ class TrafficPortalApiClient
             );
         }
 
-        $this->log_to_file('Decoded response: ' . json_encode($data));
+        $this->log_to_file('Decoded response: ' . json_encode($data, JSON_PRETTY_PRINT));
 
         // Handle HTTP errors
         $this->log_to_file('Checking for HTTP errors...');
         $this->handleHttpErrors($httpCode, $data);
 
         $this->log_to_file('Request completed successfully');
+        $this->log_to_file('=== CREATE MASKED RECORD COMPLETE ===');
 
         // Parse and return response
         return CreateMapResponse::fromArray($data);
@@ -195,6 +210,13 @@ class TrafficPortalApiClient
     {
         $url = $this->apiEndpoint . '/items/' . urlencode($key) . '?uid=' . $uid;
 
+        $this->log_to_file('=== GET MASKED RECORD REQUEST ===');
+        $this->log_to_file('getMaskedRecord called');
+        $this->log_to_file('Client IP: ' . $this->get_client_ip());
+        $this->log_to_file('Key: ' . $key);
+        $this->log_to_file('UID: ' . $uid);
+        $this->log_to_file('URL: ' . $url);
+
         // Initialize cURL
         $ch = curl_init($url);
         if ($ch === false) {
@@ -229,8 +251,13 @@ class TrafficPortalApiClient
             );
         }
 
+        $this->log_to_file('HTTP Code: ' . $httpCode);
+        $this->log_to_file('Raw response: ' . substr($response, 0, 500)); // First 500 chars
+
         // Handle 404 - record not found
         if ($httpCode === 404) {
+            $this->log_to_file('Record not found (404)');
+            $this->log_to_file('=== GET MASKED RECORD COMPLETE ===');
             return null;
         }
 
@@ -250,6 +277,9 @@ class TrafficPortalApiClient
 
         // Handle HTTP errors
         $this->handleHttpErrors($httpCode, $data);
+
+        $this->log_to_file('Record retrieved successfully');
+        $this->log_to_file('=== GET MASKED RECORD COMPLETE ===');
 
         return $data;
     }
