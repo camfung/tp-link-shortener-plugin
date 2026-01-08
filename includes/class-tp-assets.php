@@ -58,7 +58,7 @@ class TP_Assets {
         // Enqueue FingerprintJS library
         wp_enqueue_script(
             'tp-fingerprintjs',
-            'https://openfpcdn.io/fingerprintjs/v4/iife.min.js',
+            TP_LINK_SHORTENER_PLUGIN_URL . 'assets/js/fingerprintjs-v4-iife.min.js',
             array(),
             '4.0.0',
             true
@@ -107,6 +107,7 @@ class TP_Assets {
             'domain' => TP_Link_Shortener::get_domain(),
             'isPremiumOnly' => TP_Link_Shortener::is_premium_only(),
             'isLoggedIn' => is_user_logged_in(),
+            'fingerprintUrl' => TP_LINK_SHORTENER_PLUGIN_URL . 'assets/js/fingerprintjs-v4-iife.min.js',
             'strings' => array(
                 'creating' => __('Creating...', 'tp-link-shortener'),
                 'success' => __('Link created successfully!', 'tp-link-shortener'),

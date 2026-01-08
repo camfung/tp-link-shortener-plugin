@@ -186,17 +186,34 @@
                 return this.fpScriptPromise;
             }
 
-            console.log('FingerprintJS not found - injecting CDN script...');
+            console.log('FingerprintJS not found - injecting self-hosted script...');
             this.fpScriptPromise = new Promise(function(resolve, reject) {
+                const primarySrc = (window.tpAjax && tpAjax.fingerprintUrl) ?
+                    tpAjax.fingerprintUrl :
+                    'https://openfpcdn.io/fingerprintjs/v4/iife.min.js';
+                const fallbackSrc = 'https://openfpcdn.io/fingerprintjs/v4/iife.min.js';
+
                 const script = document.createElement('script');
-                script.src = 'https://openfpcdn.io/fingerprintjs/v4/iife.min.js';
+                script.src = primarySrc;
                 script.async = true;
                 script.onload = function() {
-                    console.log('FingerprintJS CDN script loaded');
+                    console.log('FingerprintJS script loaded from', primarySrc);
                     resolve();
                 };
                 script.onerror = function(event) {
-                    reject(new Error('FingerprintJS CDN failed to load: ' + (event && event.message ? event.message : 'unknown error')));
+                    console.warn('Primary FingerprintJS script failed, trying fallback...', event);
+                    // Try fallback CDN once
+                    const fallbackScript = document.createElement('script');
+                    fallbackScript.src = fallbackSrc;
+                    fallbackScript.async = true;
+                    fallbackScript.onload = function() {
+                        console.log('FingerprintJS fallback script loaded from', fallbackSrc);
+                        resolve();
+                    };
+                    fallbackScript.onerror = function(fallbackEvent) {
+                        reject(new Error('FingerprintJS scripts failed to load. Primary error: ' + (event && event.message ? event.message : 'unknown') + '. Fallback error: ' + (fallbackEvent && fallbackEvent.message ? fallbackEvent.message : 'unknown error')));
+                    };
+                    document.head.appendChild(fallbackScript);
                 };
                 document.head.appendChild(script);
             });
