@@ -637,7 +637,7 @@
                 // }
 
                 // Display result
-                this.$shortUrlOutput.val(shortUrl);
+                this.$shortUrlOutput.attr('href', shortUrl).text(shortUrl);
                 this.showResult();
 
                 // Generate QR code
@@ -1389,8 +1389,23 @@
          * Copy short URL to clipboard
          */
         copyToClipboard: function() {
-            this.$shortUrlOutput.select();
-            document.execCommand('copy');
+            const shortUrl = this.$shortUrlOutput.attr('href');
+
+            // Use modern clipboard API if available, fallback to old method
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(shortUrl).then(function() {
+                    // Success - show feedback
+                }.bind(this)).catch(function(err) {
+                    console.error('Failed to copy:', err);
+                });
+            } else {
+                // Fallback: create temporary input, select and copy
+                const tempInput = $('<input>');
+                $('body').append(tempInput);
+                tempInput.val(shortUrl).select();
+                document.execCommand('copy');
+                tempInput.remove();
+            }
 
             // Visual feedback
             const originalText = this.$copyBtn.html();
@@ -1476,7 +1491,7 @@
             }
 
             // Display the short URL
-            this.$shortUrlOutput.val(shortUrl);
+            this.$shortUrlOutput.attr('href', shortUrl).text(shortUrl);
             this.lastShortUrl = shortUrl;
 
             // Show result section WITHOUT success message (for returning visitors)
@@ -1709,7 +1724,7 @@
 
             // Store data
             this.lastShortUrl = shortUrl;
-            this.$shortUrlOutput.val(shortUrl);
+            this.$shortUrlOutput.attr('href', shortUrl).text(shortUrl);
 
             // Set destination in form for updating
             this.$destinationInput.val(record.destination);

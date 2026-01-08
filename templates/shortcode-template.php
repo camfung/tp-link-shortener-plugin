@@ -140,12 +140,13 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                                     <label id="tp-short-url-label" class="form-label fw-semibold mb-2"><?php esc_html_e('Short link', 'tp-link-shortener'); ?></label>
                                     <div id="tp-short-url-row" class="tp-short-url-row">
                                         <i id="tp-short-url-copy-icon" class="far fa-copy"></i>
-                                        <input
-                                            type="text"
+                                        <a
+                                            href="#"
                                             id="tp-short-url-output"
-                                            class="form-control tp-form-control tp-short-url-input"
-                                            readonly
-                                        />
+                                            class="tp-short-url-link"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                        ></a>
                                         <button type="button" class="btn tp-btn tp-btn-copy" id="tp-copy-btn">
                                             <i id="tp-copy-btn-icon" class="fas fa-copy me-2"></i>
                                             <?php esc_html_e('Copy', 'tp-link-shortener'); ?>

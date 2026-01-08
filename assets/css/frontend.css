@@ -438,7 +438,7 @@ form .tp-plain-input:focus,
     font-size: 1.05rem;
 }
 
-.tp-short-url-input {
+.tp-short-url-link {
     flex: 1;
     border: none;
     background: transparent;
@@ -447,9 +447,15 @@ form .tp-plain-input:focus,
     font-size: 1.02rem;
     text-decoration: underline;
     padding: 0.5rem 0;
+    display: block;
+    word-break: break-all;
 }
 
-.tp-short-url-input:focus {
+.tp-short-url-link:hover {
+    color: var(--tp-primary-hover);
+}
+
+.tp-short-url-link:focus {
     outline: none;
     box-shadow: none;
 }
