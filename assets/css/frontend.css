@@ -261,6 +261,28 @@ form .tp-plain-input:focus,
     transition: color 0.2s ease, background-color 0.2s ease;
 }
 
+.tp-destination-field .tp-plain-input {
+    border-radius: 0 !important;
+}
+
+.tp-submit-btn {
+    border-radius: 0 0.75rem 0.75rem 0;
+    border-left: 1px solid rgba(43, 77, 236, 0.12);
+    color: rgb(43, 77, 236);
+    min-width: 56px;
+    padding: 0.85rem 1rem;
+    align-self: stretch;
+    background: linear-gradient(180deg, rgba(248, 252, 255, 0.95) 0%, #e5edff 100%);
+}
+
+.tp-submit-btn.disabled,
+.tp-submit-btn:disabled {
+    opacity: 0.6;
+    color: var(--tp-muted) !important;
+    background: rgba(240, 242, 250, 0.9);
+    cursor: not-allowed;
+}
+
 .tp-destination-field .tp-icon-btn {
     color: rgb(43, 77, 236);
     transition: color 0.2s ease;
@@ -275,6 +297,12 @@ form .tp-plain-input:focus,
 .tp-icon-btn:focus-visible {
     color: var(--tp-primary);
     background: rgba(60, 122, 229, 0.08);
+}
+
+.tp-submit-btn:hover,
+.tp-submit-btn:focus-visible {
+    color: #fff !important;
+    background: linear-gradient(90deg, #3673e1 0%, #2b63c8 100%) !important;
 }
 
 
@@ -731,10 +759,6 @@ form .tp-plain-input:focus,
 .tp-btn-download-qr:focus {
     background: var(--tp-warning-dark);
     color: #fff;
-}
-
-.tp-submit-row {
-    margin-top: 1.25rem;
 }
 
 .tp-try-it {

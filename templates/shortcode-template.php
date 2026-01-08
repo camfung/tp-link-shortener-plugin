@@ -65,6 +65,16 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                                     <?php esc_html_e('Destination URL', 'tp-link-shortener'); ?>
                                 </label>
                             </div>
+                            <button
+                                type="submit"
+                                class="tp-icon-btn tp-submit-btn"
+                                id="tp-submit-btn"
+                                title="<?php esc_attr_e('Save the link and it never expires', 'tp-link-shortener'); ?>"
+                                aria-label="<?php esc_attr_e('Save the link and it never expires', 'tp-link-shortener'); ?>"
+                            >
+                                <i class="fas fa-link" id="tp-submit-icon" aria-hidden="true"></i>
+                                <span id="tp-submit-text" class="visually-hidden"><?php esc_html_e('Save the link and it never expires', 'tp-link-shortener'); ?></span>
+                            </button>
                         </div>
                         <div id="tp-url-validation-message" class="form-text mt-2 text-end" style="display: none;"></div>
                     </div>
@@ -108,13 +118,6 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                                 <p id="tp-update-mode-description" class="mb-0 mt-1">You can update the destination URL for your existing short link below.</p>
                             </div>
                         </div>
-                    </div>
-
-                    <div id="tp-submit-row" class="tp-submit-row">
-                        <button type="submit" class="btn tp-btn tp-btn-primary tp-cta-button w-100" id="tp-submit-btn">
-                            <i class="fas fa-link me-2" id="tp-submit-icon"></i>
-                            <span id="tp-submit-text"><?php esc_html_e('Save the link and it never expires', 'tp-link-shortener'); ?></span>
-                        </button>
                     </div>
 
                     <!-- Result Section (hidden initially) -->

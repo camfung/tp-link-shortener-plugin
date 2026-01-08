@@ -1113,7 +1113,10 @@
         switchToUpdateMode: function() {
             this.formMode = 'update';
 
-            this.$submitText.text('Update Link');
+            const updateLabel = 'Update Link';
+            this.$submitText.text(updateLabel);
+            this.$submitBtn.attr('aria-label', updateLabel);
+            this.$submitBtn.attr('title', updateLabel);
             this.$submitIcon.removeClass('fa-link').addClass('fa-edit');
 
             this.$updateModeMessage.removeClass('d-none');
@@ -1145,7 +1148,10 @@
         switchToCreateMode: function() {
             this.formMode = 'create';
 
-            this.$submitText.text('Save the link and it never expires');
+            const createLabel = 'Save the link and it never expires';
+            this.$submitText.text(createLabel);
+            this.$submitBtn.attr('aria-label', createLabel);
+            this.$submitBtn.attr('title', createLabel);
             this.$submitIcon.removeClass('fa-edit').addClass('fa-link');
 
             this.$updateModeMessage.addClass('d-none');
