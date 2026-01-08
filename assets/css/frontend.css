@@ -84,7 +84,7 @@
 .tp-title {
     font-size: clamp(1.2rem, 1.8vw, 1.5rem);
     font-weight: 700;
-    color: var(--tp-primary-contrast);
+    color: rgb(43, 77, 236);
     letter-spacing: 0.01em;
 }
 
@@ -230,19 +230,19 @@ form .tp-plain-input:focus,
 }
 
 .tp-keyword-field .tp-input-visual {
-    border-color: var(--tp-secondary);
-    box-shadow: 0 18px 40px -28px rgba(95, 140, 243, 0.95);
+    border-color: rgb(43, 77, 236);
+    box-shadow: 0 18px 40px -28px rgba(43, 77, 236, 0.95);
 }
 
 /* Keyword field icon button */
 .tp-keyword-field .tp-icon-btn {
-    color: var(--tp-secondary);
+    color: rgb(43, 77, 236);
     transition: color 0.2s ease;
 }
 
 /* Keyword field floating label */
 .tp-keyword-field .tp-floating-label {
-    color: var(--tp-secondary);
+    color: rgb(43, 77, 236);
 }
 
 .tp-icon-btn {
