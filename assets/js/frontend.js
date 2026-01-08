@@ -152,17 +152,56 @@
         initializeFingerprintJS: function() {
             console.log('=== FINGERPRINT JS INITIALIZATION ===');
             // Check if FingerprintJS is loaded
-            if (typeof FingerprintJS === 'undefined') {
-                console.warn('FingerprintJS library not loaded. Fingerprinting disabled.');
-                console.log('=== FINGERPRINT JS INITIALIZATION FAILED ===');
-                return;
+            this.ensureFingerprintScript()
+                .then(function() {
+                    if (typeof FingerprintJS === 'undefined') {
+                        console.warn('FingerprintJS still undefined after CDN load. Fingerprinting disabled.');
+                        console.log('=== FINGERPRINT JS INITIALIZATION FAILED ===');
+                        return;
+                    }
+
+                    console.log('FingerprintJS library loaded successfully');
+                    // Initialize FingerprintJS
+                    this.fpPromise = FingerprintJS.load();
+                    console.log('FingerprintJS.load() called - promise created');
+                    console.log('=== FINGERPRINT JS INITIALIZATION COMPLETE ===');
+                }.bind(this))
+                .catch(function(err) {
+                    console.warn('Failed to load FingerprintJS from CDN:', err);
+                    console.log('=== FINGERPRINT JS INITIALIZATION FAILED ===');
+                });
+        },
+
+        /**
+         * Ensure FingerprintJS script is present by loading from CDN if missing
+         */
+        ensureFingerprintScript: function() {
+            // If already present, resolve immediately
+            if (typeof FingerprintJS !== 'undefined') {
+                return Promise.resolve();
             }
 
-            console.log('FingerprintJS library loaded successfully');
-            // Initialize FingerprintJS
-            this.fpPromise = FingerprintJS.load();
-            console.log('FingerprintJS.load() called - promise created');
-            console.log('=== FINGERPRINT JS INITIALIZATION COMPLETE ===');
+            // Prevent multiple injections
+            if (this.fpScriptPromise) {
+                return this.fpScriptPromise;
+            }
+
+            console.log('FingerprintJS not found - injecting CDN script...');
+            this.fpScriptPromise = new Promise(function(resolve, reject) {
+                const script = document.createElement('script');
+                script.src = 'https://openfpcdn.io/fingerprintjs/v4/iife.min.js';
+                script.async = true;
+                script.onload = function() {
+                    console.log('FingerprintJS CDN script loaded');
+                    resolve();
+                };
+                script.onerror = function(event) {
+                    reject(new Error('FingerprintJS CDN failed to load: ' + (event && event.message ? event.message : 'unknown error')));
+                };
+                document.head.appendChild(script);
+            });
+
+            return this.fpScriptPromise;
         },
 
         /**

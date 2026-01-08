@@ -214,6 +214,15 @@ class TP_API_Handler {
             error_log('TP Link Shortener: Using custom key: ' . $custom_key);
         }
 
+        // Handle missing fingerprint for anonymous users (fingerprinting script blocked/failed)
+        if ($uid === -1 && (empty($fingerprint) || strtolower((string) $fingerprint) === 'null')) {
+            $this->log_to_file('Fingerprint missing for anonymous request - blocking and prompting user to retry');
+            error_log('TP Link Shortener: Fingerprint missing for anonymous request');
+            wp_send_json_error(array(
+                'message' => __('Unable to create link. Please refresh the page and allow fingerprinting (disable ad/script blockers).', 'tp-link-shortener')
+            ));
+        }
+
         // Create the short link
         $this->log_to_file('Creating short link - destination: ' . $destination . ', key: ' . $custom_key . ', uid: ' . $uid . ', fingerprint: ' . ($fingerprint ?: 'null'));
         error_log('TP Link Shortener: Creating short link - destination: ' . $destination . ', key: ' . $custom_key . ', uid: ' . $uid . ', fingerprint: ' . ($fingerprint ?: 'null'));
