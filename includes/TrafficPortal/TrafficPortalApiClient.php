@@ -490,19 +490,19 @@ class TrafficPortalApiClient
     }
 
     /**
-     * Search for records by IP address (admin only)
+     * Search for records by browser fingerprint
      *
-     * @param string $ipAddress The IP address to search for
-     * @param int $uid The admin user ID
-     * @param string $token The admin token
+     * @param string $fingerprint The browser fingerprint to search for
+     * @param int $uid The user ID
+     * @param string $token The user token
      * @return array The response data with matching records
      * @throws AuthenticationException If authentication fails
      * @throws NetworkException If network error occurs
      * @throws ApiException For other API errors
      */
-    public function searchByIp(string $ipAddress, int $uid, string $token): array
+    public function searchByFingerprint(string $fingerprint, int $uid, string $token): array
     {
-        $url = $this->apiEndpoint . '/items/by-ip/' . urlencode($ipAddress);
+        $url = $this->apiEndpoint . '/items/by-fingerprint/' . urlencode($fingerprint);
 
         // Initialize cURL
         $ch = curl_init($url);

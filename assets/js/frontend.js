@@ -78,14 +78,14 @@
 
             this.checkClipboardSupport();
             console.log('Clipboard support checked');
-            // this.checkReturningVisitor(); // Disabled: using IP-based detection only
+            // this.checkReturningVisitor(); // Disabled: using fingerprint-based detection only
 
-            // Search for existing links by IP for anonymous users
+            // Search for existing links by fingerprint for anonymous users
             if (!tpAjax.isLoggedIn) {
-                console.log('User is anonymous - searching for existing links by IP...');
-                this.searchByIP();
+                console.log('User is anonymous - searching for existing links by fingerprint...');
+                this.searchByFingerprint();
             } else {
-                console.log('User is logged in - skipping IP search');
+                console.log('User is logged in - skipping fingerprint search');
             }
 
             console.log('=== TP LINK SHORTENER INITIALIZATION COMPLETE ===');
@@ -1661,26 +1661,41 @@
         },
 
         /**
-         * Search for user's most recent link by IP
+         * Search for user's most recent link by fingerprint
          */
-        searchByIP: function() {
+        searchByFingerprint: async function() {
             const self = this;
+
+            // Get browser fingerprint
+            console.log('Getting fingerprint for search...');
+            const fingerprint = await this.getFingerprint();
+
+            if (!fingerprint) {
+                console.log('Fingerprint not available, skipping search');
+                return;
+            }
+
+            console.log('Searching with fingerprint:', fingerprint);
 
             $.ajax({
                 url: tpAjax.ajaxUrl,
                 type: 'POST',
                 data: {
-                    action: 'tp_search_by_ip',
-                    nonce: tpAjax.nonce
+                    action: 'tp_search_by_fingerprint',
+                    nonce: tpAjax.nonce,
+                    fingerprint: fingerprint
                 },
                 success: function(response) {
+                    console.log('Fingerprint search response:', response);
                     if (response.success && response.data.record) {
                         const record = response.data.record;
                         self.displayExistingLink(record);
+                    } else {
+                        console.log('No existing links found for this fingerprint');
                     }
                 },
                 error: function(xhr, status, error) {
-                    console.log('IP search failed:', error);
+                    console.log('Fingerprint search failed:', error);
                 }
             });
         },

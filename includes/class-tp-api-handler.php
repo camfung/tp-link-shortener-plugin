@@ -130,7 +130,7 @@ class TP_API_Handler {
         add_action('wp_ajax_tp_validate_key', array($this, 'ajax_validate_key'));
         add_action('wp_ajax_tp_validate_url', array($this, 'ajax_validate_url'));
         add_action('wp_ajax_tp_capture_screenshot', array($this, 'ajax_capture_screenshot'));
-        add_action('wp_ajax_tp_search_by_ip', array($this, 'ajax_search_by_ip'));
+        add_action('wp_ajax_tp_search_by_fingerprint', array($this, 'ajax_search_by_fingerprint'));
         add_action('wp_ajax_tp_update_link', array($this, 'ajax_update_link'));
         add_action('wp_ajax_tp_suggest_shortcode', array($this, 'ajax_suggest_shortcode'));
 
@@ -139,7 +139,7 @@ class TP_API_Handler {
         add_action('wp_ajax_nopriv_tp_validate_key', array($this, 'ajax_validate_key'));
         add_action('wp_ajax_nopriv_tp_validate_url', array($this, 'ajax_validate_url'));
         add_action('wp_ajax_nopriv_tp_capture_screenshot', array($this, 'ajax_capture_screenshot'));
-        add_action('wp_ajax_nopriv_tp_search_by_ip', array($this, 'ajax_search_by_ip'));
+        add_action('wp_ajax_nopriv_tp_search_by_fingerprint', array($this, 'ajax_search_by_fingerprint'));
         add_action('wp_ajax_nopriv_tp_update_link', array($this, 'ajax_update_link'));
         add_action('wp_ajax_nopriv_tp_suggest_shortcode', array($this, 'ajax_suggest_shortcode'));
     }
@@ -845,43 +845,46 @@ class TP_API_Handler {
     }
 
     /**
-     * AJAX handler for searching links by IP address
+     * AJAX handler for searching links by browser fingerprint
      */
-    public function ajax_search_by_ip() {
+    public function ajax_search_by_fingerprint() {
         try {
-            // Get user's IP address
-            $ip_address = $this->get_user_ip();
+            // Verify nonce
+            check_ajax_referer('tp_link_shortener_nonce', 'nonce');
 
-            if (empty($ip_address)) {
+            // Get fingerprint from POST data
+            $fingerprint = isset($_POST['fingerprint']) ? sanitize_text_field($_POST['fingerprint']) : '';
+
+            if (empty($fingerprint)) {
                 wp_send_json_error(array(
-                    'message' => __('Unable to determine IP address.', 'tp-link-shortener')
+                    'message' => __('Fingerprint is required.', 'tp-link-shortener')
                 ));
                 return;
             }
 
-            // Search for records by IP
-            $result = $this->client->searchByIp($ip_address, 0, '');
+            // Search for records by fingerprint
+            $result = $this->client->searchByFingerprint($fingerprint, 0, '');
 
-            if (!empty($result['source']['records']) && count($result['source']['records']) > 0) {
+            if (!empty($result['records']) && count($result['records']) > 0) {
                 // Get the most recent record (first in array)
-                $latest_record = $result['source']['records'][0];
+                $latest_record = $result['records'][0];
 
                 wp_send_json_success(array(
                     'record' => $latest_record,
-                    'ip' => $ip_address,
-                    'count' => $result['source']['count']
+                    'fingerprint' => $result['fingerprint'],
+                    'count' => $result['count']
                 ));
             } else {
                 // No records found
                 wp_send_json_success(array(
                     'record' => null,
-                    'ip' => $ip_address,
+                    'fingerprint' => $fingerprint,
                     'count' => 0
                 ));
             }
 
         } catch (Exception $e) {
-            error_log('TP Link Shortener IP Search Error: ' . $e->getMessage());
+            error_log('TP Link Shortener Fingerprint Search Error: ' . $e->getMessage());
             wp_send_json_error(array(
                 'message' => __('Failed to search for links.', 'tp-link-shortener'),
                 'debug_error' => $e->getMessage()
