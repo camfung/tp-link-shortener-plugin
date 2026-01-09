@@ -867,6 +867,11 @@
             this.$customKeyInput.attr('placeholder', 'Generating suggestion...');
             this.$customKeyInput.prop('disabled', true);
 
+            // Disable submit button while generating suggestion
+            this.$submitBtn.prop('disabled', true);
+            this.$submitBtn.addClass('disabled');
+            console.log('Submit button disabled while generating suggestion');
+
             // Send AJAX request for suggestion
             console.log('Sending AJAX request to:', tpAjax.ajaxUrl);
             console.log('Request data:', {
@@ -926,6 +931,12 @@
                     // Restore placeholder and enable input
                     self.$customKeyInput.attr('placeholder', originalPlaceholder);
                     self.$customKeyInput.prop('disabled', false);
+
+                    // Re-enable submit button after suggestion is complete
+                    self.$submitBtn.prop('disabled', false);
+                    self.$submitBtn.removeClass('disabled');
+                    console.log('Submit button re-enabled after suggestion complete');
+
                     console.log('=== FETCH SHORTCODE SUGGESTION END ===');
                 }
             });
