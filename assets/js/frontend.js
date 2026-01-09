@@ -259,22 +259,23 @@
          * Handle URL validation result
          */
         handleValidationResult: function(result, url) {
-            console.log('=== VALIDATION RESULT START ===');
-            console.log('URL:', url);
-            console.log('Result:', result);
-            console.log('isError:', result.isError);
-            console.log('isWarning:', result.isWarning);
+            console.log('🎯 [UI-CALLBACK] === VALIDATION RESULT RECEIVED ===');
+            console.log('🎯 [UI-CALLBACK] URL:', url);
+            console.log('🎯 [UI-CALLBACK] Result:', result);
+            console.log('🎯 [UI-CALLBACK] isError:', result.isError);
+            console.log('🎯 [UI-CALLBACK] isWarning:', result.isWarning);
+            console.log('🎯 [UI-CALLBACK] Message:', result.message);
 
             // Check if protocol was updated (HTTPS -> HTTP fallback)
             if (result.protocolUpdated && result.updatedUrl) {
                 // Update the input field with the HTTP URL
                 this.$destinationInput.val(result.updatedUrl);
-                console.log('TP Link Shortener: URL protocol updated from HTTPS to HTTP:', result.updatedUrl);
+                console.log('🎯 [UI-CALLBACK] URL protocol updated from HTTPS to HTTP:', result.updatedUrl);
             }
 
             // Update UI based on validation result
             if (result.isError) {
-                console.log('Validation failed - showing error');
+                console.log('🎯 [UI-CALLBACK] ❌ Showing ERROR UI for:', url);
                 this.isValid = false;
                 this.$destinationInput.removeClass('is-valid').addClass('is-invalid');
                 // Show error message in validation message area (not main error area)
@@ -289,7 +290,7 @@
                     this.$customKeyGroup.slideUp(300);
                 }
             } else if (result.isWarning) {
-                console.log('Validation succeeded with warning');
+                console.log('🎯 [UI-CALLBACK] ⚠️  Showing WARNING UI for:', url);
                 // Warnings still allow submission but show warning message
                 this.isValid = true;
                 this.$destinationInput.removeClass('is-invalid').addClass('is-valid');
@@ -308,13 +309,13 @@
                 // After validation succeeds with warning, get Gemini shortcode suggestion
                 // Only fetch suggestion in create mode (not update mode)
                 if (this.formMode === 'create') {
-                    console.log('Calling fetchShortcodeSuggestion with URL (warning case):', url);
+                    console.log('🎯 [UI-CALLBACK] Fetching shortcode suggestion (warning case)');
                     this.fetchShortcodeSuggestion(url);
                 } else {
-                    console.log('Skipping suggestion fetch - in update mode');
+                    console.log('🎯 [UI-CALLBACK] Skipping suggestion - in update mode');
                 }
             } else {
-                console.log('Validation succeeded - proceeding to fetch suggestion');
+                console.log('🎯 [UI-CALLBACK] ✅ Showing SUCCESS UI for:', url);
                 this.isValid = true;
                 this.$destinationInput.removeClass('is-invalid').addClass('is-valid');
                 // Show success message in validation message area
@@ -332,13 +333,13 @@
                 // After validation succeeds, get Gemini shortcode suggestion
                 // Only fetch suggestion in create mode (not update mode)
                 if (this.formMode === 'create') {
-                    console.log('Calling fetchShortcodeSuggestion with URL:', url);
+                    console.log('🎯 [UI-CALLBACK] Fetching shortcode suggestion');
                     this.fetchShortcodeSuggestion(url);
                 } else {
-                    console.log('Skipping suggestion fetch - in update mode');
+                    console.log('🎯 [UI-CALLBACK] Skipping suggestion - in update mode');
                 }
             }
-            console.log('=== VALIDATION RESULT END ===');
+            console.log('🎯 [UI-CALLBACK] === VALIDATION RESULT HANDLED ===');
         },
 
         /**
