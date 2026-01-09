@@ -879,12 +879,17 @@ class TP_API_Handler {
 
             $this->log_to_file('Step 4: API client returned result');
             $this->log_to_file('Result: ' . json_encode($result));
-            $this->log_to_file('Result has records: ' . (!empty($result['records']) ? 'yes' : 'no'));
-            $this->log_to_file('Record count: ' . (isset($result['records']) ? count($result['records']) : 0));
 
-            if (!empty($result['records']) && count($result['records']) > 0) {
+            // Check for records in the source object
+            $has_records = !empty($result['source']['records']);
+            $record_count = isset($result['source']['records']) ? count($result['source']['records']) : 0;
+
+            $this->log_to_file('Result has source.records: ' . ($has_records ? 'yes' : 'no'));
+            $this->log_to_file('Record count: ' . $record_count);
+
+            if ($has_records && $record_count > 0) {
                 // Get the most recent record (first in array)
-                $latest_record = $result['records'][0];
+                $latest_record = $result['source']['records'][0];
 
                 $this->log_to_file('Step 5: Found record, returning success');
                 $this->log_to_file('Record: ' . json_encode($latest_record));
@@ -892,8 +897,8 @@ class TP_API_Handler {
 
                 wp_send_json_success(array(
                     'record' => $latest_record,
-                    'fingerprint' => $result['fingerprint'],
-                    'count' => $result['count']
+                    'fingerprint' => $result['source']['fingerprint'],
+                    'count' => $result['source']['count']
                 ));
             } else {
                 // No records found
