@@ -712,6 +712,10 @@ form .tp-plain-input:focus,
     transform: translateY(-2px);
 }
 
+#tp-destination-field-group {
+    transition: width 300ms ease, height 300ms ease;
+}
+
 .tp-cta-button {
     text-transform: uppercase;
     letter-spacing: 0.08em;
