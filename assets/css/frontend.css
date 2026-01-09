@@ -266,7 +266,7 @@ form .tp-plain-input:focus,
 }
 
 .tp-submit-btn {
-    border-radius: 0 0.75rem 0.75rem 0;
+    border-radius: 0 0.5rem 0.5rem 0;
     border-left: 1px solid rgba(43, 77, 236, 0.12);
     color: rgb(43, 77, 236);
     min-width: 56px;
