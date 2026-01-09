@@ -90,6 +90,16 @@ class URLValidator {
    * @returns {Promise<Object>} Validation result object
    */
   async validateURL(urlString) {
+    return this.validateURLWithAbort(urlString, null);
+  }
+
+  /**
+   * Perform online validation by fetching URL headers with abort signal
+   * @param {string} urlString - The URL to validate
+   * @param {AbortSignal} abortSignal - Optional abort signal to cancel the request
+   * @returns {Promise<Object>} Validation result object
+   */
+  async validateURLWithAbort(urlString, abortSignal = null) {
     // First, check URL format
     if (!this.isValidURLFormat(urlString)) {
       return this.createErrorResult(
@@ -101,7 +111,7 @@ class URLValidator {
 
     try {
       // Perform HEAD request to get headers
-      const response = await this.fetchHeaders(urlString);
+      const response = await this.fetchHeaders(urlString, abortSignal);
 
       // Check for authentication/protected resources FIRST
       if (response.status === 401 || response.status === 403) {
@@ -216,12 +226,20 @@ class URLValidator {
   /**
    * Fetch headers from a URL using HEAD request
    * @param {string} urlString - The URL to fetch headers from
+   * @param {AbortSignal} externalSignal - Optional external abort signal
    * @returns {Promise<Response>} Fetch response object
    * @private
    */
-  async fetchHeaders(urlString) {
+  async fetchHeaders(urlString, externalSignal = null) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+
+    // If external abort signal is provided, also abort on external signal
+    let externalAbortHandler = null;
+    if (externalSignal) {
+      externalAbortHandler = () => controller.abort();
+      externalSignal.addEventListener('abort', externalAbortHandler);
+    }
 
     try {
       let fetchUrl = urlString;
@@ -287,6 +305,11 @@ class URLValidator {
         throw new Error('Request timeout');
       }
       throw error;
+    } finally {
+      // Clean up external abort listener
+      if (externalSignal && externalAbortHandler) {
+        externalSignal.removeEventListener('abort', externalAbortHandler);
+      }
     }
   }
 
@@ -431,11 +454,19 @@ class URLValidator {
    */
   createDebouncedValidator(callback, delay = 500) {
     let timeoutId = null;
+    let currentAbortController = null;
+    let currentValidationUrl = null;
 
     return async (urlString, inputElement, messageElement) => {
       // Clear previous timeout
       if (timeoutId) {
         clearTimeout(timeoutId);
+      }
+
+      // Abort any in-flight validation request
+      if (currentAbortController) {
+        currentAbortController.abort();
+        currentAbortController = null;
       }
 
       // Reset to default while typing
@@ -473,8 +504,18 @@ class URLValidator {
 
       // Set new timeout for validation
       timeoutId = setTimeout(async () => {
+        // Create new AbortController for this validation
+        currentAbortController = new AbortController();
+        currentValidationUrl = urlString;
+
         try {
-          const result = await this.validateURL(urlString);
+          const result = await this.validateURLWithAbort(urlString, currentAbortController.signal);
+
+          // Ignore results for old URLs (race condition protection)
+          if (urlString !== currentValidationUrl) {
+            console.log('Ignoring stale validation result for:', urlString);
+            return;
+          }
 
           if (inputElement && messageElement) {
             this.applyValidationToElement(inputElement, result, messageElement);
@@ -484,6 +525,18 @@ class URLValidator {
             callback(result, urlString);
           }
         } catch (error) {
+          // Ignore AbortError - it's intentional when user types new URL
+          if (error.name === 'AbortError') {
+            console.log('Validation aborted for:', urlString);
+            return;
+          }
+
+          // Ignore errors for stale URLs
+          if (urlString !== currentValidationUrl) {
+            console.log('Ignoring stale validation error for:', urlString);
+            return;
+          }
+
           // Handle any uncaught errors (like CORS issues)
           console.error('Validation error:', error);
           const errorResult = this.createErrorResult(
@@ -498,6 +551,11 @@ class URLValidator {
 
           if (callback) {
             callback(errorResult, urlString);
+          }
+        } finally {
+          // Clear the abort controller if this was the current validation
+          if (currentValidationUrl === urlString) {
+            currentAbortController = null;
           }
         }
       }, delay);
