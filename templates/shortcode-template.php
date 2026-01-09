@@ -65,16 +65,6 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                                     <?php esc_html_e('Destination URL', 'tp-link-shortener'); ?>
                                 </label>
                             </div>
-                            <button
-                                type="submit"
-                                class="tp-icon-btn tp-submit-btn"
-                                id="tp-submit-btn"
-                                title="<?php esc_attr_e('Save the link and it never expires', 'tp-link-shortener'); ?>"
-                                aria-label="<?php esc_attr_e('Save the link and it never expires', 'tp-link-shortener'); ?>"
-                            >
-                                <i class="fas fa-link" id="tp-submit-icon" aria-hidden="true"></i>
-                                <span id="tp-submit-text" class="visually-hidden"><?php esc_html_e('Save the link and it never expires', 'tp-link-shortener'); ?></span>
-                            </button>
                         </div>
                         <div id="tp-url-validation-message" class="form-text mt-2 text-end" style="display: none;"></div>
                     </div>
@@ -105,6 +95,16 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                                     <?php esc_html_e('Magic Keyword', 'tp-link-shortener'); ?>
                                 </label>
                             </div>
+                            <button
+                                type="submit"
+                                class="tp-icon-btn tp-submit-btn"
+                                id="tp-submit-btn"
+                                title="<?php esc_attr_e('Save the link and it never expires', 'tp-link-shortener'); ?>"
+                                aria-label="<?php esc_attr_e('Save the link and it never expires', 'tp-link-shortener'); ?>"
+                            >
+                                <i class="fas fa-link" id="tp-submit-icon" aria-hidden="true"></i>
+                                <span id="tp-submit-text" class="visually-hidden"><?php esc_html_e('Save the link and it never expires', 'tp-link-shortener'); ?></span>
+                            </button>
                         </div>
                     </div>
                     <?php endif; ?>
