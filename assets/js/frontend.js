@@ -58,7 +58,7 @@
         /**
          * Initialize
          */
-        init: function() {
+        init: async function() {
             console.log('=== TP LINK SHORTENER INITIALIZATION ===');
             console.log('User logged in:', tpAjax.isLoggedIn);
             console.log('Domain:', tpAjax.domain);
@@ -70,7 +70,7 @@
             this.initializeURLValidator();
             console.log('URL validator initialized');
 
-            this.initializeFingerprintJS();
+            await this.initializeFingerprintJS();
             console.log('FingerprintJS initialized');
 
             this.bindEvents();
@@ -150,27 +150,28 @@
         /**
          * Initialize FingerprintJS
          */
-        initializeFingerprintJS: function() {
+        initializeFingerprintJS: async function() {
             console.log('=== FINGERPRINT JS INITIALIZATION ===');
             // Check if FingerprintJS is loaded
-            this.ensureFingerprintScript()
-                .then(function() {
-                    if (typeof FingerprintJS === 'undefined') {
-                        console.warn('FingerprintJS still undefined after CDN load. Fingerprinting disabled.');
-                        console.log('=== FINGERPRINT JS INITIALIZATION FAILED ===');
-                        return;
-                    }
+            try {
+                await this.ensureFingerprintScript();
 
-                    console.log('FingerprintJS library loaded successfully');
-                    // Initialize FingerprintJS
-                    this.fpPromise = FingerprintJS.load();
-                    console.log('FingerprintJS.load() called - promise created');
-                    console.log('=== FINGERPRINT JS INITIALIZATION COMPLETE ===');
-                }.bind(this))
-                .catch(function(err) {
-                    console.warn('Failed to load FingerprintJS from CDN:', err);
+                if (typeof FingerprintJS === 'undefined') {
+                    console.warn('FingerprintJS still undefined after CDN load. Fingerprinting disabled.');
                     console.log('=== FINGERPRINT JS INITIALIZATION FAILED ===');
-                });
+                    return;
+                }
+
+                console.log('FingerprintJS library loaded successfully');
+                // Initialize FingerprintJS
+                this.fpPromise = FingerprintJS.load();
+                console.log('FingerprintJS.load() called - promise created');
+                console.log('fpPromise is now:', !!this.fpPromise);
+                console.log('=== FINGERPRINT JS INITIALIZATION COMPLETE ===');
+            } catch (err) {
+                console.warn('Failed to load FingerprintJS from CDN:', err);
+                console.log('=== FINGERPRINT JS INITIALIZATION FAILED ===');
+            }
         },
 
         /**
