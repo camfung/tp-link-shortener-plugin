@@ -502,13 +502,22 @@ class TrafficPortalApiClient
      */
     public function searchByFingerprint(string $fingerprint, int $uid, string $token): array
     {
+        $this->log_to_file('=== API CLIENT SEARCH BY FINGERPRINT START ===');
         $url = $this->apiEndpoint . '/items/by-fingerprint/' . urlencode($fingerprint);
+
+        $this->log_to_file('Client IP: ' . $this->get_client_ip());
+        $this->log_to_file('Fingerprint: ' . $fingerprint);
+        $this->log_to_file('UID: ' . $uid);
+        $this->log_to_file('URL: ' . $url);
 
         // Initialize cURL
         $ch = curl_init($url);
         if ($ch === false) {
+            $this->log_to_file('ERROR: Failed to initialize cURL');
             throw new NetworkException('Failed to initialize cURL');
         }
+
+        $this->log_to_file('cURL initialized successfully');
 
         // Set cURL options with uid and tpTkn in headers
         curl_setopt_array($ch, [
@@ -524,16 +533,24 @@ class TrafficPortalApiClient
             CURLOPT_FOLLOWLOCATION => false,
         ]);
 
+        $this->log_to_file('Sending GET request to API...');
+
         // Execute request
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $curlError = curl_error($ch);
         $curlErrno = curl_errno($ch);
 
+        $this->log_to_file('HTTP Code: ' . $httpCode);
+        $this->log_to_file('cURL errno: ' . $curlErrno);
+        $this->log_to_file('Raw response (first 500 chars): ' . substr($response, 0, 500));
+
         curl_close($ch);
 
         // Handle cURL errors
         if ($curlErrno !== 0) {
+            $this->log_to_file('cURL ERROR: ' . $curlError);
+            $this->log_to_file('=== API CLIENT SEARCH BY FINGERPRINT END (CURL ERROR) ===');
             throw new NetworkException(
                 sprintf('cURL error: %s', $curlError),
                 $curlErrno
@@ -542,20 +559,30 @@ class TrafficPortalApiClient
 
         // Handle empty response
         if ($response === false || $response === '') {
+            $this->log_to_file('ERROR: Empty response from API');
+            $this->log_to_file('=== API CLIENT SEARCH BY FINGERPRINT END (EMPTY RESPONSE) ===');
             throw new NetworkException('Empty response from API');
         }
 
         // Decode JSON response
         $data = json_decode($response, true);
         if (json_last_error() !== JSON_ERROR_NONE) {
+            $this->log_to_file('ERROR: Invalid JSON response: ' . json_last_error_msg());
+            $this->log_to_file('=== API CLIENT SEARCH BY FINGERPRINT END (JSON ERROR) ===');
             throw new ApiException(
                 sprintf('Invalid JSON response: %s', json_last_error_msg()),
                 $httpCode
             );
         }
 
+        $this->log_to_file('Decoded response: ' . json_encode($data, JSON_PRETTY_PRINT));
+
         // Handle HTTP errors
+        $this->log_to_file('Checking for HTTP errors...');
         $this->handleHttpErrors($httpCode, $data);
+
+        $this->log_to_file('Request completed successfully');
+        $this->log_to_file('=== API CLIENT SEARCH BY FINGERPRINT END (SUCCESS) ===');
 
         return $data;
     }

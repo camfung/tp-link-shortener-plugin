@@ -848,26 +848,47 @@ class TP_API_Handler {
      * AJAX handler for searching links by browser fingerprint
      */
     public function ajax_search_by_fingerprint() {
+        $this->log_to_file('=== AJAX SEARCH BY FINGERPRINT START ===');
         try {
+            $this->log_to_file('Step 1: Verifying nonce');
             // Verify nonce
             check_ajax_referer('tp_link_shortener_nonce', 'nonce');
+            $this->log_to_file('Nonce verified successfully');
+
+            $this->log_to_file('Step 2: Getting fingerprint from POST data');
+            $this->log_to_file('POST data: ' . json_encode($_POST));
 
             // Get fingerprint from POST data
             $fingerprint = isset($_POST['fingerprint']) ? sanitize_text_field($_POST['fingerprint']) : '';
 
+            $this->log_to_file('Fingerprint received: ' . $fingerprint);
+            $this->log_to_file('Fingerprint length: ' . strlen($fingerprint));
+
             if (empty($fingerprint)) {
+                $this->log_to_file('ERROR: Fingerprint is empty');
+                $this->log_to_file('=== AJAX SEARCH BY FINGERPRINT END (NO FINGERPRINT) ===');
                 wp_send_json_error(array(
                     'message' => __('Fingerprint is required.', 'tp-link-shortener')
                 ));
                 return;
             }
 
+            $this->log_to_file('Step 3: Calling API client searchByFingerprint');
             // Search for records by fingerprint
             $result = $this->client->searchByFingerprint($fingerprint, 0, '');
+
+            $this->log_to_file('Step 4: API client returned result');
+            $this->log_to_file('Result: ' . json_encode($result));
+            $this->log_to_file('Result has records: ' . (!empty($result['records']) ? 'yes' : 'no'));
+            $this->log_to_file('Record count: ' . (isset($result['records']) ? count($result['records']) : 0));
 
             if (!empty($result['records']) && count($result['records']) > 0) {
                 // Get the most recent record (first in array)
                 $latest_record = $result['records'][0];
+
+                $this->log_to_file('Step 5: Found record, returning success');
+                $this->log_to_file('Record: ' . json_encode($latest_record));
+                $this->log_to_file('=== AJAX SEARCH BY FINGERPRINT END (SUCCESS - RECORD FOUND) ===');
 
                 wp_send_json_success(array(
                     'record' => $latest_record,
@@ -876,6 +897,9 @@ class TP_API_Handler {
                 ));
             } else {
                 // No records found
+                $this->log_to_file('Step 5: No records found, returning success with null record');
+                $this->log_to_file('=== AJAX SEARCH BY FINGERPRINT END (SUCCESS - NO RECORDS) ===');
+
                 wp_send_json_success(array(
                     'record' => null,
                     'fingerprint' => $fingerprint,
@@ -884,6 +908,11 @@ class TP_API_Handler {
             }
 
         } catch (Exception $e) {
+            $this->log_to_file('EXCEPTION: ' . get_class($e));
+            $this->log_to_file('Message: ' . $e->getMessage());
+            $this->log_to_file('Trace: ' . $e->getTraceAsString());
+            $this->log_to_file('=== AJAX SEARCH BY FINGERPRINT END (EXCEPTION) ===');
+
             error_log('TP Link Shortener Fingerprint Search Error: ' . $e->getMessage());
             wp_send_json_error(array(
                 'message' => __('Failed to search for links.', 'tp-link-shortener'),

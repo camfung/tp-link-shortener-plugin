@@ -82,8 +82,9 @@
 
             // Search for existing links by fingerprint for anonymous users
             if (!tpAjax.isLoggedIn) {
-                console.log('User is anonymous - searching for existing links by fingerprint...');
-                this.searchByFingerprint();
+                console.log('User is anonymous - will search for existing links by fingerprint after FP loads...');
+                // Wait for fingerprint to be ready before searching
+                this.waitForFingerprintThenSearch();
             } else {
                 console.log('User is logged in - skipping fingerprint search');
             }
@@ -1676,21 +1677,60 @@
         },
 
         /**
+         * Wait for fingerprint to be ready, then search
+         */
+        waitForFingerprintThenSearch: async function() {
+            console.log('=== WAIT FOR FINGERPRINT THEN SEARCH START ===');
+            console.log('fpPromise exists:', !!this.fpPromise);
+
+            try {
+                // Wait for fingerprint to be ready
+                if (!this.fpPromise) {
+                    console.warn('FingerprintJS not initialized, cannot search');
+                    console.log('=== WAIT FOR FINGERPRINT THEN SEARCH END (NOT INITIALIZED) ===');
+                    return;
+                }
+
+                console.log('Waiting for fingerprint to load...');
+                const fp = await this.fpPromise;
+                console.log('FingerprintJS loaded successfully:', fp);
+
+                // Now get the actual fingerprint
+                console.log('Getting visitor fingerprint...');
+                const result = await fp.get();
+                const fingerprint = result.visitorId;
+                console.log('Fingerprint obtained:', fingerprint);
+
+                // Now search with the fingerprint
+                this.searchByFingerprint(fingerprint);
+                console.log('=== WAIT FOR FINGERPRINT THEN SEARCH END (SUCCESS) ===');
+            } catch (error) {
+                console.error('Error waiting for fingerprint:', error);
+                console.log('=== WAIT FOR FINGERPRINT THEN SEARCH END (ERROR) ===');
+            }
+        },
+
+        /**
          * Search for user's most recent link by fingerprint
          */
-        searchByFingerprint: async function() {
+        searchByFingerprint: function(fingerprint) {
+            console.log('=== SEARCH BY FINGERPRINT START ===');
             const self = this;
 
-            // Get browser fingerprint
-            console.log('Getting fingerprint for search...');
-            const fingerprint = await this.getFingerprint();
+            console.log('Fingerprint provided:', fingerprint);
+            console.log('Fingerprint type:', typeof fingerprint);
+            console.log('Fingerprint length:', fingerprint ? fingerprint.length : 0);
 
             if (!fingerprint) {
-                console.log('Fingerprint not available, skipping search');
+                console.error('ERROR: Fingerprint not provided, skipping search');
+                console.log('=== SEARCH BY FINGERPRINT END (NO FINGERPRINT) ===');
                 return;
             }
 
-            console.log('Searching with fingerprint:', fingerprint);
+            console.log('Preparing AJAX request');
+            console.log('AJAX URL:', tpAjax.ajaxUrl);
+            console.log('Nonce:', tpAjax.nonce);
+            console.log('Action: tp_search_by_fingerprint');
 
             $.ajax({
                 url: tpAjax.ajaxUrl,
@@ -1700,17 +1740,36 @@
                     nonce: tpAjax.nonce,
                     fingerprint: fingerprint
                 },
+                beforeSend: function() {
+                    console.log('AJAX request being sent...');
+                },
                 success: function(response) {
-                    console.log('Fingerprint search response:', response);
+                    console.log('AJAX response received');
+                    console.log('Response:', JSON.stringify(response, null, 2));
+                    console.log('Response success:', response.success);
+                    console.log('Response has data:', !!response.data);
+                    console.log('Response has record:', response.data ? !!response.data.record : false);
+
                     if (response.success && response.data.record) {
+                        console.log('Record found, displaying existing link');
                         const record = response.data.record;
+                        console.log('Record details:', JSON.stringify(record, null, 2));
                         self.displayExistingLink(record);
                     } else {
                         console.log('No existing links found for this fingerprint');
+                        if (response.data) {
+                            console.log('Response data:', response.data);
+                        }
                     }
+                    console.log('=== SEARCH BY FINGERPRINT END (SUCCESS) ===');
                 },
                 error: function(xhr, status, error) {
-                    console.log('Fingerprint search failed:', error);
+                    console.error('AJAX ERROR');
+                    console.error('Status:', status);
+                    console.error('Error:', error);
+                    console.error('XHR status:', xhr.status);
+                    console.error('Response text:', xhr.responseText);
+                    console.log('=== SEARCH BY FINGERPRINT END (ERROR) ===');
                 }
             });
         },
