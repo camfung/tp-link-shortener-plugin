@@ -74,6 +74,16 @@ class TP_Shortcode {
         echo '<div class="tp-screenshot-preview tp-screenshot-loading">';
         echo '<div class="tp-screenshot-spinner"></div>';
         echo '<img src="" alt="URL Preview" class="tp-screenshot-img" style="display: none;" />';
+
+        // Add expiry timer below screenshot (only for non-logged-in users)
+        if (!is_user_logged_in()) {
+            echo '<div class="tp-screenshot-expiry-timer" id="tp-screenshot-expiry-timer" style="display: none;">';
+            echo '<i class="far fa-clock me-2"></i>';
+            echo '<span class="tp-screenshot-expiry-text">Expires in: </span>';
+            echo '<span class="tp-screenshot-expiry-countdown" id="tp-screenshot-expiry-countdown">00:00:00</span>';
+            echo '</div>';
+        }
+
         echo '</div>';
     }
 }

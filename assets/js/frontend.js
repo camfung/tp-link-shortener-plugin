@@ -1835,12 +1835,16 @@
             // Show expiry row
             $('#tp-expiry-row').show();
 
+            // Show screenshot expiry timer
+            $('#tp-screenshot-expiry-timer').show();
+
             function updateCountdown() {
                 const now = new Date();
                 const timeLeft = expiryDate - now;
 
                 if (timeLeft <= 0) {
                     $('#tp-expiry-timer').text('Expired');
+                    $('#tp-screenshot-expiry-countdown').text('Expired');
                     self.stopExpiryCountdown();
                     self.showError('This link has expired.');
                     return;
@@ -1856,6 +1860,7 @@
                     String(seconds).padStart(2, '0');
 
                 $('#tp-expiry-timer').text(formatted);
+                $('#tp-screenshot-expiry-countdown').text(formatted);
             }
 
             // Update immediately
@@ -1874,6 +1879,7 @@
                 this.expiryTimer = null;
             }
             $('#tp-expiry-row').hide();
+            $('#tp-screenshot-expiry-timer').hide();
         }
     };
 

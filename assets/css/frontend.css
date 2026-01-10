@@ -625,6 +625,34 @@ form .tp-plain-input:focus,
     font-weight: 600;
 }
 
+/* Screenshot Expiry Timer */
+.tp-screenshot-expiry-timer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    padding: 0.5rem 1rem;
+    background: rgba(240, 173, 78, 0.1);
+    color: #d97706;
+    border: 1px solid rgba(240, 173, 78, 0.3);
+    border-radius: 0.5rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    width: 100%;
+    text-align: center;
+}
+
+.tp-screenshot-expiry-text {
+    font-weight: 500;
+}
+
+.tp-screenshot-expiry-countdown {
+    font-family: 'Courier New', monospace;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+}
+
 /* Snackbar Styles */
 .tp-snackbar {
     position: fixed;
