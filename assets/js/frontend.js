@@ -20,7 +20,6 @@
         $copyBtn: null,
         $qrSection: null,
         $qrContainer: null,
-        $downloadQrBtn: null,
         $pasteBtn: null,
         $suggestBtn: null,
         $returningVisitorMessage: null,
@@ -108,7 +107,6 @@
             this.$copyBtn = $('#tp-copy-btn');
             this.$qrSection = $('#tp-qr-section');
             this.$qrContainer = $('#tp-qr-code-container');
-            this.$downloadQrBtn = $('#tp-download-qr-btn');
             this.$pasteBtn = $('#tp-paste-btn');
             this.$suggestBtn = $('#tp-suggest-btn');
             this.$saveLinkReminder = $('#tp-save-link-reminder');
@@ -348,7 +346,7 @@
         bindEvents: function() {
             this.$form.on('submit', this.handleSubmit.bind(this));
             this.$copyBtn.on('click', this.copyToClipboard.bind(this));
-            this.$downloadQrBtn.on('click', this.downloadQRCode.bind(this));
+            this.$qrContainer.on('click', this.downloadQRCode.bind(this));
 
             // Validation events for destination input
             this.$destinationInput.on('input', this.handleInput.bind(this));

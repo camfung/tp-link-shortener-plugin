@@ -147,11 +147,7 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                                 <div id="tp-qr-section" class="tp-qr-section-wrapper d-none">
                                     <div id="tp-qr-and-preview-container" class="tp-qr-and-preview-container">
                                         <div id="tp-qr-card" class="tp-qr-card">
-                                            <div id="tp-qr-code-container" class="tp-qr-code-container rounded-4 d-inline-block"></div>
-                                            <button type="button" class="btn tp-btn tp-btn-download-qr w-100 mt-3" id="tp-download-qr-btn">
-                                                <i id="tp-download-qr-icon" class="fas fa-download me-2"></i>
-                                                <?php esc_html_e('Download QR Code', 'tp-link-shortener'); ?>
-                                            </button>
+                                            <div id="tp-qr-code-container" class="tp-qr-code-container rounded-4 d-inline-block" style="cursor: pointer;" title="<?php esc_attr_e('Click to download QR Code', 'tp-link-shortener'); ?>"></div>
                                         </div>
                                         <div id="tp-screenshot-card" class="tp-screenshot-card">
                                             <?php TP_Shortcode::render_screenshot_preview(); ?>
