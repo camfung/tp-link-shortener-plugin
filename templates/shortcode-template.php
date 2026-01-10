@@ -124,18 +124,6 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                     <div id="tp-result-section" class="tp-result-panel mb-4 d-none">
                         <div id="tp-result-grid" class="tp-result-grid">
                             <div id="tp-result-details" class="tp-result-details">
-                                <?php if (!is_user_logged_in()): ?>
-                                <div class="tp-meta-row mb-3" id="tp-expiry-row" style="display: none;">
-                                    <div id="tp-meta-label" class="tp-meta-label">
-                                        <?php esc_html_e('The link expires in', 'tp-link-shortener'); ?>
-                                    </div>
-                                    <div id="tp-expiry-time" class="tp-expiry-time">
-                                        <i id="tp-expiry-clock-icon" class="far fa-clock me-2"></i>
-                                        <span id="tp-expiry-timer" class="tp-expiry-timer">00:00:00</span>
-                                    </div>
-                                </div>
-                                <?php endif; ?>
-
                                 <div id="tp-short-url-display" class="tp-short-url-display">
                                     <label id="tp-short-url-label" class="form-label fw-semibold mb-2"><?php esc_html_e('Short link', 'tp-link-shortener'); ?></label>
                                     <div id="tp-short-url-row" class="tp-short-url-row">
