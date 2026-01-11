@@ -819,18 +819,27 @@
          * Handle paste button click
          */
         handlePasteClick: async function() {
+            console.log('[PASTE DEBUG] handlePasteClick called');
             try {
+                console.log('[PASTE DEBUG] Attempting to read clipboard...');
                 const text = await navigator.clipboard.readText();
+                console.log('[PASTE DEBUG] Clipboard read successful, text:', text);
 
                 if (!text || text.trim() === '') {
+                    console.log('[PASTE DEBUG] Clipboard is empty');
                     this.showError('Clipboard is empty');
                     return;
                 }
 
+                console.log('[PASTE DEBUG] Setting input value to:', text.trim());
                 this.$destinationInput.val(text.trim());
+
+                console.log('[PASTE DEBUG] Calling processUrl with:', text.trim());
                 this.processUrl(text.trim());
+                console.log('[PASTE DEBUG] processUrl completed');
 
             } catch (err) {
+                console.log('[PASTE DEBUG] Clipboard read failed with error:', err);
                 if (err.name === 'NotAllowedError') {
                     this.showError('Clipboard permission denied. Please allow clipboard access or paste manually.');
                 } else {
@@ -1004,7 +1013,10 @@
          * Process URL (validate and auto-add protocol)
          */
         processUrl: function(url) {
+            console.log('[PASTE DEBUG] processUrl called with:', url);
+
             if (!url || url.length < this.config.minLength) {
+                console.log('[PASTE DEBUG] URL too short:', url?.length, 'min:', this.config.minLength);
                 this.showError('URL is too short (min 10 characters)');
                 this.setInvalid();
                 return;
@@ -1012,11 +1024,14 @@
 
             // Auto-add protocol if missing
             if (!this.hasProtocol(url)) {
+                console.log('[PASTE DEBUG] URL missing protocol, normalizing...');
                 const normalizedUrl = this.ensureProtocol(url);
                 if (normalizedUrl !== url) {
                     url = normalizedUrl;
+                    console.log('[PASTE DEBUG] Protocol added, new URL:', url);
                     this.$destinationInput.val(url);
                 } else {
+                    console.log('[PASTE DEBUG] Could not normalize URL');
                     this.showError('Invalid URL format. Include protocol (https://) or valid domain.');
                     this.setInvalid();
                     return;
@@ -1024,13 +1039,17 @@
             }
 
             // Validate URL
+            console.log('[PASTE DEBUG] Validating URL:', url);
             if (this.validateUrl(url)) {
+                console.log('[PASTE DEBUG] URL is valid, setting valid state');
                 this.setValid();
                 this.hideError();
             } else {
+                console.log('[PASTE DEBUG] URL is invalid');
                 this.showError('Invalid URL format. Example: https://example.com/page');
                 this.setInvalid();
             }
+            console.log('[PASTE DEBUG] processUrl completed');
         },
 
         /**
