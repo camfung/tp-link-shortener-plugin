@@ -718,89 +718,28 @@
         },
 
         /**
-         * Handle input event (real-time validation and sanitization)
+         * Handle input event (keystroke-specific UX, then delegates to processUrl)
          */
         handleInput: function(e) {
-            let value = e.target.value;
+            const value = e.target.value;
 
-            // Remove invalid characters in real-time
-            const cleaned = value.replace(this.config.invalidChars, '');
-
-            if (cleaned !== value) {
-                this.$destinationInput.val(cleaned);
-                value = cleaned;
-            }
-
-            // Attempt to auto-add protocol when we can identify a valid TLD
-            if (value.trim().length > 0) {
-                const normalizedValue = this.ensureProtocol(value.trim());
-                if (normalizedValue !== value.trim()) {
-                    value = normalizedValue;
-                    this.$destinationInput.val(normalizedValue);
-                } else {
-                    value = value.trim();
-                }
-            }
-
-            // Check length
-            if (value.length > this.config.maxLength) {
-                this.$destinationInput.val(value.substring(0, this.config.maxLength));
-                this.showError('URL too long (max 2000 characters)');
-                return;
-            }
-
-            // Remove validation classes while typing
+            // Keystroke-specific UX: Remove validation classes while typing
             this.$destinationInput.removeClass('is-invalid is-valid');
 
-            // Hide error while typing
+            // Keystroke-specific UX: Hide error/validation messages while typing
             if (value.length > 0) {
                 this.hideError();
                 // Hide validation message while typing
                 if (this.$validationMessage) {
                     this.$validationMessage.hide();
                 }
-                // Re-enable submit button while typing (will be disabled again if validation fails)
+                // Re-enable submit button optimistically while typing (processUrl will disable if invalid)
                 this.$submitBtn.prop('disabled', false);
                 this.$submitBtn.removeClass('disabled');
-            } else {
-                // If empty, disable submit button
-                this.$submitBtn.prop('disabled', true);
-                this.$submitBtn.addClass('disabled');
-                // Hide custom key group when input is empty
-                if (this.$customKeyGroup && this.$customKeyGroup.length) {
-                    this.$customKeyGroup.slideUp(300);
-                }
             }
 
-            // Trigger online validation if URLValidator is available
-            if (this.urlValidator && this.debouncedValidate && value.trim().length > 0) {
-                console.log('Triggering URL validation for:', value.trim());
-                console.log('URLValidator exists:', !!this.urlValidator);
-                console.log('debouncedValidate exists:', !!this.debouncedValidate);
-
-                // Show validating message
-                if (this.$validationMessage) {
-                    this.$validationMessage.html('<i class="fas fa-spinner fa-spin me-2"></i>Validating URL...');
-                    this.$validationMessage.removeClass('error-message warning-message success-message text-success text-warning text-danger');
-                    this.$validationMessage.addClass('text-muted');
-                    this.$validationMessage.show();
-                }
-
-                // Disable submit button while validating
-                this.$submitBtn.prop('disabled', true);
-                this.$submitBtn.addClass('disabled');
-
-                // Note: We pass null for the message element because we handle
-                // the styling ourselves in handleValidationResult
-                console.log('Calling debouncedValidate...');
-                this.debouncedValidate(
-                    value.trim(),
-                    null,  // Don't let URLValidator apply styles directly
-                    null   // Don't let URLValidator apply message directly
-                );
-            } else {
-                console.log('Skipping validation - urlValidator:', !!this.urlValidator, 'debouncedValidate:', !!this.debouncedValidate, 'valueLength:', value.trim().length);
-            }
+            // Delegate all validation logic to processUrl
+            this.processUrl(value);
         },
 
         /**
@@ -1011,44 +950,79 @@
 
         /**
          * Process URL (validate and auto-add protocol)
+         * Shared validation logic used by typing, paste, and blur events
          */
-        processUrl: function(url) {
-            console.log('[PASTE DEBUG] processUrl called with:', url);
+        processUrl: function(value) {
+            console.log('[PASTE DEBUG] processUrl called with:', value);
 
-            if (!url || url.length < this.config.minLength) {
-                console.log('[PASTE DEBUG] URL too short:', url?.length, 'min:', this.config.minLength);
-                this.showError('URL is too short (min 10 characters)');
-                this.setInvalid();
-                return;
+            // Remove invalid characters
+            const cleaned = value.replace(this.config.invalidChars, '');
+            if (cleaned !== value) {
+                this.$destinationInput.val(cleaned);
+                value = cleaned;
             }
 
-            // Auto-add protocol if missing
-            if (!this.hasProtocol(url)) {
-                console.log('[PASTE DEBUG] URL missing protocol, normalizing...');
-                const normalizedUrl = this.ensureProtocol(url);
-                if (normalizedUrl !== url) {
-                    url = normalizedUrl;
-                    console.log('[PASTE DEBUG] Protocol added, new URL:', url);
-                    this.$destinationInput.val(url);
+            // Attempt to auto-add protocol when we can identify a valid TLD
+            if (value.trim().length > 0) {
+                const normalizedValue = this.ensureProtocol(value.trim());
+                if (normalizedValue !== value.trim()) {
+                    value = normalizedValue;
+                    this.$destinationInput.val(normalizedValue);
                 } else {
-                    console.log('[PASTE DEBUG] Could not normalize URL');
-                    this.showError('Invalid URL format. Include protocol (https://) or valid domain.');
-                    this.setInvalid();
-                    return;
+                    value = value.trim();
                 }
             }
 
-            // Validate URL
-            console.log('[PASTE DEBUG] Validating URL:', url);
-            if (this.validateUrl(url)) {
-                console.log('[PASTE DEBUG] URL is valid, setting valid state');
-                this.setValid();
-                this.hideError();
-            } else {
-                console.log('[PASTE DEBUG] URL is invalid');
-                this.showError('Invalid URL format. Example: https://example.com/page');
-                this.setInvalid();
+            // Check max length
+            if (value.length > this.config.maxLength) {
+                this.$destinationInput.val(value.substring(0, this.config.maxLength));
+                this.showError('URL too long (max 2000 characters)');
+                return;
             }
+
+            // Handle empty input
+            if (value.length === 0) {
+                this.$destinationInput.removeClass('is-invalid is-valid');
+                this.hideError();
+                this.$submitBtn.prop('disabled', true);
+                this.$submitBtn.addClass('disabled');
+                // Hide custom key group when input is empty
+                if (this.$customKeyGroup && this.$customKeyGroup.length) {
+                    this.$customKeyGroup.slideUp(300);
+                }
+                return;
+            }
+
+            // Trigger online validation if URLValidator is available
+            if (this.urlValidator && this.debouncedValidate && value.trim().length > 0) {
+                console.log('Triggering URL validation for:', value.trim());
+                console.log('URLValidator exists:', !!this.urlValidator);
+                console.log('debouncedValidate exists:', !!this.debouncedValidate);
+
+                // Show validating message
+                if (this.$validationMessage) {
+                    this.$validationMessage.html('<i class="fas fa-spinner fa-spin me-2"></i>Validating URL...');
+                    this.$validationMessage.removeClass('error-message warning-message success-message text-success text-warning text-danger');
+                    this.$validationMessage.addClass('text-muted');
+                    this.$validationMessage.show();
+                }
+
+                // Disable submit button while validating
+                this.$submitBtn.prop('disabled', true);
+                this.$submitBtn.addClass('disabled');
+
+                // Note: We pass null for the message element because we handle
+                // the styling ourselves in handleValidationResult
+                console.log('Calling debouncedValidate...');
+                this.debouncedValidate(
+                    value.trim(),
+                    null,  // Don't let URLValidator apply styles directly
+                    null   // Don't let URLValidator apply message directly
+                );
+            } else {
+                console.log('Skipping validation - urlValidator:', !!this.urlValidator, 'debouncedValidate:', !!this.debouncedValidate, 'valueLength:', value.trim().length);
+            }
+
             console.log('[PASTE DEBUG] processUrl completed');
         },
 
