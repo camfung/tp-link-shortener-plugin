@@ -127,4 +127,25 @@ class TP_Link_Shortener {
     public static function use_gemini_generation(): bool {
         return (bool) get_option('tp_link_shortener_use_gemini', false);
     }
+
+    /**
+     * Check if QR code generation is enabled
+     */
+    public static function is_qr_code_enabled(): bool {
+        return (bool) get_option('tp_link_shortener_enable_qr_code', true);
+    }
+
+    /**
+     * Check if screenshot capture is enabled
+     */
+    public static function is_screenshot_enabled(): bool {
+        return (bool) get_option('tp_link_shortener_enable_screenshot', true);
+    }
+
+    /**
+     * Check if expiry timer display is enabled
+     */
+    public static function is_expiry_timer_enabled(): bool {
+        return (bool) get_option('tp_link_shortener_enable_expiry_timer', true);
+    }
 }

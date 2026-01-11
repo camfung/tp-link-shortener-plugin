@@ -38,6 +38,9 @@ class TP_Admin_Settings {
     public function register_settings() {
         // Register settings
         register_setting('tp_link_shortener_settings', 'tp_link_shortener_use_gemini');
+        register_setting('tp_link_shortener_settings', 'tp_link_shortener_enable_qr_code');
+        register_setting('tp_link_shortener_settings', 'tp_link_shortener_enable_screenshot');
+        register_setting('tp_link_shortener_settings', 'tp_link_shortener_enable_expiry_timer');
 
         // Add settings section
         add_settings_section(
@@ -52,6 +55,33 @@ class TP_Admin_Settings {
             'tp_link_shortener_use_gemini',
             __('AI-Powered Short Codes (Gemini)', 'tp-link-shortener'),
             array($this, 'render_use_gemini_field'),
+            'tp-link-shortener',
+            'tp_link_shortener_main_section'
+        );
+
+        // QR Code toggle field
+        add_settings_field(
+            'tp_link_shortener_enable_qr_code',
+            __('Enable QR Code Generation', 'tp-link-shortener'),
+            array($this, 'render_enable_qr_code_field'),
+            'tp-link-shortener',
+            'tp_link_shortener_main_section'
+        );
+
+        // Screenshot toggle field
+        add_settings_field(
+            'tp_link_shortener_enable_screenshot',
+            __('Enable Screenshot Capture', 'tp-link-shortener'),
+            array($this, 'render_enable_screenshot_field'),
+            'tp-link-shortener',
+            'tp_link_shortener_main_section'
+        );
+
+        // Expiry Timer toggle field
+        add_settings_field(
+            'tp_link_shortener_enable_expiry_timer',
+            __('Enable Expiry Timer Display', 'tp-link-shortener'),
+            array($this, 'render_enable_expiry_timer_field'),
             'tp-link-shortener',
             'tp_link_shortener_main_section'
         );
@@ -171,6 +201,69 @@ class TP_Admin_Settings {
         </label>
         <p class="description">
             <?php esc_html_e('When enabled, the plugin will call the Gemini-powered Generate Short Code API to suggest memorable keys. Falls back to random keys if the service is unavailable.', 'tp-link-shortener'); ?>
+        </p>
+        <?php
+    }
+
+    /**
+     * Render QR Code toggle field
+     */
+    public function render_enable_qr_code_field() {
+        $value = get_option('tp_link_shortener_enable_qr_code', '1');
+        ?>
+        <label>
+            <input
+                type="checkbox"
+                name="tp_link_shortener_enable_qr_code"
+                value="1"
+                <?php checked('1', $value); ?>
+            />
+            <?php esc_html_e('Generate QR codes for shortened links', 'tp-link-shortener'); ?>
+        </label>
+        <p class="description">
+            <?php esc_html_e('When enabled, a QR code will be generated for each shortened link. Users can scan the QR code or click to download it.', 'tp-link-shortener'); ?>
+        </p>
+        <?php
+    }
+
+    /**
+     * Render Screenshot toggle field
+     */
+    public function render_enable_screenshot_field() {
+        $value = get_option('tp_link_shortener_enable_screenshot', '1');
+        ?>
+        <label>
+            <input
+                type="checkbox"
+                name="tp_link_shortener_enable_screenshot"
+                value="1"
+                <?php checked('1', $value); ?>
+            />
+            <?php esc_html_e('Capture screenshots of destination URLs', 'tp-link-shortener'); ?>
+        </label>
+        <p class="description">
+            <?php esc_html_e('When enabled, a screenshot preview of the destination URL will be captured and displayed. Requires SNAPCAPTURE_API_KEY to be configured.', 'tp-link-shortener'); ?>
+        </p>
+        <?php
+    }
+
+    /**
+     * Render Expiry Timer toggle field
+     */
+    public function render_enable_expiry_timer_field() {
+        $value = get_option('tp_link_shortener_enable_expiry_timer', '1');
+        ?>
+        <label>
+            <input
+                type="checkbox"
+                name="tp_link_shortener_enable_expiry_timer"
+                value="1"
+                <?php checked('1', $value); ?>
+            />
+            <?php esc_html_e('Display expiry countdown timer for trial links', 'tp-link-shortener'); ?>
+        </label>
+        <p class="description">
+            <?php esc_html_e('When enabled, anonymous users will see a countdown timer showing when their trial link will expire.', 'tp-link-shortener'); ?>
         </p>
         <?php
     }

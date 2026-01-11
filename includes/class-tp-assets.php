@@ -108,6 +108,9 @@ class TP_Assets {
             'isPremiumOnly' => TP_Link_Shortener::is_premium_only(),
             'isLoggedIn' => is_user_logged_in(),
             'fingerprintUrl' => TP_LINK_SHORTENER_PLUGIN_URL . 'assets/js/fingerprintjs-v4-iife.min.js',
+            'enableQRCode' => TP_Link_Shortener::is_qr_code_enabled(),
+            'enableScreenshot' => TP_Link_Shortener::is_screenshot_enabled(),
+            'enableExpiryTimer' => TP_Link_Shortener::is_expiry_timer_enabled(),
             'strings' => array(
                 'creating' => __('Creating...', 'tp-link-shortener'),
                 'success' => __('Link created successfully!', 'tp-link-shortener'),

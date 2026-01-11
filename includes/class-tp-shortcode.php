@@ -75,8 +75,8 @@ class TP_Shortcode {
         echo '<div class="tp-screenshot-spinner"></div>';
         echo '<img src="" alt="URL Preview" class="tp-screenshot-img" style="display: none;" />';
 
-        // Add expiry timer below screenshot (only for non-logged-in users)
-        if (!is_user_logged_in()) {
+        // Add expiry timer below screenshot (only for non-logged-in users and if enabled)
+        if (!is_user_logged_in() && TP_Link_Shortener::is_expiry_timer_enabled()) {
             echo '<div class="tp-screenshot-expiry-timer" id="tp-screenshot-expiry-timer" style="display: none;">';
             echo '<i class="far fa-clock me-2"></i>';
             echo '<span class="tp-screenshot-expiry-text">Expires in: </span>';

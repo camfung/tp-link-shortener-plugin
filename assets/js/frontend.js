@@ -565,18 +565,20 @@
                         self.currentRecord.destination = newDestination;
                         self.currentRecord.tpKey = tpKey;
 
-                        // Check if destination changed - regenerate screenshot
-                        if (oldDestination !== newDestination) {
+                        // Check if destination changed - regenerate screenshot (if enabled)
+                        if (oldDestination !== newDestination && tpAjax.enableScreenshot) {
                             console.log('TP Update: Destination changed, regenerating screenshot');
                             self.captureScreenshot(newDestination);
                         }
 
-                        // Check if tpKey changed - update short URL and regenerate QR code
+                        // Check if tpKey changed - update short URL and regenerate QR code (if enabled)
                         if (oldTpKey !== tpKey) {
                             console.log('TP Update: Key changed, updating short URL and QR code');
                             const newShortUrl = 'https://' + self.currentRecord.domain + '/' + tpKey;
                             self.$shortUrlOutput.attr('href', newShortUrl).text(newShortUrl);
-                            self.generateQRCode(newShortUrl);
+                            if (tpAjax.enableQRCode) {
+                                self.generateQRCode(newShortUrl);
+                            }
                         }
                     } else {
                         console.error('TP Update: Server returned success=false', response);
@@ -659,19 +661,23 @@
                 this.$shortUrlOutput.attr('href', shortUrl).text(shortUrl);
                 this.showResult();
 
-                // Generate QR code
-                this.generateQRCode(shortUrl);
+                // Generate QR code (if enabled)
+                if (tpAjax.enableQRCode) {
+                    this.generateQRCode(shortUrl);
+                }
 
-                // Capture screenshot of destination URL
-                this.captureScreenshot(destination);
+                // Capture screenshot of destination URL (if enabled)
+                if (tpAjax.enableScreenshot) {
+                    this.captureScreenshot(destination);
+                }
 
                 // Show "Try It Now" message for non-logged-in users
                 if (this.$tryItMessage && this.$tryItMessage.length) {
                     this.$tryItMessage.removeClass('d-none');
                 }
 
-                // Start expiry countdown for non-logged-in users
-                if (!tpAjax.isLoggedIn) {
+                // Start expiry countdown for non-logged-in users (if enabled)
+                if (!tpAjax.isLoggedIn && tpAjax.enableExpiryTimer) {
                     this.startExpiryCountdown();
                 }
 
@@ -1520,11 +1526,15 @@
             // Show result section WITHOUT success message (for returning visitors)
             this.$resultSection.removeClass('d-none');
 
-            // Generate QR code
-            this.generateQRCode(shortUrl);
+            // Generate QR code (if enabled)
+            if (tpAjax.enableQRCode) {
+                this.generateQRCode(shortUrl);
+            }
 
-            // Always capture fresh screenshot from API
-            this.captureScreenshot(storedData.destination);
+            // Always capture fresh screenshot from API (if enabled)
+            if (tpAjax.enableScreenshot) {
+                this.captureScreenshot(storedData.destination);
+            }
 
             // Only disable the form for non-logged-in users (trial users)
             if (!tpAjax.isLoggedIn) {
@@ -1540,8 +1550,10 @@
                 // Start countdown (for returning visitor message)
                 this.startCountdown();
 
-                // Start expiry countdown (for expiry counter in result section)
-                this.startExpiryCountdown();
+                // Start expiry countdown (for expiry counter in result section) (if enabled)
+                if (tpAjax.enableExpiryTimer) {
+                    this.startExpiryCountdown();
+                }
             }
         },
 
