@@ -526,6 +526,10 @@
             console.log('TP Update: tpKey:', tpKey);
             console.log('TP Update: All currentRecord keys:', Object.keys(this.currentRecord));
 
+            // Store old values to detect changes
+            const oldDestination = this.currentRecord.destination;
+            const oldTpKey = this.currentRecord.tpKey || this.currentRecord.key;
+
             const updateData = {
                 action: 'tp_update_link',
                 nonce: tpAjax.nonce,
@@ -556,10 +560,24 @@
 
                     if (response.success) {
                         self.showSnackbar('Link updated successfully!', 'success');
-                        // Update the stored record
+
+                        // Update the stored record with new values
                         self.currentRecord.destination = newDestination;
-                        // Capture new screenshot
-                        self.captureScreenshot(newDestination);
+                        self.currentRecord.tpKey = tpKey;
+
+                        // Check if destination changed - regenerate screenshot
+                        if (oldDestination !== newDestination) {
+                            console.log('TP Update: Destination changed, regenerating screenshot');
+                            self.captureScreenshot(newDestination);
+                        }
+
+                        // Check if tpKey changed - update short URL and regenerate QR code
+                        if (oldTpKey !== tpKey) {
+                            console.log('TP Update: Key changed, updating short URL and QR code');
+                            const newShortUrl = 'https://' + self.currentRecord.domain + '/' + tpKey;
+                            self.$shortUrlOutput.attr('href', newShortUrl).text(newShortUrl);
+                            self.generateQRCode(newShortUrl);
+                        }
                     } else {
                         console.error('TP Update: Server returned success=false', response);
                         const errorMsg = response.data ? response.data.message : 'Failed to update link.';
