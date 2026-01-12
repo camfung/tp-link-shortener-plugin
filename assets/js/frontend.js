@@ -999,8 +999,11 @@
                 return;
             }
 
-            // Trigger online validation if URLValidator is available
-            if (this.urlValidator && this.debouncedValidate && value.trim().length > 0) {
+            // Check if URL has a domain structure (contains a dot and potential TLD)
+            const hasDomainStructure = /\.[a-z]{2,}$/i.test(value.trim());
+
+            // Trigger online validation if URLValidator is available and URL has valid domain structure
+            if (this.urlValidator && this.debouncedValidate && value.trim().length > 0 && hasDomainStructure) {
                 console.log('Triggering URL validation for:', value.trim());
                 console.log('URLValidator exists:', !!this.urlValidator);
                 console.log('debouncedValidate exists:', !!this.debouncedValidate);
@@ -1026,7 +1029,7 @@
                     null   // Don't let URLValidator apply message directly
                 );
             } else {
-                console.log('Skipping validation - urlValidator:', !!this.urlValidator, 'debouncedValidate:', !!this.debouncedValidate, 'valueLength:', value.trim().length);
+                console.log('Skipping validation - urlValidator:', !!this.urlValidator, 'debouncedValidate:', !!this.debouncedValidate, 'valueLength:', value.trim().length, 'hasDomainStructure:', hasDomainStructure);
             }
 
             console.log('[PASTE DEBUG] processUrl completed');
