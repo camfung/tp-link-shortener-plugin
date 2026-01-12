@@ -116,7 +116,6 @@
             this.$tryItMessage = $('#tp-try-it-message');
 
             // Update mode elements
-            this.$updateModeMessage = $('#tp-update-mode-message');
             this.$submitText = $('#tp-submit-text');
             this.$submitIcon = $('#tp-submit-icon');
         },
@@ -1151,8 +1150,6 @@
             this.$submitBtn.attr('title', updateLabel);
             this.$submitIcon.removeClass('fa-link').addClass('fa-edit');
 
-            this.$updateModeMessage.removeClass('d-none');
-
             // Ensure the destination input is enabled in update mode
             this.$destinationInput.prop('disabled', false);
 
@@ -1185,8 +1182,6 @@
             this.$submitBtn.attr('aria-label', createLabel);
             this.$submitBtn.attr('title', createLabel);
             this.$submitIcon.removeClass('fa-edit').addClass('fa-link');
-
-            this.$updateModeMessage.addClass('d-none');
 
             this.$destinationInput.val('');
             this.$customKeyInput.val('');

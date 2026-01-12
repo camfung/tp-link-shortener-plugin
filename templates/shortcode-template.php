@@ -109,17 +109,6 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                     </div>
                     <?php endif; ?>
 
-                    <!-- Update Mode Message (hidden by default) -->
-                    <div id="tp-update-mode-message" class="alert alert-info d-none mb-4">
-                        <div id="tp-update-mode-content" class="d-flex align-items-start gap-3">
-                            <i id="tp-update-mode-icon" class="fas fa-info-circle fs-5 mt-1"></i>
-                            <div id="tp-update-mode-text-container" class="flex-grow-1">
-                                <strong id="tp-update-mode-title">Update your existing link</strong>
-                                <p id="tp-update-mode-description" class="mb-0 mt-1">You can update the destination URL for your existing short link below.</p>
-                            </div>
-                        </div>
-                    </div>
-
                     <!-- Result Section (hidden initially) -->
                     <div id="tp-result-section" class="tp-result-panel mb-4 d-none">
                         <div id="tp-result-grid" class="tp-result-grid">
