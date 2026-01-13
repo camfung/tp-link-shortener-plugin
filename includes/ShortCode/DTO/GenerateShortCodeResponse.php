@@ -7,23 +7,35 @@ namespace ShortCode\DTO;
 class GenerateShortCodeResponse
 {
     private string $shortCode;
-    private string $originalCode;
+    private string $method;
     private bool $wasModified;
-    private string $url;
     private string $message;
+    private ?string $originalCode;
+    private ?string $url;
+    private ?array $candidates;
+    private ?array $keyPhrases;
+    private ?array $entities;
 
     public function __construct(
         string $shortCode,
-        string $originalCode,
+        string $method,
         bool $wasModified,
-        string $url,
-        string $message
+        string $message,
+        ?string $originalCode = null,
+        ?string $url = null,
+        ?array $candidates = null,
+        ?array $keyPhrases = null,
+        ?array $entities = null
     ) {
         $this->shortCode = $shortCode;
-        $this->originalCode = $originalCode;
+        $this->method = $method;
         $this->wasModified = $wasModified;
-        $this->url = $url;
         $this->message = $message;
+        $this->originalCode = $originalCode;
+        $this->url = $url;
+        $this->candidates = $candidates;
+        $this->keyPhrases = $keyPhrases;
+        $this->entities = $entities;
     }
 
     public function getShortCode(): string
@@ -31,9 +43,9 @@ class GenerateShortCodeResponse
         return $this->shortCode;
     }
 
-    public function getOriginalCode(): string
+    public function getMethod(): string
     {
-        return $this->originalCode;
+        return $this->method;
     }
 
     public function wasModified(): bool
@@ -41,13 +53,33 @@ class GenerateShortCodeResponse
         return $this->wasModified;
     }
 
-    public function getUrl(): string
+    public function getMessage(): string
+    {
+        return $this->message;
+    }
+
+    public function getOriginalCode(): ?string
+    {
+        return $this->originalCode;
+    }
+
+    public function getUrl(): ?string
     {
         return $this->url;
     }
 
-    public function getMessage(): string
+    public function getCandidates(): ?array
     {
-        return $this->message;
+        return $this->candidates;
+    }
+
+    public function getKeyPhrases(): ?array
+    {
+        return $this->keyPhrases;
+    }
+
+    public function getEntities(): ?array
+    {
+        return $this->entities;
     }
 }

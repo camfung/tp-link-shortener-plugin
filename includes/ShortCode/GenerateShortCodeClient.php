@@ -14,9 +14,16 @@ use ShortCode\Http\CurlHttpClient;
 
 class GenerateShortCodeClient
 {
-    private const DEFAULT_ENDPOINT = 'https://ce7jzbocq1.execute-api.ca-central-1.amazonaws.com/dev/generate-short-code';
+    private const BASE_URL = 'https://ce7jzbocq1.execute-api.ca-central-1.amazonaws.com/dev';
+    private const DEFAULT_ENDPOINT = self::BASE_URL . '/generate-short-code';
 
-    private string $endpoint;
+    public const ENDPOINT_FAST = '/generate-short-code/fast';
+    public const ENDPOINT_SMART = '/generate-short-code/smart';
+    public const ENDPOINT_AI = '/generate-short-code/ai';
+    public const ENDPOINT_LEGACY = '/generate-short-code';
+
+    private string $baseUrl;
+    private string $endpointPath;
     private HttpClientInterface $httpClient;
     private int $timeout;
 
@@ -25,21 +32,52 @@ class GenerateShortCodeClient
         ?HttpClientInterface $httpClient = null,
         int $timeout = 15
     ) {
-        $this->endpoint = rtrim($endpoint ?? self::DEFAULT_ENDPOINT, '/');
+        if ($endpoint === null) {
+            $this->baseUrl = self::BASE_URL;
+            $this->endpointPath = self::ENDPOINT_LEGACY;
+        } else {
+            $endpoint = rtrim($endpoint, '/');
+            $lastSlashPos = strrpos($endpoint, '/generate-short-code');
+            if ($lastSlashPos !== false) {
+                $this->baseUrl = substr($endpoint, 0, $lastSlashPos);
+                $this->endpointPath = substr($endpoint, $lastSlashPos);
+            } else {
+                $this->baseUrl = $endpoint;
+                $this->endpointPath = self::ENDPOINT_LEGACY;
+            }
+        }
+
         $this->timeout = $timeout;
         $this->httpClient = $httpClient ?? new CurlHttpClient($timeout);
     }
 
+    /**
+     * Set the endpoint type (fast, smart, or ai)
+     */
+    public function setEndpointType(string $endpointPath): void
+    {
+        $this->endpointPath = $endpointPath;
+    }
+
+    /**
+     * Get the full endpoint URL
+     */
+    private function getFullEndpoint(): string
+    {
+        return $this->baseUrl . $this->endpointPath;
+    }
+
     public function generateShortCode(GenerateShortCodeRequest $request): GenerateShortCodeResponse
     {
-        $this->log_to_file('=== GEMINI SHORT CODE REQUEST START ===');
+        $this->log_to_file('=== SHORT CODE GENERATION REQUEST START ===');
         $payload = $request->toArray();
         $this->log_to_file('Request payload: ' . json_encode($payload));
-        $this->log_to_file('Endpoint: ' . $this->endpoint);
+        $fullEndpoint = $this->getFullEndpoint();
+        $this->log_to_file('Endpoint: ' . $fullEndpoint);
 
         try {
-            $this->log_to_file('Sending POST request to Gemini API...');
-            $response = $this->httpClient->request('POST', $this->endpoint, [
+            $this->log_to_file('Sending POST request to API...');
+            $response = $this->httpClient->request('POST', $fullEndpoint, [
                 'headers' => [
                     'Content-Type: application/json',
                 ],
@@ -50,17 +88,17 @@ class GenerateShortCodeClient
             $this->log_to_file('Response body: ' . $response->getBody());
         } catch (NetworkException $e) {
             $this->log_to_file('EXCEPTION - NetworkException: ' . $e->getMessage());
-            $this->log_to_file('=== GEMINI SHORT CODE REQUEST END ===');
+            $this->log_to_file('=== SHORT CODE GENERATION REQUEST END ===');
             throw $e;
         } catch (\Exception $e) {
             $this->log_to_file('EXCEPTION - ' . get_class($e) . ': ' . $e->getMessage());
-            $this->log_to_file('=== GEMINI SHORT CODE REQUEST END ===');
+            $this->log_to_file('=== SHORT CODE GENERATION REQUEST END ===');
             throw new NetworkException($e->getMessage(), $e->getCode(), $e);
         }
 
         $parsedResponse = $this->parseResponse($response->getStatusCode(), $response->getBody());
-        $this->log_to_file('SUCCESS - Generated short code: ' . $parsedResponse->getShortCode());
-        $this->log_to_file('=== GEMINI SHORT CODE REQUEST END ===');
+        $this->log_to_file('SUCCESS - Generated short code: ' . $parsedResponse->getShortCode() . ' using method: ' . $parsedResponse->getMethod());
+        $this->log_to_file('=== SHORT CODE GENERATION REQUEST END ===');
         return $parsedResponse;
     }
 
@@ -99,41 +137,70 @@ class GenerateShortCodeClient
             throw new ApiException($message, $statusCode);
         }
 
-        // Check for required fields
-        $hasShortCode = isset($data['source']['short_code']);
-        $hasOriginalCode = isset($data['source']['original_code']);
-        $hasWasModified = isset($data['source']['was_modified']);
-        $hasUrl = isset($data['source']['url']);
-
-        $this->log_to_file('Field presence check - short_code: ' . ($hasShortCode ? 'YES' : 'NO') .
-                          ', original_code: ' . ($hasOriginalCode ? 'YES' : 'NO') .
-                          ', was_modified: ' . ($hasWasModified ? 'YES' : 'NO') .
-                          ', url: ' . ($hasUrl ? 'YES' : 'NO'));
-
-        if (!($hasShortCode && $hasOriginalCode && $hasWasModified && $hasUrl)) {
+        // Check for required fields (all endpoints have these)
+        if (!isset($data['source']['short_code']) || !isset($data['source']['method']) || !isset($data['source']['was_modified'])) {
             $this->log_to_file('ERROR - Response missing required source fields');
-            throw new ApiException('Response missing expected source fields', $statusCode);
+            throw new ApiException('Response missing expected source fields (short_code, method, was_modified)', $statusCode);
         }
 
-        $this->log_to_file('All required fields present. Building response object...');
-        $this->log_to_file('short_code: ' . $data['source']['short_code']);
-        $this->log_to_file('original_code: ' . $data['source']['original_code']);
-        $this->log_to_file('was_modified: ' . ($data['source']['was_modified'] ? 'true' : 'false'));
-        $this->log_to_file('url: ' . $data['source']['url']);
+        $source = $data['source'];
+        $method = $source['method'];
+
+        $this->log_to_file('Response method: ' . $method);
+        $this->log_to_file('short_code: ' . $source['short_code']);
+        $this->log_to_file('was_modified: ' . ($source['was_modified'] ? 'true' : 'false'));
+
+        // Extract optional fields based on endpoint type
+        $originalCode = $source['original_code'] ?? null;
+        $url = $source['url'] ?? null;
+        $candidates = $source['candidates'] ?? null;
+        $keyPhrases = $source['key_phrases'] ?? null;
+        $entities = $source['entities'] ?? null;
+
+        if ($originalCode !== null) {
+            $this->log_to_file('original_code: ' . $originalCode);
+        }
+        if ($url !== null) {
+            $this->log_to_file('url: ' . $url);
+        }
+        if ($candidates !== null) {
+            $this->log_to_file('candidates: ' . json_encode($candidates));
+        }
+        if ($keyPhrases !== null) {
+            $this->log_to_file('key_phrases: ' . json_encode($keyPhrases));
+        }
+        if ($entities !== null) {
+            $this->log_to_file('entities: ' . json_encode($entities));
+        }
+
         $this->log_to_file('message: ' . ($data['message'] ?? '(none)'));
 
         return new GenerateShortCodeResponse(
-            $data['source']['short_code'],
-            $data['source']['original_code'],
-            (bool)$data['source']['was_modified'],
-            $data['source']['url'],
-            $data['message'] ?? ''
+            $source['short_code'],
+            $method,
+            (bool)$source['was_modified'],
+            $data['message'] ?? '',
+            $originalCode,
+            $url,
+            $candidates,
+            $keyPhrases,
+            $entities
         );
     }
 
     public function getEndpoint(): string
     {
-        return $this->endpoint;
+        return $this->getFullEndpoint();
+    }
+
+    public function getBaseUrl(): string
+    {
+        return $this->baseUrl;
+    }
+
+    public function getEndpointPath(): string
+    {
+        return $this->endpointPath;
     }
 
     public function getHttpClient(): HttpClientInterface
@@ -155,8 +222,8 @@ class GenerateShortCodeClient
             return;
         }
 
-        $log_file = WP_CONTENT_DIR . '/plugins/gemini-shortcode-debug.log';
+        $log_file = WP_CONTENT_DIR . '/plugins/shortcode-api-debug.log';
         $timestamp = date('Y-m-d H:i:s');
-        file_put_contents($log_file, "[$timestamp] GEMINI CLIENT: $message\n", FILE_APPEND);
+        file_put_contents($log_file, "[$timestamp] SHORTCODE CLIENT: $message\n", FILE_APPEND);
     }
 }

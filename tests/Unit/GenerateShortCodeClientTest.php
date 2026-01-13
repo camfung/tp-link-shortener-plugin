@@ -36,6 +36,7 @@ class GenerateShortCodeClientTest extends TestCase
             'message' => 'Short code generated successfully',
             'source' => [
                 'short_code' => 'pythontut',
+                'method' => 'gemini-ai',
                 'original_code' => 'pythontut',
                 'was_modified' => false,
                 'url' => 'https://docs.python.org/3/tutorial/index.html',
@@ -54,6 +55,7 @@ class GenerateShortCodeClientTest extends TestCase
 
         $this->assertInstanceOf(GenerateShortCodeResponse::class, $result);
         $this->assertSame('pythontut', $result->getShortCode());
+        $this->assertSame('gemini-ai', $result->getMethod());
         $this->assertSame('pythontut', $result->getOriginalCode());
         $this->assertFalse($result->wasModified());
         $this->assertSame('https://docs.python.org/3/tutorial/index.html', $result->getUrl());
@@ -72,6 +74,7 @@ class GenerateShortCodeClientTest extends TestCase
             'message' => 'Short code generated successfully',
             'source' => [
                 'short_code' => 'example',
+                'method' => 'gemini-ai',
                 'original_code' => 'example',
                 'was_modified' => false,
                 'url' => 'https://example.com',
@@ -146,6 +149,7 @@ class GenerateShortCodeClientTest extends TestCase
             'message' => 'Short code generated successfully',
             'source' => [
                 'short_code' => 'abc123',
+                // Missing required fields: method and was_modified
             ],
             'success' => true,
         ]);
@@ -157,5 +161,63 @@ class GenerateShortCodeClientTest extends TestCase
 
         $request = new GenerateShortCodeRequest('https://example.com');
         $this->client->generateShortCode($request);
+    }
+
+    public function testFastEndpointResponse(): void
+    {
+        $responseBody = json_encode([
+            'message' => 'Short code generated successfully',
+            'source' => [
+                'short_code' => 'pythontut',
+                'method' => 'rule-based',
+                'was_modified' => false,
+                'candidates' => ['pythontut', 'python3', 'tutorial'],
+            ],
+            'success' => true,
+        ]);
+
+        $this->httpClient->addResponse(new HttpResponse(200, [], $responseBody));
+
+        $request = new GenerateShortCodeRequest('https://docs.python.org/3/tutorial/index.html');
+        $result = $this->client->generateShortCode($request);
+
+        $this->assertSame('pythontut', $result->getShortCode());
+        $this->assertSame('rule-based', $result->getMethod());
+        $this->assertFalse($result->wasModified());
+        $this->assertNotNull($result->getCandidates());
+        $this->assertSame(['pythontut', 'python3', 'tutorial'], $result->getCandidates());
+        $this->assertNull($result->getOriginalCode());
+        $this->assertNull($result->getUrl());
+    }
+
+    public function testSmartEndpointResponse(): void
+    {
+        $responseBody = json_encode([
+            'message' => 'Short code generated successfully',
+            'source' => [
+                'short_code' => 'pythontut',
+                'method' => 'nlp-comprehend',
+                'was_modified' => false,
+                'candidates' => ['pythontut', 'python3'],
+                'key_phrases' => ['python tutorial', 'documentation'],
+                'entities' => ['Python', 'tutorial'],
+            ],
+            'success' => true,
+        ]);
+
+        $this->httpClient->addResponse(new HttpResponse(200, [], $responseBody));
+
+        $request = new GenerateShortCodeRequest('https://docs.python.org/3/tutorial/index.html');
+        $result = $this->client->generateShortCode($request);
+
+        $this->assertSame('pythontut', $result->getShortCode());
+        $this->assertSame('nlp-comprehend', $result->getMethod());
+        $this->assertFalse($result->wasModified());
+        $this->assertNotNull($result->getCandidates());
+        $this->assertNotNull($result->getKeyPhrases());
+        $this->assertNotNull($result->getEntities());
+        $this->assertSame(['pythontut', 'python3'], $result->getCandidates());
+        $this->assertSame(['python tutorial', 'documentation'], $result->getKeyPhrases());
+        $this->assertSame(['Python', 'tutorial'], $result->getEntities());
     }
 }
