@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Link Shortener Demo</title>
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- QR Code Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+    <!-- Plugin CSS -->
+    <link rel="stylesheet" href="assets/css/frontend.css">
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .demo-header {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .demo-header h2 {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 0;
+        }
+        .demo-header img {
+            width: 25px;
+            height: 25px;
+        }
+        .remove-btn {
+            margin-left: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="demo-header">
+            <h2>
+                <img src="https://trafficportal.dev/wp-content/uploads/TrafficPortal-logo100.png" alt="Traffic Portal Logo">
+                This a simple link demo
+                <button class="btn btn-sm btn-outline-secondary remove-btn" onclick="this.parentElement.parentElement.remove()">
+                    Remove this message
+                </button>
+            </h2>
+        </div>
+
+        <div id="tp-link-shortener-wrapper" class="tp-link-shortener-wrapper pb-5">
+            <div id="tp-hero-header" class="tp-hero-header text-center mb-2 d-flex flex-row justify-content-center">
+                <span id="tp-title-icon" class="tp-title-icon">
+                    <i id="tp-title-icon-link" class="fas fa-link"></i>
+                </span>
+                <h2 id="tp-title" class="tp-title mb-0">
+                    Instant FREE Link Simplifier
+                </h2>
+            </div>
+
+            <div id="tp-row-container" class="row justify-content-center">
+                <div id="tp-col-main" class="col-12">
+                    <div id="tp-hero-shell" class="tp-hero-shell border-0 shadow-sm tp-card">
+                        <form id="tp-shortener-form" class="tp-shortener-form">
+                            <!-- Try It Now Message -->
+                            <div id="tp-try-it-message" class="alert alert-info d-none mb-4 tp-try-it">
+                                <div id="tp-try-it-content" class="d-flex align-items-center gap-2">
+                                    <i id="tp-try-it-icon" class="fas fa-hand-pointer fs-5"></i>
+                                    <strong id="tp-try-it-text" class="text-uppercase">TRY IT NOW - CLICK THE LINK OR SCAN THE QR CODE</strong>
+                                </div>
+                            </div>
+
+                            <!-- Main URL Input -->
+                            <div id="tp-destination-field-group" class="tp-form-group tp-destination-field mb-4">
+                                <div id="tp-destination-input-visual" class="tp-input-visual">
+                                    <button type="button" class="tp-icon-btn" id="tp-paste-btn" title="Paste from clipboard">
+                                        <i id="tp-paste-icon" class="fas fa-paste"></i>
+                                    </button>
+                                    <div class="tp-floating-label-wrapper">
+                                        <input
+                                            type="url"
+                                            id="tp-destination"
+                                            name="destination"
+                                            class="form-control tp-form-control tp-plain-input"
+                                            placeholder="Paste your long URL to simplify it"
+                                            required
+                                            autocomplete="off"
+                                            maxlength="2000"
+                                        />
+                                        <label id="tp-destination-label" for="tp-destination" class="tp-label tp-floating-label text-uppercase">
+                                            Destination URL
+                                        </label>
+                                    </div>
+                                </div>
+                                <div id="tp-url-validation-message" class="form-text mt-2 text-end" style="display: none;"></div>
+                            </div>
+
+                            <!-- Custom Key Input -->
+                            <div id="tp-custom-key-group" class="tp-form-group tp-custom-key-group tp-keyword-field mb-4" style="display: none;">
+                                <div id="tp-custom-key-input-visual" class="tp-input-visual">
+                                    <button type="button" class="tp-icon-btn" id="tp-suggest-btn" title="Get suggestion">
+                                        <i id="tp-suggest-icon" class="fas fa-lightbulb"></i>
+                                    </button>
+                                    <div class="tp-floating-label-wrapper">
+                                        <input
+                                            type="text"
+                                            id="tp-custom-key"
+                                            name="custom_key"
+                                            class="form-control tp-form-control tp-plain-input"
+                                            placeholder="Optional magic keyword"
+                                            maxlength="50"
+                                        />
+                                        <label id="tp-custom-key-label" for="tp-custom-key" class="tp-label tp-floating-label text-uppercase">
+                                            Magic Keyword (Optional)
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Error Message -->
+                            <div id="tp-error-message" class="alert alert-danger d-none mb-4"></div>
+
+                            <!-- Save Link Reminder -->
+                            <div id="tp-save-link-reminder" class="alert alert-warning d-none mb-4">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                <strong>Important:</strong> Save this link! It will be deleted if you don't save it.
+                            </div>
+
+                            <!-- Submit Button -->
+                            <div id="tp-submit-group" class="tp-form-group text-center mb-4">
+                                <button type="submit" id="tp-submit-btn" class="btn btn-primary tp-submit-btn" disabled>
+                                    <i id="tp-submit-icon" class="fas fa-link me-2"></i>
+                                    <span id="tp-submit-text">Save the link and it never expires</span>
+                                </button>
+                                <div id="tp-loading" class="spinner-border spinner-border-sm ms-2 d-none"></div>
+                            </div>
+
+                            <!-- Result Section -->
+                            <div id="tp-result-section" class="tp-result-panel mb-4 d-none">
+                                <div id="tp-result-grid" class="tp-result-grid">
+                                    <div id="tp-result-details" class="tp-result-details">
+                                        <div id="tp-short-url-display" class="tp-short-url-display">
+                                            <label id="tp-short-url-label" class="form-label fw-semibold mb-2">Short link</label>
+                                            <div id="tp-short-url-row" class="tp-short-url-row">
+                                                <i id="tp-short-url-copy-icon" class="far fa-copy"></i>
+                                                <a href="#" id="tp-short-url-output" class="tp-short-url-link" target="_blank"></a>
+                                                <button type="button" id="tp-copy-btn" class="btn btn-sm btn-outline-primary">
+                                                    <i class="far fa-copy me-1"></i> Copy
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- QR Code Section -->
+                                    <div id="tp-qr-section" class="tp-qr-section d-none">
+                                        <label class="form-label fw-semibold mb-2">QR Code</label>
+                                        <div id="tp-qr-code-container" class="tp-qr-container" style="cursor: pointer;" title="Click to download"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Mock tpAjax object for demo -->
+    <script>
+        window.tpAjax = {
+            ajaxUrl: '/mock-ajax',
+            nonce: 'demo-nonce',
+            domain: 'tp.demo',
+            isLoggedIn: false,
+            enableQRCode: true,
+            enableScreenshot: false,
+            enableExpiryTimer: false,
+            fingerprintUrl: 'assets/js/fingerprintjs-v4-iife.min.js',
+            strings: {
+                error: 'An error occurred',
+                invalidUrl: 'Please enter a valid URL',
+                copied: 'Copied!'
+            }
+        };
+    </script>
+
+    <!-- Plugin Scripts -->
+    <script src="assets/js/url-validator.js"></script>
+    <script type="module" src="assets/js/frontend.js"></script>
+
+    <!-- Mock AJAX for demo -->
+    <script>
+        // Override jQuery AJAX for demo purposes
+        (function() {
+            const originalAjax = $.ajax;
+            $.ajax = function(options) {
+                console.log('Mock AJAX call:', options);
+
+                // Mock validation response
+                if (options.data && options.data.action === 'tp_validate_url') {
+                    setTimeout(() => {
+                        options.success({
+                            success: true,
+                            data: {
+                                isValid: true,
+                                message: 'URL is valid and accessible'
+                            }
+                        });
+                    }, 500);
+                    return;
+                }
+
+                // Mock create link response
+                if (options.data && options.data.action === 'tp_create_link') {
+                    setTimeout(() => {
+                        const customKey = options.data.custom_key || 'demo' + Math.floor(Math.random() * 1000);
+                        options.success({
+                            success: true,
+                            data: {
+                                short_url: 'https://tp.demo/' + customKey,
+                                key: customKey,
+                                destination: options.data.destination,
+                                mid: '123',
+                                domain: 'tp.demo'
+                            }
+                        });
+                        if (options.complete) options.complete();
+                    }, 1000);
+                    return;
+                }
+
+                // Mock suggestion response
+                if (options.data && options.data.action === 'tp_suggest_shortcode') {
+                    setTimeout(() => {
+                        options.success({
+                            success: true,
+                            data: {
+                                shortcode: 'smart' + Math.floor(Math.random() * 100),
+                                source: 'random'
+                            }
+                        });
+                        if (options.complete) options.complete();
+                    }, 800);
+                    return;
+                }
+
+                // Call original for everything else
+                return originalAjax.call(this, options);
+            };
+        })();
+    </script>
+</body>
+</html>

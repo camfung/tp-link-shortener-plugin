@@ -296,6 +296,43 @@ form .tp-plain-input:focus,
     background: rgba(60, 122, 229, 0.08);
 }
 
+/* AI Suggestions indicator for suggest button */
+.tp-icon-btn.tp-has-ai-suggestions {
+    position: relative;
+    animation: tp-pulse-glow 2s ease-in-out infinite;
+}
+
+.tp-icon-btn.tp-has-ai-suggestions::after {
+    content: '';
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 8px;
+    height: 8px;
+    background: var(--tp-accent);
+    border-radius: 50%;
+    box-shadow: 0 0 0 0 rgba(34, 181, 115, 0.7);
+    animation: tp-pulse-dot 2s ease-in-out infinite;
+}
+
+@keyframes tp-pulse-glow {
+    0%, 100% {
+        color: rgb(43, 77, 236);
+    }
+    50% {
+        color: var(--tp-accent);
+    }
+}
+
+@keyframes tp-pulse-dot {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgba(34, 181, 115, 0.7);
+    }
+    50% {
+        box-shadow: 0 0 0 4px rgba(34, 181, 115, 0);
+    }
+}
+
 .tp-submit-btn:hover,
 .tp-submit-btn:focus-visible {
     color: #fff !important;
