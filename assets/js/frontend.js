@@ -3,11 +3,11 @@
  * Form handling, AJAX submission, and QR code generation
  */
 
-// Import ShortCodeClient (ES6 module)
-import { ShortCodeClient } from './shortcode-client.js';
-
 (function($) {
     'use strict';
+
+    // ShortCodeClient will be loaded dynamically
+    let ShortCodeClient = null;
 
     // Main plugin object
     const TPLinkShortener = {
@@ -76,8 +76,8 @@ import { ShortCodeClient } from './shortcode-client.js';
             this.initializeURLValidator();
             console.log('URL validator initialized');
 
-            this.initializeShortCodeClient();
-            console.log('ShortCodeClient initialized');
+            await this.initializeShortCodeClient();
+            // Note: ShortCodeClient initialization logs are inside the function
 
             await this.initializeFingerprintJS();
             console.log('FingerprintJS initialized');
@@ -157,9 +157,21 @@ import { ShortCodeClient } from './shortcode-client.js';
         /**
          * Initialize ShortCodeClient for AI keyword generation
          */
-        initializeShortCodeClient: function() {
-            this.shortCodeClient = new ShortCodeClient();
-            console.log('ShortCodeClient initialized with base URL:', this.shortCodeClient.baseUrl);
+        initializeShortCodeClient: async function() {
+            try {
+                // Dynamically import the ShortCodeClient module
+                const modulePath = tpAjax.pluginUrl + 'assets/js/shortcode-client.js';
+                console.log('📦 [INIT] Loading ShortCodeClient from:', modulePath);
+
+                const module = await import(modulePath);
+                ShortCodeClient = module.ShortCodeClient;
+
+                this.shortCodeClient = new ShortCodeClient();
+                console.log('📦 [INIT] ✅ ShortCodeClient initialized with base URL:', this.shortCodeClient.baseUrl);
+            } catch (error) {
+                console.error('📦 [INIT] ❌ Failed to load ShortCodeClient:', error);
+                console.log('📦 [INIT] AI suggestions will fall back to legacy method');
+            }
         },
 
         /**
