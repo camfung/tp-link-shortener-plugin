@@ -820,8 +820,17 @@ import { ShortCodeClient } from './shortcode-client.js';
         handleSuggestClick: function() {
             const destination = this.$destinationInput.val().trim();
 
+            console.log('💡 [SUGGEST-CLICK] ========================================');
+            console.log('💡 [SUGGEST-CLICK] Lightbulb button clicked!');
+            console.log('💡 [SUGGEST-CLICK] URL valid:', this.isValid);
+            console.log('💡 [SUGGEST-CLICK] Destination:', destination);
+            console.log('💡 [SUGGEST-CLICK] Queue length:', this.suggestionQueue.length);
+            console.log('💡 [SUGGEST-CLICK] Current index:', this.suggestionIndex);
+            console.log('💡 [SUGGEST-CLICK] Is generating:', this.isGeneratingSuggestions);
+
             // If URL is not valid, generate random
             if (!this.isValid || !destination) {
+                console.log('💡 [SUGGEST-CLICK] ❌ URL not valid - generating random key');
                 const randomKey = this.generateRandomKey();
                 this.$customKeyInput.val(randomKey);
                 return;
@@ -829,12 +838,15 @@ import { ShortCodeClient } from './shortcode-client.js';
 
             // If we have suggestions in the queue, cycle through them
             if (this.suggestionQueue.length > 0) {
+                console.log('💡 [SUGGEST-CLICK] ✅ Queue has suggestions - showing next');
                 this.showNextSuggestion();
             } else {
                 // Fallback: generate random if queue is empty
+                console.log('💡 [SUGGEST-CLICK] ⚠️ Queue empty - generating random key');
                 const randomKey = this.generateRandomKey();
                 this.$customKeyInput.val(randomKey);
             }
+            console.log('💡 [SUGGEST-CLICK] ========================================');
         },
 
         /**
@@ -842,42 +854,54 @@ import { ShortCodeClient } from './shortcode-client.js';
          * Called after URL validation succeeds
          */
         fetchFastShortcodeAndPrepareAI: async function(url) {
-            console.log('=== FETCH FAST SHORTCODE AND PREPARE AI START ===');
-            console.log('URL:', url);
+            console.log('🚀 [FAST-AI] ========================================');
+            console.log('🚀 [FAST-AI] Starting AI suggestion flow');
+            console.log('🚀 [FAST-AI] URL:', url);
+            console.log('🚀 [FAST-AI] ShortCodeClient available:', !!this.shortCodeClient);
 
             if (!this.shortCodeClient) {
-                console.error('ShortCodeClient not initialized');
+                console.error('🚀 [FAST-AI] ❌ ShortCodeClient not initialized - falling back to old method');
                 this.fetchShortcodeSuggestion(url); // Fallback to old method
                 return;
             }
 
             try {
                 // Step 1: Get Fast suggestion and populate the field immediately
-                console.log('Fetching Fast endpoint suggestion...');
+                console.log('🚀 [FAST-AI] ----------------------------------------');
+                console.log('🚀 [FAST-AI] STEP 1: Calling FAST endpoint...');
+                const startTime = performance.now();
                 this.shortCodeClient.setEndpointType(ShortCodeClient.ENDPOINT_FAST);
                 const fastResult = await this.shortCodeClient.generateShortCode(url);
-                console.log('Fast result:', fastResult);
+                const fastDuration = (performance.now() - startTime).toFixed(0);
+                console.log('🚀 [FAST-AI] ✅ FAST endpoint response in', fastDuration, 'ms');
+                console.log('🚀 [FAST-AI] FAST result:', fastResult);
 
                 // Populate custom key input with Fast suggestion
                 if (fastResult.shortCode) {
                     this.$customKeyInput.val(fastResult.shortCode);
-                    console.log('Fast shortcode populated:', fastResult.shortCode);
+                    console.log('🚀 [FAST-AI] 📝 Populated keyword field with:', fastResult.shortCode);
+                } else {
+                    console.log('🚀 [FAST-AI] ⚠️ No shortCode in FAST result');
                 }
 
                 // Step 2: Show tooltip on suggest button
+                console.log('🚀 [FAST-AI] ----------------------------------------');
+                console.log('🚀 [FAST-AI] STEP 2: Showing tooltip on lightbulb button');
                 this.showSuggestionTooltip();
 
                 // Step 3: Start generating NLP and AI suggestions in parallel
-                console.log('Starting parallel generation of NLP and AI suggestions...');
+                console.log('🚀 [FAST-AI] ----------------------------------------');
+                console.log('🚀 [FAST-AI] STEP 3: Starting background generation of NLP + AI');
                 this.generateAISuggestionsInBackground(url);
 
             } catch (error) {
-                console.error('Error fetching Fast shortcode:', error);
+                console.error('🚀 [FAST-AI] ❌ Error fetching Fast shortcode:', error);
+                console.log('🚀 [FAST-AI] Falling back to old suggestion method');
                 // Fallback to old method
                 this.fetchShortcodeSuggestion(url);
             }
 
-            console.log('=== FETCH FAST SHORTCODE AND PREPARE AI END ===');
+            console.log('🚀 [FAST-AI] ========================================');
         },
 
         /**
@@ -885,63 +909,98 @@ import { ShortCodeClient } from './shortcode-client.js';
          * Results are stored in suggestionQueue for later use
          */
         generateAISuggestionsInBackground: async function(url) {
+            console.log('🔄 [BG-GEN] ========================================');
+            console.log('🔄 [BG-GEN] Background AI generation requested');
+            console.log('🔄 [BG-GEN] URL:', url);
+            console.log('🔄 [BG-GEN] Already generating:', this.isGeneratingSuggestions);
+
             if (this.isGeneratingSuggestions) {
-                console.log('Already generating suggestions, skipping...');
+                console.log('🔄 [BG-GEN] ⚠️ Already generating - skipping duplicate request');
+                console.log('🔄 [BG-GEN] ========================================');
                 return;
             }
 
             this.isGeneratingSuggestions = true;
-            console.log('=== GENERATE AI SUGGESTIONS IN BACKGROUND START ===');
+            console.log('🔄 [BG-GEN] 🏁 Starting parallel generation...');
 
             // Reset suggestion queue and index
+            const previousQueueLength = this.suggestionQueue.length;
             this.suggestionQueue = [];
             this.suggestionIndex = 0;
+            console.log('🔄 [BG-GEN] Queue reset (was:', previousQueueLength, 'items)');
 
             try {
                 // Generate both NLP and AI in parallel
+                console.log('🔄 [BG-GEN] ----------------------------------------');
+                console.log('🔄 [BG-GEN] 🚀 Launching parallel requests:');
+                console.log('🔄 [BG-GEN]    → NLP (Smart) endpoint');
+                console.log('🔄 [BG-GEN]    → AI (Gemini) endpoint');
+
+                const startTime = performance.now();
                 const nlpPromise = this.generateNLPSuggestion(url);
                 const aiPromise = this.generateAISuggestion(url);
 
                 const [nlpResult, aiResult] = await Promise.allSettled([nlpPromise, aiPromise]);
+                const totalDuration = (performance.now() - startTime).toFixed(0);
+
+                console.log('🔄 [BG-GEN] ----------------------------------------');
+                console.log('🔄 [BG-GEN] ✅ Both requests completed in', totalDuration, 'ms');
 
                 // Add NLP result to queue if successful
+                console.log('🔄 [BG-GEN] ----------------------------------------');
+                console.log('🔄 [BG-GEN] NLP Result Status:', nlpResult.status);
                 if (nlpResult.status === 'fulfilled' && nlpResult.value) {
                     this.suggestionQueue.push({
                         type: 'nlp',
                         shortCode: nlpResult.value.shortCode,
                         method: nlpResult.value.method
                     });
-                    console.log('NLP suggestion added to queue:', nlpResult.value.shortCode);
+                    console.log('🔄 [BG-GEN] ✅ NLP added to queue:', nlpResult.value.shortCode);
+                } else if (nlpResult.status === 'rejected') {
+                    console.log('🔄 [BG-GEN] ❌ NLP failed:', nlpResult.reason);
                 }
 
                 // Add AI result to queue if successful
+                console.log('🔄 [BG-GEN] AI Result Status:', aiResult.status);
                 if (aiResult.status === 'fulfilled' && aiResult.value) {
                     this.suggestionQueue.push({
                         type: 'ai',
                         shortCode: aiResult.value.shortCode,
                         method: aiResult.value.method
                     });
-                    console.log('AI suggestion added to queue:', aiResult.value.shortCode);
+                    console.log('🔄 [BG-GEN] ✅ AI added to queue:', aiResult.value.shortCode);
+                } else if (aiResult.status === 'rejected') {
+                    console.log('🔄 [BG-GEN] ❌ AI failed:', aiResult.reason);
                 }
 
-                console.log('Total suggestions in queue:', this.suggestionQueue.length);
+                console.log('🔄 [BG-GEN] ----------------------------------------');
+                console.log('🔄 [BG-GEN] 📋 QUEUE STATUS:');
+                console.log('🔄 [BG-GEN]    Total items:', this.suggestionQueue.length);
+                console.log('🔄 [BG-GEN]    Current index:', this.suggestionIndex);
+                this.suggestionQueue.forEach((item, i) => {
+                    console.log('🔄 [BG-GEN]    [' + i + '] ' + item.type.toUpperCase() + ': ' + item.shortCode);
+                });
 
             } catch (error) {
-                console.error('Error generating AI suggestions:', error);
+                console.error('🔄 [BG-GEN] ❌ Error generating AI suggestions:', error);
             }
 
             this.isGeneratingSuggestions = false;
-            console.log('=== GENERATE AI SUGGESTIONS IN BACKGROUND END ===');
+            console.log('🔄 [BG-GEN] 🏁 Generation complete - ready for clicks');
+            console.log('🔄 [BG-GEN] ========================================');
         },
 
         /**
          * Generate NLP (Smart endpoint) suggestion
          */
         generateNLPSuggestion: async function(url) {
-            console.log('Generating NLP suggestion for:', url);
+            console.log('🧠 [NLP] Starting NLP/Smart endpoint request...');
+            const startTime = performance.now();
             this.shortCodeClient.setEndpointType(ShortCodeClient.ENDPOINT_SMART);
             const result = await this.shortCodeClient.generateShortCode(url);
-            console.log('NLP result:', result);
+            const duration = (performance.now() - startTime).toFixed(0);
+            console.log('🧠 [NLP] ✅ Completed in', duration, 'ms');
+            console.log('🧠 [NLP] Result:', result.shortCode, '(method:', result.method + ')');
             return result;
         },
 
@@ -949,10 +1008,13 @@ import { ShortCodeClient } from './shortcode-client.js';
          * Generate AI (Gemini endpoint) suggestion
          */
         generateAISuggestion: async function(url) {
-            console.log('Generating AI suggestion for:', url);
+            console.log('🤖 [AI] Starting AI/Gemini endpoint request...');
+            const startTime = performance.now();
             this.shortCodeClient.setEndpointType(ShortCodeClient.ENDPOINT_AI);
             const result = await this.shortCodeClient.generateShortCode(url);
-            console.log('AI result:', result);
+            const duration = (performance.now() - startTime).toFixed(0);
+            console.log('🤖 [AI] ✅ Completed in', duration, 'ms');
+            console.log('🤖 [AI] Result:', result.shortCode, '(method:', result.method + ')');
             return result;
         },
 
@@ -963,50 +1025,71 @@ import { ShortCodeClient } from './shortcode-client.js';
         showNextSuggestion: function() {
             const destination = this.$destinationInput.val().trim();
 
+            console.log('📤 [SHOW-NEXT] ========================================');
+            console.log('📤 [SHOW-NEXT] Attempting to show next suggestion');
+            console.log('📤 [SHOW-NEXT] Queue length:', this.suggestionQueue.length);
+            console.log('📤 [SHOW-NEXT] Current index:', this.suggestionIndex);
+
             // If we've shown all suggestions, regenerate
             if (this.suggestionIndex >= this.suggestionQueue.length) {
-                console.log('Reached end of queue, regenerating suggestions...');
+                console.log('📤 [SHOW-NEXT] ⚠️ Reached end of queue!');
+                console.log('📤 [SHOW-NEXT] 🔄 Triggering regeneration...');
                 this.suggestionIndex = 0;
                 this.generateAISuggestionsInBackground(destination);
 
                 // Show random while waiting for new suggestions
                 const randomKey = this.generateRandomKey();
                 this.$customKeyInput.val(randomKey);
+                console.log('📤 [SHOW-NEXT] 🎲 Showing random key while waiting:', randomKey);
+                console.log('📤 [SHOW-NEXT] ========================================');
                 return;
             }
 
             // Get next suggestion from queue
             const suggestion = this.suggestionQueue[this.suggestionIndex];
-            console.log('Showing suggestion', this.suggestionIndex + 1, 'of', this.suggestionQueue.length, ':', suggestion);
+            const typeEmoji = suggestion.type === 'nlp' ? '🧠' : '🤖';
+            console.log('📤 [SHOW-NEXT] ----------------------------------------');
+            console.log('📤 [SHOW-NEXT] ' + typeEmoji + ' Showing ' + suggestion.type.toUpperCase() + ' suggestion');
+            console.log('📤 [SHOW-NEXT] Position:', (this.suggestionIndex + 1) + '/' + this.suggestionQueue.length);
+            console.log('📤 [SHOW-NEXT] ShortCode:', suggestion.shortCode);
+            console.log('📤 [SHOW-NEXT] Method:', suggestion.method);
 
             // Populate the custom key input
             this.$customKeyInput.val(suggestion.shortCode);
+            console.log('📤 [SHOW-NEXT] 📝 Populated keyword field');
 
             // Move to next index
             this.suggestionIndex++;
+            console.log('📤 [SHOW-NEXT] Index incremented to:', this.suggestionIndex);
 
             // If we just showed the last suggestion, pre-generate new ones
             if (this.suggestionIndex >= this.suggestionQueue.length && !this.isGeneratingSuggestions) {
-                console.log('Pre-generating next batch of suggestions...');
+                console.log('📤 [SHOW-NEXT] 🔮 Last item shown - pre-generating next batch');
                 this.generateAISuggestionsInBackground(destination);
             }
+
+            console.log('📤 [SHOW-NEXT] ========================================');
         },
 
         /**
          * Show tooltip on suggest button
          */
         showSuggestionTooltip: function() {
+            console.log('✨ [TOOLTIP] Setting up suggestion tooltip');
+
             if (!this.$suggestBtn || !this.$suggestBtn.length) {
+                console.log('✨ [TOOLTIP] ⚠️ Suggest button not found');
                 return;
             }
 
             // Update the title attribute
             this.$suggestBtn.attr('title', 'Click for another suggestion (AI-powered)');
+            console.log('✨ [TOOLTIP] 📝 Title attribute updated');
 
             // Add a visual indicator (optional - you can style this with CSS)
             this.$suggestBtn.addClass('tp-has-ai-suggestions');
-
-            console.log('Suggestion tooltip shown on lightbulb button');
+            console.log('✨ [TOOLTIP] ✅ Added tp-has-ai-suggestions class (pulsing green dot)');
+            console.log('✨ [TOOLTIP] 💡 Lightbulb button is now indicating AI suggestions are available');
         },
 
         /**
