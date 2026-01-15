@@ -160,7 +160,11 @@
         initializeShortCodeClient: async function() {
             try {
                 // Dynamically import the ShortCodeClient module
-                const modulePath = tpAjax.pluginUrl + 'assets/js/shortcode-client.js';
+                // Use pluginUrl if available, otherwise use relative path
+                const baseUrl = (tpAjax.pluginUrl && tpAjax.pluginUrl !== '')
+                    ? tpAjax.pluginUrl
+                    : './';
+                const modulePath = baseUrl + 'assets/js/shortcode-client.js';
                 console.log('📦 [INIT] Loading ShortCodeClient from:', modulePath);
 
                 const module = await import(modulePath);
