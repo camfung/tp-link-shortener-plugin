@@ -55,7 +55,7 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                                     id="tp-destination"
                                     name="destination"
                                     class="form-control tp-form-control tp-plain-input"
-                                    placeholder="<?php esc_attr_e('Paste your long URL to simplify it', 'tp-link-shortener'); ?>"
+                                    placeholder="<?php esc_attr_e('Paste or type long link to simplify it', 'tp-link-shortener'); ?>"
                                     required
                                     autocomplete="off"
                                     maxlength="2000"
