@@ -813,6 +813,7 @@
 
             // If URL is valid, fetch AI suggestion; otherwise generate random
             if (this.isValid && destination) {
+                console.log('Current suggestion candidates before click:', this.suggestionCandidates);
                 // If we already have candidates, just cycle without showing loading
                 if (this.suggestionCandidates.length > 0) {
                     this.cycleSuggestion();
