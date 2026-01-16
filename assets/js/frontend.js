@@ -63,9 +63,6 @@
             console.log('Domain:', tpAjax.domain);
             console.log('AJAX URL:', tpAjax.ajaxUrl);
 
-            this.suggestionStack = [];
-            this.suggestionSourceUrl = '';
-
             this.cacheElements();
             console.log('DOM elements cached');
 
@@ -799,18 +796,12 @@
         /**
          * Handle suggest button click (lightbulb)
          */
-        handleSuggestClick: async function() {
+        handleSuggestClick: function() {
             const destination = this.$destinationInput.val().trim();
-
-            // Reset queue if user changes destination
-            if (destination !== this.suggestionSourceUrl) {
-                this.suggestionStack = [];
-                this.suggestionSourceUrl = destination;
-            }
 
             // If URL is valid, fetch AI suggestion; otherwise generate random
             if (this.isValid && destination) {
-                await this.fetchShortcodeSuggestion(destination);
+                this.fetchShortcodeSuggestion(destination);
             } else {
                 const randomKey = this.generateRandomKey();
                 this.$customKeyInput.val(randomKey);
@@ -820,7 +811,7 @@
         /**
          * Fetch AI-powered shortcode suggestion from backend
          */
-        fetchShortcodeSuggestion: async function(destination) {
+        fetchShortcodeSuggestion: function(destination) {
             console.log('=== FETCH SHORTCODE SUGGESTION START ===');
             console.log('Destination URL:', destination);
 
@@ -851,135 +842,74 @@
             this.$submitBtn.addClass('disabled');
             console.log('Submit button disabled while generating suggestion');
 
-            try {
-                // Ensure the stack has something to pop (fast then smart pushes)
-                await this.ensureSuggestionQueue(destination);
+            // Send AJAX request for suggestion
+            console.log('Sending AJAX request to:', tpAjax.ajaxUrl);
+            console.log('Request data:', {
+                action: 'tp_suggest_shortcode',
+                nonce: tpAjax.nonce,
+                destination: destination
+            });
 
-                // Pop top of stack (LIFO, so smart wins when it arrives)
-                const suggestion = this.popSuggestionFromQueue();
-                if (suggestion && suggestion.shortcode) {
-                    this.$customKeyInput.val(suggestion.shortcode);
-                    console.log('Applied suggestion from queue:', suggestion);
-                } else {
-                    const randomKey = this.generateRandomKey();
-                    console.log('No suggestion available, using random key:', randomKey);
-                    this.$customKeyInput.val(randomKey);
-                }
+            $.ajax({
+                url: tpAjax.ajaxUrl,
+                type: 'POST',
+                data: {
+                    action: 'tp_suggest_shortcode',
+                    nonce: tpAjax.nonce,
+                    destination: destination
+                },
+                beforeSend: function() {
+                    console.log('AJAX request being sent...');
+                },
+                success: function(response) {
+                    console.log('AJAX success response:', response);
 
-                // If queue is getting low, trigger background smart fetch to refill
-                if (this.suggestionStack.length <= 3) {
-                    this.enqueueSmartSuggestion(destination);
-                }
-            } catch (err) {
-                console.error('Error during suggestion queue processing:', err);
-                const randomKey = this.generateRandomKey();
-                this.$customKeyInput.val(randomKey);
-            } finally {
-                // Restore placeholder and enable input
-                this.$customKeyInput.attr('placeholder', originalPlaceholder);
-                this.$customKeyInput.prop('disabled', false);
+                    if (response.success && response.data && response.data.shortcode) {
+                        // Auto-populate the custom key input with suggestion
+                        console.log('Setting custom key to:', response.data.shortcode);
+                        self.$customKeyInput.val(response.data.shortcode);
 
-                // Re-enable submit button after suggestion is complete
-                this.$submitBtn.prop('disabled', false);
-                this.$submitBtn.removeClass('disabled');
-                console.log('Submit button re-enabled after suggestion complete');
-
-                console.log('=== FETCH SHORTCODE SUGGESTION END ===');
-            }
-        },
-
-        /**
-         * Ensure the suggestion stack has items; fetch fast then smart if empty.
-         */
-        ensureSuggestionQueue: async function(destination) {
-            if (this.suggestionStack.length > 0) {
-                return;
-            }
-
-            // Start with FAST to get something quickly, then SMART will land on top
-            await this.fetchAndPushSuggestion('fast', destination);
-            this.fetchAndPushSuggestion('smart', destination); // fire-and-forget to land on top later
-        },
-
-        /**
-         * Fire a SMART request to refill the stack when it gets low.
-         */
-        enqueueSmartSuggestion: function(destination) {
-            console.log('Queue low, enqueueing SMART suggestion fetch');
-            this.fetchAndPushSuggestion('smart', destination);
-        },
-
-        /**
-         * Request a tier suggestion and push onto LIFO stack if valid.
-         */
-        fetchAndPushSuggestion: function(tier, destination) {
-            const self = this;
-            return new Promise(function(resolve) {
-                $.ajax({
-                    url: tpAjax.ajaxUrl,
-                    type: 'POST',
-                    data: {
-                        action: 'tp_suggest_shortcode_' + tier,
-                        nonce: tpAjax.nonce,
-                        destination: destination
-                    },
-                    beforeSend: function() {
-                        console.log(`[${tier.toUpperCase()}] AJAX request being sent...`);
-                    },
-                    success: function(response) {
-                        console.log(`[${tier.toUpperCase()}] AJAX success response:`, response);
-                        self.pushSuggestionToStack(tier, response);
-                        resolve(response);
-                    },
-                    error: function(xhr, status, error) {
-                        console.error(`[${tier.toUpperCase()}] Suggestion AJAX error`, { status, error, xhr });
-                        // Push a random fallback so queue still moves
-                        self.pushRandomFallback(destination);
-                        resolve(null);
+                        // Log source for debugging
+                        if (response.data.source === 'gemini') {
+                            console.log('TP Link Shortener: Gemini suggestion:', response.data.shortcode);
+                        } else {
+                            console.log('TP Link Shortener: Random suggestion:', response.data.shortcode);
+                        }
+                    } else {
+                        // Fallback to client-side random generation
+                        console.log('TP Link Shortener: Suggestion failed, using random key');
+                        console.log('Response data:', response.data);
+                        const randomKey = self.generateRandomKey();
+                        console.log('Generated random key:', randomKey);
+                        self.$customKeyInput.val(randomKey);
                     }
-                });
+                },
+                error: function(xhr, status, error) {
+                    console.error('TP Link Shortener: Suggestion AJAX error');
+                    console.error('Status:', status);
+                    console.error('Error:', error);
+                    console.error('XHR:', xhr);
+                    console.error('Response text:', xhr.responseText);
+
+                    // Fallback to client-side random generation
+                    const randomKey = self.generateRandomKey();
+                    console.log('Using fallback random key:', randomKey);
+                    self.$customKeyInput.val(randomKey);
+                },
+                complete: function() {
+                    console.log('AJAX request complete');
+                    // Restore placeholder and enable input
+                    self.$customKeyInput.attr('placeholder', originalPlaceholder);
+                    self.$customKeyInput.prop('disabled', false);
+
+                    // Re-enable submit button after suggestion is complete
+                    self.$submitBtn.prop('disabled', false);
+                    self.$submitBtn.removeClass('disabled');
+                    console.log('Submit button re-enabled after suggestion complete');
+
+                    console.log('=== FETCH SHORTCODE SUGGESTION END ===');
+                }
             });
-        },
-
-        /**
-         * Push valid suggestion response onto the stack (LIFO).
-         */
-        pushSuggestionToStack: function(tier, response) {
-            if (response && response.success && response.data && response.data.shortcode) {
-                const entry = Object.assign({}, response.data, { tier });
-                this.suggestionStack.push(entry);
-                console.log(`[${tier.toUpperCase()}] Pushed to stack. Stack size:`, this.suggestionStack.length);
-            } else {
-                console.log(`[${tier.toUpperCase()}] Invalid response, pushing random fallback`);
-                this.pushRandomFallback(this.suggestionSourceUrl || '');
-            }
-        },
-
-        /**
-         * Pop the most recent suggestion (LIFO).
-         */
-        popSuggestionFromQueue: function() {
-            const item = this.suggestionStack.pop();
-            console.log('Popped suggestion from stack. Stack size now:', this.suggestionStack.length, 'Item:', item);
-            return item;
-        },
-
-        /**
-         * Push a random fallback suggestion into the stack.
-         */
-        pushRandomFallback: function(destination) {
-            const randomKey = this.generateRandomKey();
-            this.suggestionStack.push({
-                shortcode: randomKey,
-                source: 'random',
-                candidates: [randomKey],
-                method: 'random-fallback',
-                was_modified: false,
-                original_code: randomKey,
-                url: destination,
-                tier: 'random'
-            });
-            console.log('Random fallback pushed to stack. Stack size:', this.suggestionStack.length);
         },
 
         /**
