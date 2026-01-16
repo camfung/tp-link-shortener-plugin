@@ -167,7 +167,7 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
     </div>
 
     <!-- POC: Tiered Shortcode Generator -->
-    <div id="tp-tier-tester" class="tp-card shadow-sm mt-4 p-3 border-0">
+    <div id="tp-tier-tester" class="tp-card shadow-sm mt-4 p-3 border-0" style="display: none;">
         <h4 class="h6 mb-3"><?php esc_html_e('Proof of Concept: Tiered Shortcode Generator', 'tp-link-shortener'); ?></h4>
         <p class="small text-muted mb-3">
             <?php esc_html_e('Enter a URL and call each tier via the new AJAX endpoints to verify fast/smart/ai responses.', 'tp-link-shortener'); ?>
@@ -188,6 +188,15 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
 
 <script>
 (function($) {
+    // Show POC tester only when localStorage flag is set
+    try {
+        if (window.localStorage && localStorage.getItem('tp_show_poc') === '1') {
+            $('#tp-tier-tester').show();
+        }
+    } catch (e) {
+        console.warn('Unable to read localStorage for tp_show_poc flag', e);
+    }
+
     const tierButtons = $('#tp-tier-fast, #tp-tier-smart, #tp-tier-ai');
     const urlInput = $('#tp-tier-url');
     const statusEl = $('#tp-tier-status');
