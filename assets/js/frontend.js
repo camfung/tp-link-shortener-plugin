@@ -63,6 +63,11 @@
             console.log('Domain:', tpAjax.domain);
             console.log('AJAX URL:', tpAjax.ajaxUrl);
 
+            // Suggestion state
+            this.suggestionCandidates = [];
+            this.suggestionIndex = -1;
+            this.suggestionSourceUrl = '';
+
             this.cacheElements();
             console.log('DOM elements cached');
 
@@ -796,12 +801,24 @@
         /**
          * Handle suggest button click (lightbulb)
          */
-        handleSuggestClick: function() {
+        handleSuggestClick: async function() {
             const destination = this.$destinationInput.val().trim();
+
+            // Reset suggestion cache when destination changes
+            if (destination !== this.suggestionSourceUrl) {
+                this.suggestionCandidates = [];
+                this.suggestionIndex = -1;
+                this.suggestionSourceUrl = destination;
+            }
 
             // If URL is valid, fetch AI suggestion; otherwise generate random
             if (this.isValid && destination) {
-                this.fetchShortcodeSuggestion(destination);
+                // If we already have candidates, just cycle without showing loading
+                if (this.suggestionCandidates.length > 0) {
+                    this.cycleSuggestion();
+                } else {
+                    await this.fetchShortcodeSuggestion(destination);
+                }
             } else {
                 const randomKey = this.generateRandomKey();
                 this.$customKeyInput.val(randomKey);
@@ -811,7 +828,7 @@
         /**
          * Fetch AI-powered shortcode suggestion from backend
          */
-        fetchShortcodeSuggestion: function(destination) {
+        fetchShortcodeSuggestion: async function(destination) {
             console.log('=== FETCH SHORTCODE SUGGESTION START ===');
             console.log('Destination URL:', destination);
 
@@ -842,74 +859,77 @@
             this.$submitBtn.addClass('disabled');
             console.log('Submit button disabled while generating suggestion');
 
-            // Send AJAX request for suggestion
-            console.log('Sending AJAX request to:', tpAjax.ajaxUrl);
-            console.log('Request data:', {
-                action: 'tp_suggest_shortcode',
-                nonce: tpAjax.nonce,
-                destination: destination
-            });
-
-            $.ajax({
-                url: tpAjax.ajaxUrl,
-                type: 'POST',
-                data: {
-                    action: 'tp_suggest_shortcode',
-                    nonce: tpAjax.nonce,
-                    destination: destination
-                },
-                beforeSend: function() {
-                    console.log('AJAX request being sent...');
-                },
-                success: function(response) {
-                    console.log('AJAX success response:', response);
-
-                    if (response.success && response.data && response.data.shortcode) {
-                        // Auto-populate the custom key input with suggestion
-                        console.log('Setting custom key to:', response.data.shortcode);
-                        self.$customKeyInput.val(response.data.shortcode);
-
-                        // Log source for debugging
-                        if (response.data.source === 'gemini') {
-                            console.log('TP Link Shortener: Gemini suggestion:', response.data.shortcode);
-                        } else {
-                            console.log('TP Link Shortener: Random suggestion:', response.data.shortcode);
-                        }
-                    } else {
-                        // Fallback to client-side random generation
-                        console.log('TP Link Shortener: Suggestion failed, using random key');
-                        console.log('Response data:', response.data);
-                        const randomKey = self.generateRandomKey();
-                        console.log('Generated random key:', randomKey);
-                        self.$customKeyInput.val(randomKey);
+            try {
+                // Send AJAX request for FAST suggestion only
+                console.log('Sending FAST suggestion request to:', tpAjax.ajaxUrl);
+                const response = await $.ajax({
+                    url: tpAjax.ajaxUrl,
+                    type: 'POST',
+                    data: {
+                        action: 'tp_suggest_shortcode_fast',
+                        nonce: tpAjax.nonce,
+                        destination: destination
                     }
-                },
-                error: function(xhr, status, error) {
-                    console.error('TP Link Shortener: Suggestion AJAX error');
-                    console.error('Status:', status);
-                    console.error('Error:', error);
-                    console.error('XHR:', xhr);
-                    console.error('Response text:', xhr.responseText);
+                });
 
-                    // Fallback to client-side random generation
+                console.log('FAST suggestion response:', response);
+
+                if (response.success && response.data && response.data.shortcode) {
+                    // Take up to 5 candidates (including primary shortcode)
+                    const candidates = Array.isArray(response.data.candidates) ? response.data.candidates.slice(0, 5) : [];
+                    const primary = response.data.shortcode;
+                    if (!candidates.includes(primary)) {
+                        candidates.unshift(primary);
+                    }
+                    this.suggestionCandidates = candidates.length ? candidates : [primary];
+                    this.suggestionIndex = 0;
+                    this.suggestionSourceUrl = destination;
+                    this.$customKeyInput.val(this.suggestionCandidates[this.suggestionIndex]);
+                    console.log('Stored suggestion candidates:', this.suggestionCandidates);
+                } else {
+                    console.log('FAST suggestion failed, using random key');
                     const randomKey = self.generateRandomKey();
-                    console.log('Using fallback random key:', randomKey);
+                    this.suggestionCandidates = [randomKey];
+                    this.suggestionIndex = 0;
+                    this.suggestionSourceUrl = destination;
                     self.$customKeyInput.val(randomKey);
-                },
-                complete: function() {
-                    console.log('AJAX request complete');
-                    // Restore placeholder and enable input
-                    self.$customKeyInput.attr('placeholder', originalPlaceholder);
-                    self.$customKeyInput.prop('disabled', false);
-
-                    // Re-enable submit button after suggestion is complete
-                    self.$submitBtn.prop('disabled', false);
-                    self.$submitBtn.removeClass('disabled');
-                    console.log('Submit button re-enabled after suggestion complete');
-
-                    console.log('=== FETCH SHORTCODE SUGGESTION END ===');
                 }
-            });
+            } catch (xhr) {
+                console.error('FAST suggestion AJAX error:', xhr);
+                const randomKey = self.generateRandomKey();
+                this.suggestionCandidates = [randomKey];
+                this.suggestionIndex = 0;
+                this.suggestionSourceUrl = destination;
+                self.$customKeyInput.val(randomKey);
+            } finally {
+                // Restore placeholder and enable input
+                self.$customKeyInput.attr('placeholder', originalPlaceholder);
+                self.$customKeyInput.prop('disabled', false);
+
+                // Re-enable submit button after suggestion is complete
+                self.$submitBtn.prop('disabled', false);
+                self.$submitBtn.removeClass('disabled');
+                console.log('Submit button re-enabled after suggestion complete');
+
+                console.log('=== FETCH SHORTCODE SUGGESTION END ===');
+            }
+        },
+
+        /**
+         * Cycle through cached candidates without hitting the API.
+         */
+        cycleSuggestion: function() {
+            if (!this.suggestionCandidates.length) {
+                const randomKey = this.generateRandomKey();
+                this.$customKeyInput.val(randomKey);
+                return;
+            }
+
+            // Advance index and wrap
+            this.suggestionIndex = (this.suggestionIndex + 1) % this.suggestionCandidates.length;
+            const next = this.suggestionCandidates[this.suggestionIndex];
+            this.$customKeyInput.val(next);
+            console.log('Cycled suggestion to index', this.suggestionIndex, 'value:', next);
         },
 
         /**
