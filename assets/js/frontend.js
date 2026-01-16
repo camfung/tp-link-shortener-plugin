@@ -891,20 +891,16 @@
                     // Kick off SMART request in the background to enrich the cycle
                     this.fetchSmartSuggestions(destination, this.suggestionIndex);
                 } else {
-                    console.log('FAST suggestion failed, using random key');
-                    const randomKey = self.generateRandomKey();
-                    this.suggestionCandidates = [randomKey];
-                    this.suggestionIndex = 0;
+                    console.log('FAST suggestion failed, leaving custom key unchanged');
+                    this.suggestionCandidates = [];
+                    this.suggestionIndex = -1;
                     this.suggestionSourceUrl = destination;
-                    self.$customKeyInput.val(randomKey);
                 }
             } catch (xhr) {
                 console.error('FAST suggestion AJAX error:', xhr);
-                const randomKey = self.generateRandomKey();
-                this.suggestionCandidates = [randomKey];
-                this.suggestionIndex = 0;
+                this.suggestionCandidates = [];
+                this.suggestionIndex = -1;
                 this.suggestionSourceUrl = destination;
-                self.$customKeyInput.val(randomKey);
             } finally {
                 // Restore placeholder and enable input
                 self.$customKeyInput.attr('placeholder', originalPlaceholder);
@@ -975,8 +971,6 @@
          */
         cycleSuggestion: function() {
             if (!this.suggestionCandidates.length) {
-                const randomKey = this.generateRandomKey();
-                this.$customKeyInput.val(randomKey);
                 return;
             }
 
