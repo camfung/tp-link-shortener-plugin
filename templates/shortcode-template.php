@@ -165,4 +165,72 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
             </div>
         </div>
     </div>
+
+    <!-- POC: Tiered Shortcode Generator -->
+    <div id="tp-tier-tester" class="tp-card shadow-sm mt-4 p-3 border-0">
+        <h4 class="h6 mb-3"><?php esc_html_e('Proof of Concept: Tiered Shortcode Generator', 'tp-link-shortener'); ?></h4>
+        <p class="small text-muted mb-3">
+            <?php esc_html_e('Enter a URL and call each tier via the new AJAX endpoints to verify fast/smart/ai responses.', 'tp-link-shortener'); ?>
+        </p>
+        <div class="mb-3">
+            <label class="form-label mb-1" for="tp-tier-url"><?php esc_html_e('Destination URL', 'tp-link-shortener'); ?></label>
+            <input type="url" id="tp-tier-url" class="form-control tp-form-control" placeholder="https://example.com/page" />
+        </div>
+        <div class="d-flex gap-2 mb-3">
+            <button type="button" class="btn btn-outline-primary btn-sm" data-tier="fast" id="tp-tier-fast"><?php esc_html_e('Run Fast', 'tp-link-shortener'); ?></button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" data-tier="smart" id="tp-tier-smart"><?php esc_html_e('Run Smart', 'tp-link-shortener'); ?></button>
+            <button type="button" class="btn btn-outline-success btn-sm" data-tier="ai" id="tp-tier-ai"><?php esc_html_e('Run AI', 'tp-link-shortener'); ?></button>
+        </div>
+        <div id="tp-tier-status" class="small text-muted mb-2" role="status"></div>
+        <pre id="tp-tier-output" class="bg-light p-3 rounded small mb-0" style="min-height: 80px; white-space: pre-wrap;"></pre>
+    </div>
 </div>
+
+<script>
+(function($) {
+    const tierButtons = $('#tp-tier-fast, #tp-tier-smart, #tp-tier-ai');
+    const urlInput = $('#tp-tier-url');
+    const statusEl = $('#tp-tier-status');
+    const outputEl = $('#tp-tier-output');
+
+    function setStatus(msg, isError = false) {
+        statusEl.text(msg).toggleClass('text-danger', isError).toggleClass('text-muted', !isError);
+    }
+
+    function runTier(tier) {
+        const url = urlInput.val().trim();
+        if (!url) {
+            setStatus('<?php echo esc_js(__('Please enter a URL first.', 'tp-link-shortener')); ?>', true);
+            return;
+        }
+
+        setStatus('<?php echo esc_js(__('Calling endpoint...', 'tp-link-shortener')); ?>');
+        outputEl.text('');
+
+        $.ajax({
+            url: tpAjax.ajaxUrl,
+            type: 'POST',
+            data: {
+                action: 'tp_suggest_shortcode_' + tier,
+                nonce: tpAjax.nonce,
+                destination: url
+            },
+            success: function(response) {
+                const success = response && response.success;
+                const payload = success && response.data ? response.data : response;
+                setStatus(success ? '<?php echo esc_js(__('Success', 'tp-link-shortener')); ?> (' + tier + ')' : '<?php echo esc_js(__('Failed', 'tp-link-shortener')); ?> (' + tier + ')', !success);
+                outputEl.text(JSON.stringify(payload, null, 2));
+            },
+            error: function(xhr) {
+                setStatus('<?php echo esc_js(__('Request error', 'tp-link-shortener')); ?> (' + tier + ')', true);
+                outputEl.text(xhr.responseText || 'HTTP ' + xhr.status);
+            }
+        });
+    }
+
+    tierButtons.on('click', function() {
+        const tier = $(this).data('tier');
+        runTier(tier);
+    });
+})(jQuery);
+</script>
