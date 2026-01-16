@@ -190,8 +190,13 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
 (function($) {
     // Show POC tester only when localStorage flag is set
     try {
-        if (window.localStorage && localStorage.getItem('tp_show_poc') === '1') {
-            $('#tp-tier-tester').show();
+        if (window.localStorage) {
+            if (localStorage.getItem('tp_show_poc') === null) {
+                localStorage.setItem('tp_show_poc', '0');
+            }
+            if (localStorage.getItem('tp_show_poc') === '1') {
+                $('#tp-tier-tester').show();
+            }
         }
     } catch (e) {
         console.warn('Unable to read localStorage for tp_show_poc flag', e);
