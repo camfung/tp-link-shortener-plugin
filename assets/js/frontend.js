@@ -816,6 +816,7 @@
             console.log('Destination URL:', destination);
 
             const self = this;
+            this.latestSuggestions = this.latestSuggestions || { fast: null, smart: null };
 
             // Check if custom key input exists
             if (!this.$customKeyInput || !this.$customKeyInput.length) {
@@ -842,62 +843,63 @@
             this.$submitBtn.addClass('disabled');
             console.log('Submit button disabled while generating suggestion');
 
-            // Send AJAX request for suggestion
-            console.log('Sending AJAX request to:', tpAjax.ajaxUrl);
-            console.log('Request data:', {
-                action: 'tp_suggest_shortcode',
-                nonce: tpAjax.nonce,
-                destination: destination
-            });
-
-            $.ajax({
-                url: tpAjax.ajaxUrl,
-                type: 'POST',
-                data: {
-                    action: 'tp_suggest_shortcode',
-                    nonce: tpAjax.nonce,
-                    destination: destination
-                },
-                beforeSend: function() {
-                    console.log('AJAX request being sent...');
-                },
-                success: function(response) {
-                    console.log('AJAX success response:', response);
-
-                    if (response.success && response.data && response.data.shortcode) {
-                        // Auto-populate the custom key input with suggestion
-                        console.log('Setting custom key to:', response.data.shortcode);
-                        self.$customKeyInput.val(response.data.shortcode);
-
-                        // Log source for debugging
-                        if (response.data.source === 'gemini') {
-                            console.log('TP Link Shortener: Gemini suggestion:', response.data.shortcode);
-                        } else {
-                            console.log('TP Link Shortener: Random suggestion:', response.data.shortcode);
-                        }
-                    } else {
-                        // Fallback to client-side random generation
-                        console.log('TP Link Shortener: Suggestion failed, using random key');
-                        console.log('Response data:', response.data);
-                        const randomKey = self.generateRandomKey();
-                        console.log('Generated random key:', randomKey);
-                        self.$customKeyInput.val(randomKey);
-                    }
-                },
-                error: function(xhr, status, error) {
-                    console.error('TP Link Shortener: Suggestion AJAX error');
-                    console.error('Status:', status);
-                    console.error('Error:', error);
-                    console.error('XHR:', xhr);
-                    console.error('Response text:', xhr.responseText);
-
-                    // Fallback to client-side random generation
+            const applySuggestion = function(tier, response) {
+                if (response && response.success && response.data && response.data.shortcode) {
+                    console.log(`[${tier.toUpperCase()}] Suggestion received:`, response.data.shortcode);
+                    self.latestSuggestions[tier] = response.data;
+                    self.$customKeyInput.val(response.data.shortcode);
+                } else {
+                    console.log(`[${tier.toUpperCase()}] Suggestion missing shortcode, falling back to random`);
                     const randomKey = self.generateRandomKey();
-                    console.log('Using fallback random key:', randomKey);
                     self.$customKeyInput.val(randomKey);
-                },
-                complete: function() {
-                    console.log('AJAX request complete');
+                }
+            };
+
+            const requestTier = function(tier) {
+                return new Promise(function(resolve) {
+                    $.ajax({
+                        url: tpAjax.ajaxUrl,
+                        type: 'POST',
+                        data: {
+                            action: 'tp_suggest_shortcode_' + tier,
+                            nonce: tpAjax.nonce,
+                            destination: destination
+                        },
+                        beforeSend: function() {
+                            console.log(`[${tier.toUpperCase()}] AJAX request being sent...`);
+                        },
+                        success: function(response) {
+                            console.log(`[${tier.toUpperCase()}] AJAX success response:`, response);
+                            resolve({ tier, response });
+                        },
+                        error: function(xhr, status, error) {
+                            console.error(`[${tier.toUpperCase()}] Suggestion AJAX error`, { status, error, xhr });
+                            resolve({ tier, response: null });
+                        }
+                    });
+                });
+            };
+
+            // First call FAST, then queue SMART immediately
+            requestTier('fast')
+                .then(function(result) {
+                    applySuggestion('fast', result.response);
+                    return requestTier('smart');
+                })
+                .then(function(result) {
+                    // Only override if we got a valid smart suggestion
+                    if (result.response && result.response.success && result.response.data && result.response.data.shortcode) {
+                        applySuggestion('smart', result.response);
+                    } else {
+                        console.log('[SMART] No valid response; keeping current suggestion');
+                    }
+                })
+                .catch(function(err) {
+                    console.error('Error during suggestion requests:', err);
+                    const randomKey = self.generateRandomKey();
+                    self.$customKeyInput.val(randomKey);
+                })
+                .finally(function() {
                     // Restore placeholder and enable input
                     self.$customKeyInput.attr('placeholder', originalPlaceholder);
                     self.$customKeyInput.prop('disabled', false);
@@ -908,8 +910,7 @@
                     console.log('Submit button re-enabled after suggestion complete');
 
                     console.log('=== FETCH SHORTCODE SUGGESTION END ===');
-                }
-            });
+                });
         },
 
         /**
