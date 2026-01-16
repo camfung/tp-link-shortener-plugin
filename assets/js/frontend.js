@@ -886,6 +886,9 @@
                     this.suggestionSourceUrl = destination;
                     this.$customKeyInput.val(this.suggestionCandidates[this.suggestionIndex]);
                     console.log('Stored suggestion candidates:', this.suggestionCandidates);
+
+                    // Kick off SMART request in the background to enrich the cycle
+                    this.fetchSmartSuggestions(destination, this.suggestionIndex);
                 } else {
                     console.log('FAST suggestion failed, using random key');
                     const randomKey = self.generateRandomKey();
@@ -913,6 +916,57 @@
 
                 console.log('=== FETCH SHORTCODE SUGGESTION END ===');
             }
+        },
+
+        /**
+         * Fetch SMART suggestions and insert them right after the current index.
+         */
+        fetchSmartSuggestions: function(destination, currentIndexSnapshot) {
+            // Only proceed if we're still on the same destination
+            if (destination !== this.suggestionSourceUrl) {
+                return;
+            }
+
+            const self = this;
+            $.ajax({
+                url: tpAjax.ajaxUrl,
+                type: 'POST',
+                data: {
+                    action: 'tp_suggest_shortcode_smart',
+                    nonce: tpAjax.nonce,
+                    destination: destination
+                },
+                success: function(response) {
+                    console.log('SMART suggestion response:', response);
+
+                    if (!(response && response.success && response.data && response.data.shortcode)) {
+                        return;
+                    }
+
+                    // Build candidate list (primary + up to 5 total)
+                    const smartCandidatesRaw = Array.isArray(response.data.candidates) ? response.data.candidates.slice(0, 5) : [];
+                    const smartPrimary = response.data.shortcode;
+                    if (!smartCandidatesRaw.includes(smartPrimary)) {
+                        smartCandidatesRaw.unshift(smartPrimary);
+                    }
+
+                    // Deduplicate against existing candidates
+                    const existing = new Set(self.suggestionCandidates);
+                    const smartCandidates = smartCandidatesRaw.filter(c => !existing.has(c));
+
+                    if (!smartCandidates.length) {
+                        return;
+                    }
+
+                    // Insert right after the current index snapshot (so they appear next in cycle)
+                    const insertPos = Math.min((currentIndexSnapshot || 0) + 1, self.suggestionCandidates.length);
+                    self.suggestionCandidates.splice(insertPos, 0, ...smartCandidates);
+                    console.log('Inserted SMART candidates at', insertPos, 'Updated list:', self.suggestionCandidates);
+                },
+                error: function(xhr, status, error) {
+                    console.error('SMART suggestion AJAX error', { status, error, xhr });
+                }
+            });
         },
 
         /**
