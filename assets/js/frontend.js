@@ -998,8 +998,8 @@
                 return;
             }
 
-            // Check if URL has a domain structure (contains a dot and potential TLD)
-            const hasDomainStructure = /\.[a-z]{2,}$/i.test(value.trim());
+            // Check if URL has a domain structure (contains a dot followed by TLD, optionally followed by path/query)
+            const hasDomainStructure = /\.[a-z]{2,}(\/|$|\?|#|:)/i.test(value.trim());
 
             // Trigger online validation if URLValidator is available and URL has valid domain structure
             if (this.urlValidator && this.debouncedValidate && value.trim().length > 0 && hasDomainStructure) {
