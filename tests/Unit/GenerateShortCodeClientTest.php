@@ -6,6 +6,8 @@ namespace Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
 use ShortCode\GenerateShortCodeClient;
+use ShortCode\GenerationTier;
+use ShortCode\GenerationMethod;
 use ShortCode\DTO\GenerateShortCodeRequest;
 use ShortCode\DTO\GenerateShortCodeResponse;
 use ShortCode\Exception\ApiException;
@@ -25,18 +27,19 @@ class GenerateShortCodeClientTest extends TestCase
 
         $this->httpClient = new MockHttpClient();
         $this->client = new GenerateShortCodeClient(
-            'https://example.com/generate-short-code',
+            'https://example.com',
             $this->httpClient
         );
     }
 
-    public function testGenerateShortCodeSuccess(): void
+    public function testGenerateShortCodeWithAITier(): void
     {
         $responseBody = json_encode([
             'message' => 'Short code generated successfully',
             'source' => [
                 'short_code' => 'pythontut',
                 'original_code' => 'pythontut',
+                'method' => 'gemini-ai',
                 'was_modified' => false,
                 'url' => 'https://docs.python.org/3/tutorial/index.html',
             ],
@@ -50,29 +53,115 @@ class GenerateShortCodeClientTest extends TestCase
             'trfc.link'
         );
 
-        $result = $this->client->generateShortCode($request);
+        $result = $this->client->generateShortCode($request, GenerationTier::AI);
 
         $this->assertInstanceOf(GenerateShortCodeResponse::class, $result);
         $this->assertSame('pythontut', $result->getShortCode());
         $this->assertSame('pythontut', $result->getOriginalCode());
+        $this->assertSame(GenerationMethod::GeminiAI, $result->getMethod());
         $this->assertFalse($result->wasModified());
         $this->assertSame('https://docs.python.org/3/tutorial/index.html', $result->getUrl());
 
         $lastRequest = $this->httpClient->getLastRequest();
         $this->assertSame('POST', $lastRequest['method']);
-        $this->assertSame('https://example.com/generate-short-code', $lastRequest['url']);
+        $this->assertSame('https://example.com/generate-short-code/ai', $lastRequest['url']);
 
         $payload = json_decode($lastRequest['options']['body'], true);
         $this->assertSame('trfc.link', $payload['domain']);
     }
 
-    public function testGenerateShortCodeWithoutDomainOmitsField(): void
+    public function testGenerateShortCodeWithFastTier(): void
+    {
+        $responseBody = json_encode([
+            'message' => 'Short code generated successfully',
+            'source' => [
+                'short_code' => 'chocolatecake',
+                'method' => 'rule-based',
+                'was_modified' => false,
+                'candidates' => ['chocolatecake', 'bestchocolate', 'cakerecipe'],
+            ],
+            'success' => true,
+        ]);
+
+        $this->httpClient->addResponse(new HttpResponse(200, [], $responseBody));
+
+        $request = new GenerateShortCodeRequest('https://example.com/chocolate-cake');
+        $result = $this->client->fast($request);
+
+        $this->assertSame('chocolatecake', $result->getShortCode());
+        $this->assertSame(GenerationMethod::RuleBased, $result->getMethod());
+        $this->assertNull($result->getOriginalCode());
+        $this->assertNull($result->getUrl());
+        $this->assertSame(['chocolatecake', 'bestchocolate', 'cakerecipe'], $result->getCandidates());
+
+        $lastRequest = $this->httpClient->getLastRequest();
+        $this->assertSame('https://example.com/generate-short-code/fast', $lastRequest['url']);
+    }
+
+    public function testGenerateShortCodeWithSmartTier(): void
+    {
+        $responseBody = json_encode([
+            'message' => 'Short code generated successfully',
+            'source' => [
+                'short_code' => 'chocolatecake',
+                'method' => 'nlp-comprehend',
+                'was_modified' => false,
+                'candidates' => ['chocolatecake', 'cakerecipe', 'bestchocolate'],
+                'key_phrases' => ['chocolate cake', 'best recipe', 'homemade'],
+                'entities' => ['chocolate', 'cake'],
+            ],
+            'success' => true,
+        ]);
+
+        $this->httpClient->addResponse(new HttpResponse(200, [], $responseBody));
+
+        $request = new GenerateShortCodeRequest('https://example.com/chocolate-cake');
+        $result = $this->client->smart($request);
+
+        $this->assertSame('chocolatecake', $result->getShortCode());
+        $this->assertSame(GenerationMethod::NlpComprehend, $result->getMethod());
+        $this->assertSame(['chocolatecake', 'cakerecipe', 'bestchocolate'], $result->getCandidates());
+        $this->assertSame(['chocolate cake', 'best recipe', 'homemade'], $result->getKeyPhrases());
+        $this->assertSame(['chocolate', 'cake'], $result->getEntities());
+
+        $lastRequest = $this->httpClient->getLastRequest();
+        $this->assertSame('https://example.com/generate-short-code/smart', $lastRequest['url']);
+    }
+
+    public function testAiShortcutMethod(): void
+    {
+        $responseBody = json_encode([
+            'message' => 'Short code generated successfully',
+            'source' => [
+                'short_code' => 'perfectchocolate',
+                'original_code' => 'perfectchocolate',
+                'method' => 'gemini-ai',
+                'was_modified' => false,
+                'url' => 'https://example.com/recipe',
+            ],
+            'success' => true,
+        ]);
+
+        $this->httpClient->addResponse(new HttpResponse(200, [], $responseBody));
+
+        $request = new GenerateShortCodeRequest('https://example.com/recipe');
+        $result = $this->client->ai($request);
+
+        $this->assertSame('perfectchocolate', $result->getShortCode());
+        $this->assertSame(GenerationMethod::GeminiAI, $result->getMethod());
+
+        $lastRequest = $this->httpClient->getLastRequest();
+        $this->assertSame('https://example.com/generate-short-code/ai', $lastRequest['url']);
+    }
+
+    public function testGenerateShortCodeDefaultsToAITier(): void
     {
         $responseBody = json_encode([
             'message' => 'Short code generated successfully',
             'source' => [
                 'short_code' => 'example',
                 'original_code' => 'example',
+                'method' => 'gemini-ai',
                 'was_modified' => false,
                 'url' => 'https://example.com',
             ],
@@ -83,6 +172,27 @@ class GenerateShortCodeClientTest extends TestCase
 
         $request = new GenerateShortCodeRequest('https://example.com');
         $this->client->generateShortCode($request);
+
+        $lastRequest = $this->httpClient->getLastRequest();
+        $this->assertSame('https://example.com/generate-short-code/ai', $lastRequest['url']);
+    }
+
+    public function testGenerateShortCodeWithoutDomainOmitsField(): void
+    {
+        $responseBody = json_encode([
+            'message' => 'Short code generated successfully',
+            'source' => [
+                'short_code' => 'example',
+                'method' => 'rule-based',
+                'was_modified' => false,
+            ],
+            'success' => true,
+        ]);
+
+        $this->httpClient->addResponse(new HttpResponse(200, [], $responseBody));
+
+        $request = new GenerateShortCodeRequest('https://example.com');
+        $this->client->fast($request);
 
         $payload = json_decode($this->httpClient->getLastRequest()['options']['body'], true);
         $this->assertArrayNotHasKey('domain', $payload);
@@ -154,6 +264,54 @@ class GenerateShortCodeClientTest extends TestCase
 
         $this->expectException(ApiException::class);
         $this->expectExceptionMessage('Response missing expected source fields');
+
+        $request = new GenerateShortCodeRequest('https://example.com');
+        $this->client->generateShortCode($request);
+    }
+
+    public function testWasModifiedResponseField(): void
+    {
+        $responseBody = json_encode([
+            'message' => 'Short code generated successfully',
+            'source' => [
+                'short_code' => 'chocolatecake2',
+                'method' => 'rule-based',
+                'was_modified' => true,
+                'candidates' => ['chocolatecake2'],
+            ],
+            'success' => true,
+        ]);
+
+        $this->httpClient->addResponse(new HttpResponse(200, [], $responseBody));
+
+        $request = new GenerateShortCodeRequest('https://example.com/chocolate-cake');
+        $result = $this->client->fast($request);
+
+        $this->assertSame('chocolatecake2', $result->getShortCode());
+        $this->assertTrue($result->wasModified());
+    }
+
+    public function testGetBaseUrlReturnsConfiguredUrl(): void
+    {
+        $this->assertSame('https://example.com', $this->client->getBaseUrl());
+    }
+
+    public function testUnknownMethodThrowsException(): void
+    {
+        $responseBody = json_encode([
+            'message' => 'Short code generated successfully',
+            'source' => [
+                'short_code' => 'test',
+                'method' => 'unknown-method',
+                'was_modified' => false,
+            ],
+            'success' => true,
+        ]);
+
+        $this->httpClient->addResponse(new HttpResponse(200, [], $responseBody));
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Unknown generation method: unknown-method');
 
         $request = new GenerateShortCodeRequest('https://example.com');
         $this->client->generateShortCode($request);

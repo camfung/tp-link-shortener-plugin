@@ -4,26 +4,48 @@ declare(strict_types=1);
 
 namespace ShortCode\DTO;
 
+use ShortCode\GenerationMethod;
+
 class GenerateShortCodeResponse
 {
     private string $shortCode;
-    private string $originalCode;
     private bool $wasModified;
-    private string $url;
+    private GenerationMethod $method;
     private string $message;
+    private ?string $originalCode;
+    private ?string $url;
+    /** @var string[] */
+    private array $candidates;
+    /** @var string[] */
+    private array $keyPhrases;
+    /** @var string[] */
+    private array $entities;
 
+    /**
+     * @param string[] $candidates
+     * @param string[] $keyPhrases
+     * @param string[] $entities
+     */
     public function __construct(
         string $shortCode,
-        string $originalCode,
         bool $wasModified,
-        string $url,
-        string $message
+        GenerationMethod $method,
+        string $message = '',
+        ?string $originalCode = null,
+        ?string $url = null,
+        array $candidates = [],
+        array $keyPhrases = [],
+        array $entities = []
     ) {
         $this->shortCode = $shortCode;
-        $this->originalCode = $originalCode;
         $this->wasModified = $wasModified;
-        $this->url = $url;
+        $this->method = $method;
         $this->message = $message;
+        $this->originalCode = $originalCode;
+        $this->url = $url;
+        $this->candidates = $candidates;
+        $this->keyPhrases = $keyPhrases;
+        $this->entities = $entities;
     }
 
     public function getShortCode(): string
@@ -31,7 +53,7 @@ class GenerateShortCodeResponse
         return $this->shortCode;
     }
 
-    public function getOriginalCode(): string
+    public function getOriginalCode(): ?string
     {
         return $this->originalCode;
     }
@@ -41,7 +63,12 @@ class GenerateShortCodeResponse
         return $this->wasModified;
     }
 
-    public function getUrl(): string
+    public function getMethod(): GenerationMethod
+    {
+        return $this->method;
+    }
+
+    public function getUrl(): ?string
     {
         return $this->url;
     }
@@ -49,5 +76,29 @@ class GenerateShortCodeResponse
     public function getMessage(): string
     {
         return $this->message;
+    }
+
+    /**
+     * @return string[]
+     */
+    public function getCandidates(): array
+    {
+        return $this->candidates;
+    }
+
+    /**
+     * @return string[]
+     */
+    public function getKeyPhrases(): array
+    {
+        return $this->keyPhrases;
+    }
+
+    /**
+     * @return string[]
+     */
+    public function getEntities(): array
+    {
+        return $this->entities;
     }
 }

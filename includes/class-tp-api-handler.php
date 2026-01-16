@@ -21,6 +21,7 @@ use SnapCapture\SnapCaptureClient;
 use SnapCapture\DTO\ScreenshotRequest;
 use ShortCode\GenerateShortCodeClient;
 use ShortCode\DTO\GenerateShortCodeRequest;
+use ShortCode\GenerationTier;
 use ShortCode\Exception\ApiException as ShortCodeApiException;
 use ShortCode\Exception\ValidationException as ShortCodeValidationException;
 use ShortCode\Exception\NetworkException as ShortCodeNetworkException;
@@ -133,6 +134,9 @@ class TP_API_Handler {
         add_action('wp_ajax_tp_search_by_fingerprint', array($this, 'ajax_search_by_fingerprint'));
         add_action('wp_ajax_tp_update_link', array($this, 'ajax_update_link'));
         add_action('wp_ajax_tp_suggest_shortcode', array($this, 'ajax_suggest_shortcode'));
+        add_action('wp_ajax_tp_suggest_shortcode_fast', array($this, 'ajax_suggest_shortcode_fast'));
+        add_action('wp_ajax_tp_suggest_shortcode_smart', array($this, 'ajax_suggest_shortcode_smart'));
+        add_action('wp_ajax_tp_suggest_shortcode_ai', array($this, 'ajax_suggest_shortcode_ai'));
 
         // For non-logged-in users
         add_action('wp_ajax_nopriv_tp_create_link', array($this, 'ajax_create_link'));
@@ -142,6 +146,9 @@ class TP_API_Handler {
         add_action('wp_ajax_nopriv_tp_search_by_fingerprint', array($this, 'ajax_search_by_fingerprint'));
         add_action('wp_ajax_nopriv_tp_update_link', array($this, 'ajax_update_link'));
         add_action('wp_ajax_nopriv_tp_suggest_shortcode', array($this, 'ajax_suggest_shortcode'));
+        add_action('wp_ajax_nopriv_tp_suggest_shortcode_fast', array($this, 'ajax_suggest_shortcode_fast'));
+        add_action('wp_ajax_nopriv_tp_suggest_shortcode_smart', array($this, 'ajax_suggest_shortcode_smart'));
+        add_action('wp_ajax_nopriv_tp_suggest_shortcode_ai', array($this, 'ajax_suggest_shortcode_ai'));
     }
 
     /**
@@ -399,25 +406,27 @@ class TP_API_Handler {
     /**
      * Generate shortcode using Gemini API (when enabled) with random fallback
      */
-    private function generate_short_code(string $destination): string {
+    private function generate_short_code(string $destination, GenerationTier $tier = null): string {
+        $tier = $tier ?? GenerationTier::AI;
+
         if (TP_Link_Shortener::use_gemini_generation() && $this->shortcode_client instanceof GenerateShortCodeClient) {
             try {
                 $request = new GenerateShortCodeRequest($destination, TP_Link_Shortener::get_domain());
-                $response = $this->shortcode_client->generateShortCode($request);
+                $response = $this->shortcode_client->generateShortCode($request, $tier);
                 $shortcode = trim($response->getShortCode());
 
                 if (!empty($shortcode)) {
-                    error_log('TP Link Shortener: Gemini generated shortcode: ' . $shortcode);
+                    error_log('TP Link Shortener: Gemini generated shortcode (' . $tier->value . '): ' . $shortcode);
                     return $shortcode;
                 }
             } catch (ShortCodeValidationException $e) {
-                error_log('TP Link Shortener: Gemini validation error, falling back to random key - ' . $e->getMessage());
+                error_log('TP Link Shortener: Gemini validation error (' . $tier->value . '), falling back to random key - ' . $e->getMessage());
             } catch (ShortCodeNetworkException $e) {
-                error_log('TP Link Shortener: Gemini network error, falling back to random key - ' . $e->getMessage());
+                error_log('TP Link Shortener: Gemini network error (' . $tier->value . '), falling back to random key - ' . $e->getMessage());
             } catch (ShortCodeApiException $e) {
-                error_log('TP Link Shortener: Gemini API error, falling back to random key - ' . $e->getMessage());
+                error_log('TP Link Shortener: Gemini API error (' . $tier->value . '), falling back to random key - ' . $e->getMessage());
             } catch (\Exception $e) {
-                error_log('TP Link Shortener: Unexpected Gemini error, falling back to random key - ' . $e->getMessage());
+                error_log('TP Link Shortener: Unexpected Gemini error (' . $tier->value . '), falling back to random key - ' . $e->getMessage());
             }
         }
 
@@ -1072,8 +1081,25 @@ class TP_API_Handler {
      * Called after URL validation to get Gemini-powered short code suggestion
      */
     public function ajax_suggest_shortcode() {
+        $this->handle_suggest_shortcode(GenerationTier::AI);
+    }
+
+    public function ajax_suggest_shortcode_fast() {
+        $this->handle_suggest_shortcode(GenerationTier::Fast);
+    }
+
+    public function ajax_suggest_shortcode_smart() {
+        $this->handle_suggest_shortcode(GenerationTier::Smart);
+    }
+
+    public function ajax_suggest_shortcode_ai() {
+        $this->handle_suggest_shortcode(GenerationTier::AI);
+    }
+
+    private function handle_suggest_shortcode(GenerationTier $tier): void {
         $this->log_to_file('=== SUGGEST SHORTCODE REQUEST START ===');
-        error_log('TP Link Shortener: ajax_suggest_shortcode called');
+        $this->log_to_file('Tier: ' . $tier->value);
+        error_log('TP Link Shortener: ajax_suggest_shortcode (' . $tier->value . ') called');
 
         // Verify nonce
         check_ajax_referer('tp_link_shortener_nonce', 'nonce');
@@ -1082,7 +1108,7 @@ class TP_API_Handler {
         $destination = isset($_POST['destination']) ? sanitize_url($_POST['destination']) : '';
 
         $this->log_to_file('Destination URL: ' . $destination);
-        error_log('TP Link Shortener: Suggesting shortcode for URL: ' . $destination);
+        error_log('TP Link Shortener: Suggesting shortcode (' . $tier->value . ') for URL: ' . $destination);
 
         // Validate destination URL
         if (empty($destination) || !filter_var($destination, FILTER_VALIDATE_URL)) {
@@ -1109,17 +1135,17 @@ class TP_API_Handler {
             return;
         }
 
-        // Generate shortcode using Gemini
-        $this->log_to_file('Gemini generation enabled, calling generate_short_code');
-        $suggested_code = $this->generate_short_code($destination);
+        // Generate shortcode using the requested tier
+        $this->log_to_file('Gemini generation enabled, calling generate_short_code for tier: ' . $tier->value);
+        $suggested_code = $this->generate_short_code($destination, $tier);
 
         $this->log_to_file('Suggested shortcode: ' . $suggested_code);
         $this->log_to_file('=== SUGGEST SHORTCODE REQUEST END ===');
-        error_log('TP Link Shortener: Suggested shortcode: ' . $suggested_code);
+        error_log('TP Link Shortener: Suggested shortcode (' . $tier->value . '): ' . $suggested_code);
 
         wp_send_json_success(array(
             'shortcode' => $suggested_code,
-            'source' => 'gemini',
+            'source' => $tier->value,
             'message' => __('AI-generated shortcode suggestion', 'tp-link-shortener')
         ));
     }
