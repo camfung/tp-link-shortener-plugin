@@ -310,6 +310,7 @@ class TP_API_Handler {
                         'destination' => $destination,
                         'mid' => $response->getMid(),
                         'message' => $response->getMessage(),
+                        'expires_at' => $response->getExpiresAt(),
                     )
                 );
             }
