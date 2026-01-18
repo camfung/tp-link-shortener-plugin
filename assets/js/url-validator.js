@@ -11,6 +11,42 @@
  * @version 1.0.0
  */
 
+const URLValidatorDebug = {
+  isEnabled: false,
+  init() {
+    this.isEnabled = this.readFlag('validation') || this.readFlag('all');
+  },
+  readFlag(key) {
+    try {
+      const raw = window.localStorage.getItem('tpDebug:' + key);
+      if (!raw) {
+        return false;
+      }
+      const normalized = raw.toString().trim().toLowerCase();
+      return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on';
+    } catch (error) {
+      return false;
+    }
+  },
+  log(...args) {
+    if (this.isEnabled) {
+      console.log(...args);
+    }
+  },
+  warn(...args) {
+    if (this.isEnabled) {
+      console.warn(...args);
+    }
+  },
+  error(...args) {
+    if (this.isEnabled) {
+      console.error(...args);
+    }
+  }
+};
+
+URLValidatorDebug.init();
+
 class URLValidator {
   /**
    * Validation error types
@@ -100,11 +136,11 @@ class URLValidator {
    * @returns {Promise<Object>} Validation result object
    */
   async validateURLWithAbort(urlString, abortSignal = null) {
-    console.log(`🌐 [VALIDATE] Starting validation for:`, urlString, 'Has abort signal:', !!abortSignal);
+    URLValidatorDebug.log(`🌐 [VALIDATE] Starting validation for:`, urlString, 'Has abort signal:', !!abortSignal);
 
     // First, check URL format
     if (!this.isValidURLFormat(urlString)) {
-      console.log(`❌ [VALIDATE] Invalid format for:`, urlString);
+      URLValidatorDebug.log(`❌ [VALIDATE] Invalid format for:`, urlString);
       return this.createErrorResult(
         URLValidator.ErrorTypes.INVALID_URL,
         'Invalid URL format. Please enter a valid HTTP or HTTPS URL.',
@@ -114,9 +150,9 @@ class URLValidator {
 
     try {
       // Perform HEAD request to get headers
-      console.log(`📡 [VALIDATE] Fetching headers for:`, urlString);
+      URLValidatorDebug.log(`📡 [VALIDATE] Fetching headers for:`, urlString);
       const response = await this.fetchHeaders(urlString, abortSignal);
-      console.log(`📥 [VALIDATE] Received response for:`, urlString, 'Status:', response.status);
+      URLValidatorDebug.log(`📥 [VALIDATE] Received response for:`, urlString, 'Status:', response.status);
 
       // Check for authentication/protected resources FIRST
       if (response.status === 401 || response.status === 403) {
@@ -188,24 +224,24 @@ class URLValidator {
       }
 
       // All validations passed
-      console.log(`✅ [VALIDATE] Validation successful for:`, urlString);
+      URLValidatorDebug.log(`✅ [VALIDATE] Validation successful for:`, urlString);
       return this.createSuccessResult(
         'URL is valid and accessible.',
         URLValidator.BorderColors.SUCCESS
       );
 
     } catch (error) {
-      console.log(`💥 [VALIDATE] Error caught for:`, urlString, 'Error:', error.name, error.message);
+      URLValidatorDebug.log(`💥 [VALIDATE] Error caught for:`, urlString, 'Error:', error.name, error.message);
 
       // Re-throw AbortError so it can be caught by debounced validator
       if (error.name === 'AbortError') {
-        console.log(`🛑 [VALIDATE] Re-throwing AbortError for:`, urlString);
+        URLValidatorDebug.log(`🛑 [VALIDATE] Re-throwing AbortError for:`, urlString);
         throw error;
       }
 
       // Handle SSL/TLS errors
       if (error.message && error.message.includes('SSL')) {
-        console.log(`🔒 [VALIDATE] SSL error for:`, urlString);
+        URLValidatorDebug.log(`🔒 [VALIDATE] SSL error for:`, urlString);
         return this.createErrorResult(
           URLValidator.ErrorTypes.SSL_ERROR,
           'SSL/TLS certificate error. The URL has an invalid or untrusted certificate.',
@@ -230,7 +266,7 @@ class URLValidator {
         }
       }
 
-      console.log(`⚠️  [VALIDATE] Returning error result for:`, urlString, 'Message:', friendlyMessage);
+      URLValidatorDebug.log(`⚠️  [VALIDATE] Returning error result for:`, urlString, 'Message:', friendlyMessage);
       return this.createErrorResult(
         URLValidator.ErrorTypes.NETWORK_ERROR,
         friendlyMessage,
@@ -247,11 +283,11 @@ class URLValidator {
    * @private
    */
   async fetchHeaders(urlString, externalSignal = null) {
-    console.log(`🌍 [FETCH] Starting fetch for:`, urlString, 'Has external signal:', !!externalSignal);
+    URLValidatorDebug.log(`🌍 [FETCH] Starting fetch for:`, urlString, 'Has external signal:', !!externalSignal);
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {
-      console.log(`⏰ [FETCH] Timeout triggered for:`, urlString);
+      URLValidatorDebug.log(`⏰ [FETCH] Timeout triggered for:`, urlString);
       controller.abort();
     }, this.timeout);
 
@@ -259,11 +295,11 @@ class URLValidator {
     let externalAbortHandler = null;
     if (externalSignal) {
       externalAbortHandler = () => {
-        console.log(`🔴 [FETCH] External abort triggered for:`, urlString);
+        URLValidatorDebug.log(`🔴 [FETCH] External abort triggered for:`, urlString);
         controller.abort();
       };
       externalSignal.addEventListener('abort', externalAbortHandler);
-      console.log(`🔗 [FETCH] External abort listener attached for:`, urlString);
+      URLValidatorDebug.log(`🔗 [FETCH] External abort listener attached for:`, urlString);
     }
 
     try {
@@ -279,12 +315,12 @@ class URLValidator {
       if (this.proxyUrl) {
         fetchUrl = `${this.proxyUrl}&url=${encodeURIComponent(urlString)}`;
         options.method = 'GET'; // Proxy uses GET
-        console.log(`🔄 [FETCH] Using proxy for:`, urlString);
+        URLValidatorDebug.log(`🔄 [FETCH] Using proxy for:`, urlString);
       }
 
-      console.log(`📤 [FETCH] Sending request for:`, urlString);
+      URLValidatorDebug.log(`📤 [FETCH] Sending request for:`, urlString);
       const response = await fetch(fetchUrl, options);
-      console.log(`📬 [FETCH] Response received for:`, urlString, 'Status:', response.status);
+      URLValidatorDebug.log(`📬 [FETCH] Response received for:`, urlString, 'Status:', response.status);
       clearTimeout(timeoutId);
 
       // If using proxy, transform the response to match expected format
@@ -325,22 +361,22 @@ class URLValidator {
         };
       }
 
-      console.log(`✅ [FETCH] Returning response for:`, urlString);
+      URLValidatorDebug.log(`✅ [FETCH] Returning response for:`, urlString);
       return response;
     } catch (error) {
       clearTimeout(timeoutId);
-      console.log(`💥 [FETCH] Error for:`, urlString, 'Error:', error.name, error.message);
+      URLValidatorDebug.log(`💥 [FETCH] Error for:`, urlString, 'Error:', error.name, error.message);
 
       if (error.name === 'AbortError') {
-        console.log(`🛑 [FETCH] Throwing timeout error for:`, urlString);
+        URLValidatorDebug.log(`🛑 [FETCH] Throwing timeout error for:`, urlString);
         throw new Error('Request timeout');
       }
-      console.log(`💣 [FETCH] Re-throwing error for:`, urlString);
+      URLValidatorDebug.log(`💣 [FETCH] Re-throwing error for:`, urlString);
       throw error;
     } finally {
       // Clean up external abort listener
       if (externalSignal && externalAbortHandler) {
-        console.log(`🧹 [FETCH] Cleaning up abort listener for:`, urlString);
+        URLValidatorDebug.log(`🧹 [FETCH] Cleaning up abort listener for:`, urlString);
         externalSignal.removeEventListener('abort', externalAbortHandler);
       }
     }
@@ -452,10 +488,10 @@ class URLValidator {
    * @param {HTMLInputElement} inputElement - The input element to apply validation to
    * @param {Object} validationResult - The validation result from validateURL()
    * @param {HTMLElement} messageElement - Optional element to display the message
-   */
+  */
   applyValidationToElement(inputElement, validationResult, messageElement = null) {
     if (!inputElement) {
-      console.error('Input element is required');
+      URLValidatorDebug.error('Input element is required');
       return;
     }
 
@@ -493,17 +529,17 @@ class URLValidator {
 
     return async (urlString, inputElement, messageElement) => {
       const callId = ++validationId;
-      console.log(`🔵 [DEBOUNCE #${callId}] Called with URL:`, urlString);
+      URLValidatorDebug.log(`🔵 [DEBOUNCE #${callId}] Called with URL:`, urlString);
 
       // Clear previous timeout
       if (timeoutId) {
-        console.log(`🟡 [DEBOUNCE #${callId}] Clearing previous timeout`);
+        URLValidatorDebug.log(`🟡 [DEBOUNCE #${callId}] Clearing previous timeout`);
         clearTimeout(timeoutId);
       }
 
       // Abort any in-flight validation request
       if (currentAbortController) {
-        console.log(`🔴 [DEBOUNCE #${callId}] Aborting previous validation for:`, currentValidationUrl);
+        URLValidatorDebug.log(`🔴 [DEBOUNCE #${callId}] Aborting previous validation for:`, currentValidationUrl);
         currentAbortController.abort();
         currentAbortController = null;
       }
@@ -519,7 +555,7 @@ class URLValidator {
       // Only validate if URL format is valid
       if (!this.isValidURLFormat(urlString)) {
         if (urlString.length > 0) {
-          console.log(`❌ [DEBOUNCE #${callId}] Invalid URL format:`, urlString);
+          URLValidatorDebug.log(`❌ [DEBOUNCE #${callId}] Invalid URL format:`, urlString);
           const invalidResult = this.createErrorResult(
             URLValidator.ErrorTypes.INVALID_URL,
             'Invalid URL format',
@@ -543,26 +579,26 @@ class URLValidator {
       }
 
       // Set new timeout for validation
-      console.log(`⏱️  [DEBOUNCE #${callId}] Setting ${delay}ms timeout for:`, urlString);
+      URLValidatorDebug.log(`⏱️  [DEBOUNCE #${callId}] Setting ${delay}ms timeout for:`, urlString);
       timeoutId = setTimeout(async () => {
-        console.log(`🚀 [DEBOUNCE #${callId}] Timeout expired, starting validation for:`, urlString);
+        URLValidatorDebug.log(`🚀 [DEBOUNCE #${callId}] Timeout expired, starting validation for:`, urlString);
 
         // Create new AbortController for this validation
         currentAbortController = new AbortController();
         currentValidationUrl = urlString;
-        console.log(`📝 [DEBOUNCE #${callId}] Set currentValidationUrl to:`, currentValidationUrl);
+        URLValidatorDebug.log(`📝 [DEBOUNCE #${callId}] Set currentValidationUrl to:`, currentValidationUrl);
 
         try {
           const result = await this.validateURLWithAbort(urlString, currentAbortController.signal);
-          console.log(`✅ [DEBOUNCE #${callId}] Validation completed for:`, urlString, 'Result:', result);
+          URLValidatorDebug.log(`✅ [DEBOUNCE #${callId}] Validation completed for:`, urlString, 'Result:', result);
 
           // Ignore results for old URLs (race condition protection)
           if (urlString !== currentValidationUrl) {
-            console.warn(`⚠️  [DEBOUNCE #${callId}] IGNORING STALE RESULT - urlString:`, urlString, 'currentValidationUrl:', currentValidationUrl);
+            URLValidatorDebug.warn(`⚠️  [DEBOUNCE #${callId}] IGNORING STALE RESULT - urlString:`, urlString, 'currentValidationUrl:', currentValidationUrl);
             return;
           }
 
-          console.log(`✨ [DEBOUNCE #${callId}] Applying validation result for:`, urlString);
+          URLValidatorDebug.log(`✨ [DEBOUNCE #${callId}] Applying validation result for:`, urlString);
           if (inputElement && messageElement) {
             this.applyValidationToElement(inputElement, result, messageElement);
           }
@@ -573,18 +609,18 @@ class URLValidator {
         } catch (error) {
           // Ignore AbortError - it's intentional when user types new URL
           if (error.name === 'AbortError') {
-            console.log(`🛑 [DEBOUNCE #${callId}] Validation aborted (intentional) for:`, urlString);
+            URLValidatorDebug.log(`🛑 [DEBOUNCE #${callId}] Validation aborted (intentional) for:`, urlString);
             return;
           }
 
           // Ignore errors for stale URLs
           if (urlString !== currentValidationUrl) {
-            console.warn(`⚠️  [DEBOUNCE #${callId}] IGNORING STALE ERROR - urlString:`, urlString, 'currentValidationUrl:', currentValidationUrl);
+            URLValidatorDebug.warn(`⚠️  [DEBOUNCE #${callId}] IGNORING STALE ERROR - urlString:`, urlString, 'currentValidationUrl:', currentValidationUrl);
             return;
           }
 
           // Handle any uncaught errors (like CORS issues)
-          console.error(`💥 [DEBOUNCE #${callId}] Validation error for:`, urlString, error);
+          URLValidatorDebug.error(`💥 [DEBOUNCE #${callId}] Validation error for:`, urlString, error);
           const errorResult = this.createErrorResult(
             URLValidator.ErrorTypes.NETWORK_ERROR,
             'Unable to validate URL: ' + error.message,
@@ -601,10 +637,10 @@ class URLValidator {
         } finally {
           // Clear the abort controller if this was the current validation
           if (currentValidationUrl === urlString) {
-            console.log(`🧹 [DEBOUNCE #${callId}] Clearing abort controller for:`, urlString);
+            URLValidatorDebug.log(`🧹 [DEBOUNCE #${callId}] Clearing abort controller for:`, urlString);
             currentAbortController = null;
           } else {
-            console.log(`⚠️  [DEBOUNCE #${callId}] NOT clearing controller - currentValidationUrl changed to:`, currentValidationUrl);
+            URLValidatorDebug.log(`⚠️  [DEBOUNCE #${callId}] NOT clearing controller - currentValidationUrl changed to:`, currentValidationUrl);
           }
         }
       }, delay);
