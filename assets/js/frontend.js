@@ -756,8 +756,8 @@
                 }
 
                 // Start expiry countdown for non-logged-in users (if enabled)
-                if (!tpAjax.isLoggedIn && tpAjax.enableExpiryTimer) {
-                    this.startExpiryCountdown();
+                if (!tpAjax.isLoggedIn && tpAjax.enableExpiryTimer && response.data.expires_at) {
+                    this.startExpiryCountdown(response.data.expires_at);
                 }
 
                 // Switch to update mode (this will populate the custom key input with the current key)
@@ -1693,8 +1693,8 @@
                 this.startCountdown();
 
                 // Start expiry countdown (for expiry counter in result section) (if enabled)
-                if (tpAjax.enableExpiryTimer) {
-                    this.startExpiryCountdown();
+                if (tpAjax.enableExpiryTimer && storedData.expiration) {
+                    this.startExpiryCountdown(storedData.expiration);
                 }
             }
         },
@@ -1754,57 +1754,6 @@
             if (this.countdownTimer) {
                 clearInterval(this.countdownTimer);
                 this.countdownTimer = null;
-            }
-        },
-
-        /**
-         * Start expiry countdown timer for new links
-         */
-        startExpiryCountdown: function() {
-            const updateExpiry = function() {
-                if (!window.TPStorageService || !window.TPStorageService.isAvailable()) {
-                    this.stopExpiryCountdown();
-                    return;
-                }
-
-                const timeRemaining = window.TPStorageService.getTimeRemaining();
-                if (timeRemaining === null || timeRemaining <= 0) {
-                    // Expired
-                    $('.tp-expiry-counter').text('Expired');
-                    this.stopExpiryCountdown();
-                    return;
-                }
-
-                // Format time as HH:MM:SS
-                const hours = Math.floor(timeRemaining / (1000 * 60 * 60));
-                const minutes = Math.floor((timeRemaining % (1000 * 60 * 60)) / (1000 * 60));
-                const seconds = Math.floor((timeRemaining % (1000 * 60)) / 1000);
-
-                const formatted =
-                    String(hours).padStart(2, '0') + ':' +
-                    String(minutes).padStart(2, '0') + ':' +
-                    String(seconds).padStart(2, '0');
-
-                $('.tp-expiry-counter').text(formatted);
-            }.bind(this);
-
-            // Update immediately
-            updateExpiry();
-
-            // Stop any existing timer
-            this.stopExpiryCountdown();
-
-            // Update every second
-            this.expiryTimer = setInterval(updateExpiry, 1000);
-        },
-
-        /**
-         * Stop expiry countdown timer
-         */
-        stopExpiryCountdown: function() {
-            if (this.expiryTimer) {
-                clearInterval(this.expiryTimer);
-                this.expiryTimer = null;
             }
         },
 
