@@ -6,6 +6,68 @@
 (function($) {
     'use strict';
 
+    // LocalStorage-driven debug toggle utility
+    const TPDebug = {
+        featureKeys: [
+            'all',
+            'init',
+            'fingerprint',
+            'validation',
+            'submit',
+            'update',
+            'suggestion',
+            'clipboard',
+            'process',
+            'search',
+            'qr',
+            'screenshot',
+            'storage',
+            'ui',
+            'returning'
+        ],
+        flags: {},
+        init() {
+            this.featureKeys.forEach((key) => {
+                this.flags[key] = this.readFlag(key);
+            });
+        },
+        readFlag(key) {
+            try {
+                const raw = window.localStorage.getItem('tpDebug:' + key);
+                if (!raw) {
+                    return false;
+                }
+                const normalized = raw.toString().trim().toLowerCase();
+                return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on';
+            } catch (error) {
+                return false;
+            }
+        },
+        isEnabled(feature) {
+            if (this.flags.all) {
+                return true;
+            }
+            return !!this.flags[feature];
+        },
+        log(feature, ...args) {
+            if (this.isEnabled(feature)) {
+                console.log(...args);
+            }
+        },
+        warn(feature, ...args) {
+            if (this.isEnabled(feature)) {
+                console.warn(...args);
+            }
+        },
+        error(feature, ...args) {
+            if (this.isEnabled(feature)) {
+                console.error(...args);
+            }
+        }
+    };
+
+    TPDebug.init();
+
     // Main plugin object
     const TPLinkShortener = {
         // Elements
@@ -58,10 +120,10 @@
          * Initialize
          */
         init: async function() {
-            console.log('=== TP LINK SHORTENER INITIALIZATION ===');
-            console.log('User logged in:', tpAjax.isLoggedIn);
-            console.log('Domain:', tpAjax.domain);
-            console.log('AJAX URL:', tpAjax.ajaxUrl);
+            TPDebug.log('init', '=== TP LINK SHORTENER INITIALIZATION ===');
+            TPDebug.log('init', 'User logged in:', tpAjax.isLoggedIn);
+            TPDebug.log('init', 'Domain:', tpAjax.domain);
+            TPDebug.log('init', 'AJAX URL:', tpAjax.ajaxUrl);
 
             // Suggestion state
             this.suggestionCandidates = [];
@@ -69,31 +131,31 @@
             this.suggestionSourceUrl = '';
 
             this.cacheElements();
-            console.log('DOM elements cached');
+            TPDebug.log('init', 'DOM elements cached');
 
             this.initializeURLValidator();
-            console.log('URL validator initialized');
+            TPDebug.log('init', 'URL validator initialized');
 
             await this.initializeFingerprintJS();
-            console.log('FingerprintJS initialized');
+            TPDebug.log('init', 'FingerprintJS initialized');
 
             this.bindEvents();
-            console.log('Events bound');
+            TPDebug.log('init', 'Events bound');
 
             this.checkClipboardSupport();
-            console.log('Clipboard support checked');
+            TPDebug.log('init', 'Clipboard support checked');
             // this.checkReturningVisitor(); // Disabled: using fingerprint-based detection only
 
             // Search for existing links by fingerprint for anonymous users
             if (!tpAjax.isLoggedIn) {
-                console.log('User is anonymous - will search for existing links by fingerprint after FP loads...');
+                TPDebug.log('init', 'User is anonymous - will search for existing links by fingerprint after FP loads...');
                 // Wait for fingerprint to be ready before searching
                 this.waitForFingerprintThenSearch();
             } else {
-                console.log('User is logged in - skipping fingerprint search');
+                TPDebug.log('init', 'User is logged in - skipping fingerprint search');
             }
 
-            console.log('=== TP LINK SHORTENER INITIALIZATION COMPLETE ===');
+            TPDebug.log('init', '=== TP LINK SHORTENER INITIALIZATION COMPLETE ===');
         },
 
         /**
@@ -131,7 +193,7 @@
         initializeURLValidator: function() {
             // Check if URLValidator class is available
             if (typeof URLValidator === 'undefined') {
-                console.warn('URLValidator library not loaded. Online validation disabled.');
+                TPDebug.warn('validation', 'URLValidator library not loaded. Online validation disabled.');
                 return;
             }
 
@@ -153,26 +215,26 @@
          * Initialize FingerprintJS
          */
         initializeFingerprintJS: async function() {
-            console.log('=== FINGERPRINT JS INITIALIZATION ===');
+            TPDebug.log('fingerprint', '=== FINGERPRINT JS INITIALIZATION ===');
             // Check if FingerprintJS is loaded
             try {
                 await this.ensureFingerprintScript();
 
                 if (typeof FingerprintJS === 'undefined') {
-                    console.warn('FingerprintJS still undefined after CDN load. Fingerprinting disabled.');
-                    console.log('=== FINGERPRINT JS INITIALIZATION FAILED ===');
+                    TPDebug.warn('fingerprint', 'FingerprintJS still undefined after CDN load. Fingerprinting disabled.');
+                    TPDebug.log('fingerprint', '=== FINGERPRINT JS INITIALIZATION FAILED ===');
                     return;
                 }
 
-                console.log('FingerprintJS library loaded successfully');
+                TPDebug.log('fingerprint', 'FingerprintJS library loaded successfully');
                 // Initialize FingerprintJS
                 this.fpPromise = FingerprintJS.load();
-                console.log('FingerprintJS.load() called - promise created');
-                console.log('fpPromise is now:', !!this.fpPromise);
-                console.log('=== FINGERPRINT JS INITIALIZATION COMPLETE ===');
+                TPDebug.log('fingerprint', 'FingerprintJS.load() called - promise created');
+                TPDebug.log('fingerprint', 'fpPromise is now:', !!this.fpPromise);
+                TPDebug.log('fingerprint', '=== FINGERPRINT JS INITIALIZATION COMPLETE ===');
             } catch (err) {
-                console.warn('Failed to load FingerprintJS from CDN:', err);
-                console.log('=== FINGERPRINT JS INITIALIZATION FAILED ===');
+                TPDebug.warn('fingerprint', 'Failed to load FingerprintJS from CDN:', err);
+                TPDebug.log('fingerprint', '=== FINGERPRINT JS INITIALIZATION FAILED ===');
             }
         },
 
@@ -190,7 +252,7 @@
                 return this.fpScriptPromise;
             }
 
-            console.log('FingerprintJS not found - injecting self-hosted script...');
+            TPDebug.log('fingerprint', 'FingerprintJS not found - injecting self-hosted script...');
             this.fpScriptPromise = new Promise(function(resolve, reject) {
                 const primarySrc = (window.tpAjax && tpAjax.fingerprintUrl) ?
                     tpAjax.fingerprintUrl :
@@ -201,17 +263,17 @@
                 script.src = primarySrc;
                 script.async = true;
                 script.onload = function() {
-                    console.log('FingerprintJS script loaded from', primarySrc);
+                    TPDebug.log('fingerprint', 'FingerprintJS script loaded from', primarySrc);
                     resolve();
                 };
                 script.onerror = function(event) {
-                    console.warn('Primary FingerprintJS script failed, trying fallback...', event);
+                    TPDebug.warn('fingerprint', 'Primary FingerprintJS script failed, trying fallback...', event);
                     // Try fallback CDN once
                     const fallbackScript = document.createElement('script');
                     fallbackScript.src = fallbackSrc;
                     fallbackScript.async = true;
                     fallbackScript.onload = function() {
-                        console.log('FingerprintJS fallback script loaded from', fallbackSrc);
+                        TPDebug.log('fingerprint', 'FingerprintJS fallback script loaded from', fallbackSrc);
                         resolve();
                     };
                     fallbackScript.onerror = function(fallbackEvent) {
@@ -229,30 +291,30 @@
          * Get browser fingerprint
          */
         getFingerprint: async function() {
-            console.log('=== GET FINGERPRINT START ===');
+            TPDebug.log('fingerprint', '=== GET FINGERPRINT START ===');
             if (!this.fpPromise) {
-                console.warn('FingerprintJS not initialized - promise is null');
-                console.log('=== GET FINGERPRINT END (NOT INITIALIZED) ===');
+                TPDebug.warn('fingerprint', 'FingerprintJS not initialized - promise is null');
+                TPDebug.log('fingerprint', '=== GET FINGERPRINT END (NOT INITIALIZED) ===');
                 return null;
             }
 
             try {
-                console.log('Awaiting FingerprintJS agent...');
+                TPDebug.log('fingerprint', 'Awaiting FingerprintJS agent...');
                 const fp = await this.fpPromise;
-                console.log('FingerprintJS agent loaded:', fp);
+                TPDebug.log('fingerprint', 'FingerprintJS agent loaded:', fp);
 
-                console.log('Getting fingerprint result...');
+                TPDebug.log('fingerprint', 'Getting fingerprint result...');
                 const result = await fp.get();
-                console.log('Full fingerprint result:', result);
-                console.log('Visitor ID:', result.visitorId);
-                console.log('Confidence score:', result.confidence);
-                console.log('Components count:', result.components ? Object.keys(result.components).length : 0);
-                console.log('=== GET FINGERPRINT END (SUCCESS) ===');
+                TPDebug.log('fingerprint', 'Full fingerprint result:', result);
+                TPDebug.log('fingerprint', 'Visitor ID:', result.visitorId);
+                TPDebug.log('fingerprint', 'Confidence score:', result.confidence);
+                TPDebug.log('fingerprint', 'Components count:', result.components ? Object.keys(result.components).length : 0);
+                TPDebug.log('fingerprint', '=== GET FINGERPRINT END (SUCCESS) ===');
                 return result.visitorId;
             } catch (error) {
-                console.error('Error getting fingerprint:', error);
-                console.error('Error stack:', error.stack);
-                console.log('=== GET FINGERPRINT END (ERROR) ===');
+                TPDebug.error('fingerprint', 'Error getting fingerprint:', error);
+                TPDebug.error('fingerprint', 'Error stack:', error.stack);
+                TPDebug.log('fingerprint', '=== GET FINGERPRINT END (ERROR) ===');
                 return null;
             }
         },
@@ -261,23 +323,23 @@
          * Handle URL validation result
          */
         handleValidationResult: function(result, url) {
-            console.log('🎯 [UI-CALLBACK] === VALIDATION RESULT RECEIVED ===');
-            console.log('🎯 [UI-CALLBACK] URL:', url);
-            console.log('🎯 [UI-CALLBACK] Result:', result);
-            console.log('🎯 [UI-CALLBACK] isError:', result.isError);
-            console.log('🎯 [UI-CALLBACK] isWarning:', result.isWarning);
-            console.log('🎯 [UI-CALLBACK] Message:', result.message);
+            TPDebug.log('validation', '🎯 [UI-CALLBACK] === VALIDATION RESULT RECEIVED ===');
+            TPDebug.log('validation', '🎯 [UI-CALLBACK] URL:', url);
+            TPDebug.log('validation', '🎯 [UI-CALLBACK] Result:', result);
+            TPDebug.log('validation', '🎯 [UI-CALLBACK] isError:', result.isError);
+            TPDebug.log('validation', '🎯 [UI-CALLBACK] isWarning:', result.isWarning);
+            TPDebug.log('validation', '🎯 [UI-CALLBACK] Message:', result.message);
 
             // Check if protocol was updated (HTTPS -> HTTP fallback)
             if (result.protocolUpdated && result.updatedUrl) {
                 // Update the input field with the HTTP URL
                 this.$destinationInput.val(result.updatedUrl);
-                console.log('🎯 [UI-CALLBACK] URL protocol updated from HTTPS to HTTP:', result.updatedUrl);
+                TPDebug.log('validation', '🎯 [UI-CALLBACK] URL protocol updated from HTTPS to HTTP:', result.updatedUrl);
             }
 
             // Update UI based on validation result
             if (result.isError) {
-                console.log('🎯 [UI-CALLBACK] ❌ Showing ERROR UI for:', url);
+                TPDebug.log('validation', '🎯 [UI-CALLBACK] ❌ Showing ERROR UI for:', url);
                 this.isValid = false;
                 this.$destinationInput.removeClass('is-valid').addClass('is-invalid');
                 // Show error message in validation message area (not main error area)
@@ -292,7 +354,7 @@
                     this.$customKeyGroup.slideUp(300);
                 }
             } else if (result.isWarning) {
-                console.log('🎯 [UI-CALLBACK] ⚠️  Showing WARNING UI for:', url);
+                TPDebug.log('validation', '🎯 [UI-CALLBACK] ⚠️  Showing WARNING UI for:', url);
                 // Warnings still allow submission but show warning message
                 this.isValid = true;
                 this.$destinationInput.removeClass('is-invalid').addClass('is-valid');
@@ -311,13 +373,13 @@
                 // After validation succeeds with warning, get Gemini shortcode suggestion
                 // Only fetch suggestion in create mode (not update mode)
                 if (this.formMode === 'create') {
-                    console.log('🎯 [UI-CALLBACK] Fetching shortcode suggestion (warning case)');
+                    TPDebug.log('suggestion', '🎯 [UI-CALLBACK] Fetching shortcode suggestion (warning case)');
                     this.fetchShortcodeSuggestion(url);
                 } else {
-                    console.log('🎯 [UI-CALLBACK] Skipping suggestion - in update mode');
+                    TPDebug.log('suggestion', '🎯 [UI-CALLBACK] Skipping suggestion - in update mode');
                 }
             } else {
-                console.log('🎯 [UI-CALLBACK] ✅ Showing SUCCESS UI for:', url);
+                TPDebug.log('validation', '🎯 [UI-CALLBACK] ✅ Showing SUCCESS UI for:', url);
                 this.isValid = true;
                 this.$destinationInput.removeClass('is-invalid').addClass('is-valid');
                 // Show success message in validation message area
@@ -335,13 +397,13 @@
                 // After validation succeeds, get Gemini shortcode suggestion
                 // Only fetch suggestion in create mode (not update mode)
                 if (this.formMode === 'create') {
-                    console.log('🎯 [UI-CALLBACK] Fetching shortcode suggestion');
+                    TPDebug.log('suggestion', '🎯 [UI-CALLBACK] Fetching shortcode suggestion');
                     this.fetchShortcodeSuggestion(url);
                 } else {
-                    console.log('🎯 [UI-CALLBACK] Skipping suggestion - in update mode');
+                    TPDebug.log('suggestion', '🎯 [UI-CALLBACK] Skipping suggestion - in update mode');
                 }
             }
-            console.log('🎯 [UI-CALLBACK] === VALIDATION RESULT HANDLED ===');
+            TPDebug.log('validation', '🎯 [UI-CALLBACK] === VALIDATION RESULT HANDLED ===');
         },
 
         /**
@@ -387,38 +449,38 @@
          * Submit create link request
          */
         submitCreate: async function() {
-            console.log('=== SUBMIT CREATE LINK START ===');
+            TPDebug.log('submit', '=== SUBMIT CREATE LINK START ===');
 
             // Get form data
             const destination = this.$destinationInput.val().trim();
             const customKey = this.$customKeyInput.val().trim();
             let uidFromStorage = null;
 
-            console.log('Form data:', { destination, customKey });
-            console.log('User logged in:', tpAjax.isLoggedIn);
+            TPDebug.log('submit', 'Form data:', { destination, customKey });
+            TPDebug.log('submit', 'User logged in:', tpAjax.isLoggedIn);
 
             try {
                 const storedUid = window.localStorage.getItem('tpUid');
                 if (storedUid && storedUid.trim() !== '') {
                     uidFromStorage = storedUid;
                 }
-                console.log('UID from storage:', uidFromStorage);
+                TPDebug.log('storage', 'UID from storage:', uidFromStorage);
             } catch (storageError) {
                 // Unable to access localStorage (likely disabled or restricted)
-                console.warn('localStorage not available:', storageError);
+                TPDebug.warn('storage', 'localStorage not available:', storageError);
                 uidFromStorage = null;
             }
 
             // Validate URL format
             if (!this.validateUrl(destination)) {
-                console.error('URL validation failed:', destination);
+                TPDebug.error('validation', 'URL validation failed:', destination);
                 this.showError(tpAjax.strings.invalidUrl);
                 return;
             }
 
             // Check if online validation has been performed and passed
             if (!this.isValid) {
-                console.error('Online validation not passed');
+                TPDebug.error('validation', 'Online validation not passed');
                 this.showError('Please enter a valid and accessible URL. The URL validation failed.');
                 this.$destinationInput.addClass('is-invalid');
                 // Scroll to the error
@@ -435,13 +497,13 @@
             // Get fingerprint for anonymous users
             let fingerprint = null;
             if (!tpAjax.isLoggedIn) {
-                console.log('User is anonymous - generating fingerprint...');
+                TPDebug.log('fingerprint', 'User is anonymous - generating fingerprint...');
                 fingerprint = await this.getFingerprint();
-                console.log('Fingerprint generated:', fingerprint);
-                console.log('Fingerprint type:', typeof fingerprint);
-                console.log('Fingerprint length:', fingerprint ? fingerprint.length : 0);
+                TPDebug.log('fingerprint', 'Fingerprint generated:', fingerprint);
+                TPDebug.log('fingerprint', 'Fingerprint type:', typeof fingerprint);
+                TPDebug.log('fingerprint', 'Fingerprint length:', fingerprint ? fingerprint.length : 0);
             } else {
-                console.log('User is logged in - skipping fingerprint generation');
+                TPDebug.log('fingerprint', 'User is logged in - skipping fingerprint generation');
             }
 
             // Prepare data
@@ -454,38 +516,38 @@
 
             if (uidFromStorage !== null) {
                 data.uid = uidFromStorage;
-                console.log('Added UID to request data:', uidFromStorage);
+                TPDebug.log('submit', 'Added UID to request data:', uidFromStorage);
             }
 
             if (fingerprint !== null) {
                 data.fingerprint = fingerprint;
-                console.log('Added fingerprint to request data:', fingerprint);
+                TPDebug.log('submit', 'Added fingerprint to request data:', fingerprint);
             }
 
-            console.log('Complete AJAX request data:', JSON.stringify(data, null, 2));
+            TPDebug.log('submit', 'Complete AJAX request data:', JSON.stringify(data, null, 2));
 
             // Send AJAX request
-            console.log('Sending AJAX request to:', tpAjax.ajaxUrl);
+            TPDebug.log('submit', 'Sending AJAX request to:', tpAjax.ajaxUrl);
             $.ajax({
                 url: tpAjax.ajaxUrl,
                 type: 'POST',
                 data: data,
                 beforeSend: function() {
-                    console.log('AJAX request being sent...');
+                    TPDebug.log('submit', 'AJAX request being sent...');
                 },
                 success: function(response) {
-                    console.log('AJAX response received:', response);
-                    console.log('=== SUBMIT CREATE LINK END ===');
+                    TPDebug.log('submit', 'AJAX response received:', response);
+                    TPDebug.log('submit', '=== SUBMIT CREATE LINK END ===');
                     this.handleCreateSuccess(response);
                 }.bind(this),
                 error: function(xhr, status, error) {
-                    console.error('AJAX error:', { xhr, status, error });
-                    console.error('Response text:', xhr.responseText);
-                    console.log('=== SUBMIT CREATE LINK END (ERROR) ===');
+                    TPDebug.error('submit', 'AJAX error:', { xhr, status, error });
+                    TPDebug.error('submit', 'Response text:', xhr.responseText);
+                    TPDebug.log('submit', '=== SUBMIT CREATE LINK END (ERROR) ===');
                     this.handleError(xhr, status, error);
                 }.bind(this),
                 complete: function() {
-                    console.log('AJAX request complete');
+                    TPDebug.log('submit', 'AJAX request complete');
                     this.setLoadingState(false);
                 }.bind(this)
             });
@@ -495,11 +557,11 @@
          * Submit update link request
          */
         submitUpdate: function() {
-            console.log('TP Update: submitUpdate called');
-            console.log('TP Update: currentRecord:', this.currentRecord);
+            TPDebug.log('update', 'TP Update: submitUpdate called');
+            TPDebug.log('update', 'TP Update: currentRecord:', this.currentRecord);
 
             if (!this.currentRecord || !this.currentRecord.mid) {
-                console.error('TP Update: No current record or mid', this.currentRecord);
+                TPDebug.error('update', 'TP Update: No current record or mid', this.currentRecord);
                 this.showSnackbar('No link to update.', 'error');
                 return;
             }
@@ -507,7 +569,7 @@
             const newDestination = this.$destinationInput.val().trim();
 
             if (!newDestination) {
-                console.error('TP Update: Empty destination');
+                TPDebug.error('update', 'TP Update: Empty destination');
                 this.showSnackbar('Please enter a destination URL.', 'error');
                 return;
             }
@@ -520,15 +582,15 @@
             }
 
             if (!tpKey) {
-                console.error('TP Update: No key found', this.currentRecord);
+                TPDebug.error('update', 'TP Update: No key found', this.currentRecord);
                 this.showSnackbar('Unable to find link key.', 'error');
                 return;
             }
 
-            console.log('TP Update: currentRecord.mid:', this.currentRecord.mid);
-            console.log('TP Update: currentRecord.domain:', this.currentRecord.domain);
-            console.log('TP Update: tpKey:', tpKey);
-            console.log('TP Update: All currentRecord keys:', Object.keys(this.currentRecord));
+            TPDebug.log('update', 'TP Update: currentRecord.mid:', this.currentRecord.mid);
+            TPDebug.log('update', 'TP Update: currentRecord.domain:', this.currentRecord.domain);
+            TPDebug.log('update', 'TP Update: tpKey:', tpKey);
+            TPDebug.log('update', 'TP Update: All currentRecord keys:', Object.keys(this.currentRecord));
 
             // Store old values to detect changes
             const oldDestination = this.currentRecord.destination;
@@ -543,9 +605,9 @@
                 tpKey: tpKey
             };
 
-            console.log('TP Update: Sending request with data:', updateData);
-            console.log('TP Update: Data as JSON:', JSON.stringify(updateData, null, 2));
-            console.log('TP Update: tpKey value type:', typeof tpKey, 'value:', tpKey);
+            TPDebug.log('update', 'TP Update: Sending request with data:', updateData);
+            TPDebug.log('update', 'TP Update: Data as JSON:', JSON.stringify(updateData, null, 2));
+            TPDebug.log('update', 'TP Update: tpKey value type:', typeof tpKey, 'value:', tpKey);
 
             // Show loading state (spinner + disable button)
             this.setLoadingState(true);
@@ -557,10 +619,10 @@
                 type: 'POST',
                 data: updateData,
                 beforeSend: function(xhr, settings) {
-                    console.log('TP Update: AJAX beforeSend - data being sent:', settings.data);
+                    TPDebug.log('update', 'TP Update: AJAX beforeSend - data being sent:', settings.data);
                 },
                 success: function(response) {
-                    console.log('TP Update: Success response:', response);
+                    TPDebug.log('update', 'TP Update: Success response:', response);
 
                     if (response.success) {
                         self.showSnackbar('Link updated successfully!', 'success');
@@ -571,13 +633,13 @@
 
                         // Check if destination changed - regenerate screenshot (if enabled)
                         if (oldDestination !== newDestination && tpAjax.enableScreenshot) {
-                            console.log('TP Update: Destination changed, regenerating screenshot');
+                            TPDebug.log('update', 'TP Update: Destination changed, regenerating screenshot');
                             self.captureScreenshot(newDestination);
                         }
 
                         // Check if tpKey changed - update short URL and regenerate QR code (if enabled)
                         if (oldTpKey !== tpKey) {
-                            console.log('TP Update: Key changed, updating short URL and QR code');
+                            TPDebug.log('update', 'TP Update: Key changed, updating short URL and QR code');
                             const newShortUrl = 'https://' + self.currentRecord.domain + '/' + tpKey;
                             self.$shortUrlOutput.attr('href', newShortUrl).text(newShortUrl);
                             if (tpAjax.enableQRCode) {
@@ -585,20 +647,20 @@
                             }
                         }
                     } else {
-                        console.error('TP Update: Server returned success=false', response);
+                        TPDebug.error('update', 'TP Update: Server returned success=false', response);
                         const errorMsg = response.data ? response.data.message : 'Failed to update link.';
                         const debugInfo = response.data ? JSON.stringify(response.data, null, 2) : '';
-                        console.error('TP Update: Debug info:', debugInfo);
+                        TPDebug.error('update', 'TP Update: Debug info:', debugInfo);
                         self.showSnackbar(errorMsg, 'error');
                         // Show debug info in console
                         if (response.data && response.data.debug) {
-                            console.error('TP Update: Debug details:', response.data.debug);
+                            TPDebug.error('update', 'TP Update: Debug details:', response.data.debug);
                         }
                     }
                 },
                 error: function(xhr, status, error) {
-                    console.error('TP Update: AJAX error', {xhr: xhr, status: status, error: error});
-                    console.error('TP Update: Response text:', xhr.responseText);
+                    TPDebug.error('update', 'TP Update: AJAX error', {xhr: xhr, status: status, error: error});
+                    TPDebug.error('update', 'TP Update: Response text:', xhr.responseText);
 
                     let errorMessage = 'An error occurred while updating the link.';
                     try {
@@ -606,9 +668,9 @@
                         if (errorData && errorData.data && errorData.data.message) {
                             errorMessage = errorData.data.message;
                         }
-                        console.error('TP Update: Parsed error data:', errorData);
+                        TPDebug.error('update', 'TP Update: Parsed error data:', errorData);
                     } catch(e) {
-                        console.error('TP Update: Could not parse error response');
+                        TPDebug.error('update', 'TP Update: Could not parse error response');
                     }
 
                     self.showSnackbar(errorMessage, 'error');
@@ -701,7 +763,7 @@
          * Handle error response
          */
         handleError: function(xhr, status, error) {
-            console.error('AJAX Error:', error);
+            TPDebug.error('submit', 'AJAX Error:', error);
             this.showError(tpAjax.strings.error);
         },
 
@@ -768,33 +830,33 @@
          * Handle paste button click
          */
         handlePasteClick: async function() {
-            console.log('[PASTE DEBUG] handlePasteClick called');
+            TPDebug.log('clipboard', '[PASTE DEBUG] handlePasteClick called');
             try {
-                console.log('[PASTE DEBUG] Attempting to read clipboard...');
+                TPDebug.log('clipboard', '[PASTE DEBUG] Attempting to read clipboard...');
                 const text = await navigator.clipboard.readText();
-                console.log('[PASTE DEBUG] Clipboard read successful, text:', text);
+                TPDebug.log('clipboard', '[PASTE DEBUG] Clipboard read successful, text:', text);
 
                 if (!text || text.trim() === '') {
-                    console.log('[PASTE DEBUG] Clipboard is empty');
+                    TPDebug.log('clipboard', '[PASTE DEBUG] Clipboard is empty');
                     this.showError('Clipboard is empty');
                     return;
                 }
 
-                console.log('[PASTE DEBUG] Setting input value to:', text.trim());
+                TPDebug.log('clipboard', '[PASTE DEBUG] Setting input value to:', text.trim());
                 this.$destinationInput.val(text.trim());
 
-                console.log('[PASTE DEBUG] Calling processUrl with:', text.trim());
+                TPDebug.log('clipboard', '[PASTE DEBUG] Calling processUrl with:', text.trim());
                 this.processUrl(text.trim());
-                console.log('[PASTE DEBUG] processUrl completed');
+                TPDebug.log('clipboard', '[PASTE DEBUG] processUrl completed');
 
             } catch (err) {
-                console.log('[PASTE DEBUG] Clipboard read failed with error:', err);
+                TPDebug.log('clipboard', '[PASTE DEBUG] Clipboard read failed with error:', err);
                 if (err.name === 'NotAllowedError') {
                     this.showError('Clipboard permission denied. Please allow clipboard access or paste manually.');
                 } else {
                     this.showError('Unable to read clipboard. Please paste manually (Ctrl+V or Cmd+V).');
                 }
-                console.warn('Clipboard read failed:', err);
+                TPDebug.warn('clipboard', 'Clipboard read failed:', err);
             }
         },
 
@@ -813,7 +875,7 @@
 
             // If URL is valid, fetch AI suggestion; otherwise generate random
             if (this.isValid && destination) {
-                console.log('Current suggestion candidates before click:', this.suggestionCandidates);
+                TPDebug.log('suggestion', 'Current suggestion candidates before click:', this.suggestionCandidates);
                 // If we already have candidates, just cycle without showing loading
                 if (this.suggestionCandidates.length > 0) {
                     this.cycleSuggestion();
@@ -830,25 +892,25 @@
          * Fetch AI-powered shortcode suggestion from backend
          */
         fetchShortcodeSuggestion: async function(destination) {
-            console.log('=== FETCH SHORTCODE SUGGESTION START ===');
-            console.log('Destination URL:', destination);
+            TPDebug.log('suggestion', '=== FETCH SHORTCODE SUGGESTION START ===');
+            TPDebug.log('suggestion', 'Destination URL:', destination);
 
             const self = this;
 
             // Check if custom key input exists
             if (!this.$customKeyInput || !this.$customKeyInput.length) {
-                console.log('ERROR: Custom key input element not found');
-                console.log('=== FETCH SHORTCODE SUGGESTION END ===');
+                TPDebug.log('suggestion', 'ERROR: Custom key input element not found');
+                TPDebug.log('suggestion', '=== FETCH SHORTCODE SUGGESTION END ===');
                 return;
             }
 
             const currentValue = this.$customKeyInput.val().trim();
-            console.log('Current custom key value (will be replaced):', currentValue);
-            console.log('Proceeding with suggestion fetch...');
+            TPDebug.log('suggestion', 'Current custom key value (will be replaced):', currentValue);
+            TPDebug.log('suggestion', 'Proceeding with suggestion fetch...');
 
             // Show loading state in custom key input
             const originalPlaceholder = this.$customKeyInput.attr('placeholder');
-            console.log('Original placeholder:', originalPlaceholder);
+            TPDebug.log('suggestion', 'Original placeholder:', originalPlaceholder);
 
             // Clear the input first so placeholder is visible
             this.$customKeyInput.val('');
@@ -858,11 +920,11 @@
             // Disable submit button while generating suggestion
             this.$submitBtn.prop('disabled', true);
             this.$submitBtn.addClass('disabled');
-            console.log('Submit button disabled while generating suggestion');
+            TPDebug.log('suggestion', 'Submit button disabled while generating suggestion');
 
             try {
                 // Send AJAX request for FAST suggestion only
-                console.log('Sending FAST suggestion request to:', tpAjax.ajaxUrl);
+                TPDebug.log('suggestion', 'Sending FAST suggestion request to:', tpAjax.ajaxUrl);
                 const response = await $.ajax({
                     url: tpAjax.ajaxUrl,
                     type: 'POST',
@@ -873,7 +935,7 @@
                     }
                 });
 
-                console.log('FAST suggestion response:', response);
+                TPDebug.log('suggestion', 'FAST suggestion response:', response);
 
                 if (response.success && response.data && response.data.shortcode) {
                     // Take up to 5 candidates (including primary shortcode)
@@ -886,18 +948,18 @@
                     this.suggestionIndex = 0;
                     this.suggestionSourceUrl = destination;
                     this.$customKeyInput.val(this.suggestionCandidates[this.suggestionIndex]);
-                    console.log('Stored suggestion candidates:', this.suggestionCandidates);
+                    TPDebug.log('suggestion', 'Stored suggestion candidates:', this.suggestionCandidates);
 
                     // Kick off SMART request in the background to enrich the cycle
                     this.fetchSmartSuggestions(destination, this.suggestionIndex);
                 } else {
-                    console.log('FAST suggestion failed, leaving custom key unchanged');
+                    TPDebug.log('suggestion', 'FAST suggestion failed, leaving custom key unchanged');
                     this.suggestionCandidates = [];
                     this.suggestionIndex = -1;
                     this.suggestionSourceUrl = destination;
                 }
             } catch (xhr) {
-                console.error('FAST suggestion AJAX error:', xhr);
+                TPDebug.error('suggestion', 'FAST suggestion AJAX error:', xhr);
                 this.suggestionCandidates = [];
                 this.suggestionIndex = -1;
                 this.suggestionSourceUrl = destination;
@@ -909,9 +971,9 @@
                 // Re-enable submit button after suggestion is complete
                 self.$submitBtn.prop('disabled', false);
                 self.$submitBtn.removeClass('disabled');
-                console.log('Submit button re-enabled after suggestion complete');
+                TPDebug.log('suggestion', 'Submit button re-enabled after suggestion complete');
 
-                console.log('=== FETCH SHORTCODE SUGGESTION END ===');
+                TPDebug.log('suggestion', '=== FETCH SHORTCODE SUGGESTION END ===');
             }
         },
 
@@ -934,7 +996,7 @@
                     destination: destination
                 },
                 success: function(response) {
-                    console.log('SMART suggestion response:', response);
+                    TPDebug.log('suggestion', 'SMART suggestion response:', response);
 
                     if (!(response && response.success && response.data && response.data.shortcode)) {
                         return;
@@ -958,10 +1020,10 @@
                     // Insert right after the current index snapshot (so they appear next in cycle)
                     const insertPos = Math.min((currentIndexSnapshot || 0) + 1, self.suggestionCandidates.length);
                     self.suggestionCandidates.splice(insertPos, 0, ...smartCandidates);
-                    console.log('Inserted SMART candidates at', insertPos, 'Updated list:', self.suggestionCandidates);
+                    TPDebug.log('suggestion', 'Inserted SMART candidates at', insertPos, 'Updated list:', self.suggestionCandidates);
                 },
                 error: function(xhr, status, error) {
-                    console.error('SMART suggestion AJAX error', { status, error, xhr });
+                    TPDebug.error('suggestion', 'SMART suggestion AJAX error', { status, error, xhr });
                 }
             });
         },
@@ -978,7 +1040,7 @@
             this.suggestionIndex = (this.suggestionIndex + 1) % this.suggestionCandidates.length;
             const next = this.suggestionCandidates[this.suggestionIndex];
             this.$customKeyInput.val(next);
-            console.log('Cycled suggestion to index', this.suggestionIndex, 'value:', next);
+            TPDebug.log('suggestion', 'Cycled suggestion to index', this.suggestionIndex, 'value:', next);
         },
 
         /**
@@ -1027,7 +1089,7 @@
          * Shared validation logic used by typing, paste, and blur events
          */
         processUrl: function(value) {
-            console.log('[PASTE DEBUG] processUrl called with:', value);
+            TPDebug.log('process', '[PASTE DEBUG] processUrl called with:', value);
 
             // Remove invalid characters
             const cleaned = value.replace(this.config.invalidChars, '');
@@ -1072,9 +1134,9 @@
 
             // Trigger online validation if URLValidator is available and URL has valid domain structure
             if (this.urlValidator && this.debouncedValidate && value.trim().length > 0 && hasDomainStructure) {
-                console.log('Triggering URL validation for:', value.trim());
-                console.log('URLValidator exists:', !!this.urlValidator);
-                console.log('debouncedValidate exists:', !!this.debouncedValidate);
+                TPDebug.log('validation', 'Triggering URL validation for:', value.trim());
+                TPDebug.log('validation', 'URLValidator exists:', !!this.urlValidator);
+                TPDebug.log('validation', 'debouncedValidate exists:', !!this.debouncedValidate);
 
                 // Show validating message
                 if (this.$validationMessage) {
@@ -1090,17 +1152,17 @@
 
                 // Note: We pass null for the message element because we handle
                 // the styling ourselves in handleValidationResult
-                console.log('Calling debouncedValidate...');
+                TPDebug.log('validation', 'Calling debouncedValidate...');
                 this.debouncedValidate(
                     value.trim(),
                     null,  // Don't let URLValidator apply styles directly
                     null   // Don't let URLValidator apply message directly
                 );
             } else {
-                console.log('Skipping validation - urlValidator:', !!this.urlValidator, 'debouncedValidate:', !!this.debouncedValidate, 'valueLength:', value.trim().length, 'hasDomainStructure:', hasDomainStructure);
+                TPDebug.log('validation', 'Skipping validation - urlValidator:', !!this.urlValidator, 'debouncedValidate:', !!this.debouncedValidate, 'valueLength:', value.trim().length, 'hasDomainStructure:', hasDomainStructure);
             }
 
-            console.log('[PASTE DEBUG] processUrl completed');
+            TPDebug.log('process', '[PASTE DEBUG] processUrl completed');
         },
 
         /**
@@ -1411,7 +1473,7 @@
                     this.showQRSection();
                 }.bind(this), 100);
             } catch (e) {
-                console.error('QR Code generation failed:', e);
+                TPDebug.error('qr', 'QR Code generation failed:', e);
             }
         },
 
@@ -1419,14 +1481,14 @@
          * Capture screenshot of destination URL
          */
         captureScreenshot: function(url) {
-            console.log('TP Link Shortener: Capturing screenshot for:', url);
+            TPDebug.log('screenshot', 'TP Link Shortener: Capturing screenshot for:', url);
 
             // Find the screenshot preview element
             const $screenshotPreview = $('.tp-screenshot-preview');
             const $screenshotImg = $screenshotPreview.find('.tp-screenshot-img');
 
             if (!$screenshotImg.length) {
-                console.warn('TP Link Shortener: Screenshot preview element not found');
+                TPDebug.warn('screenshot', 'TP Link Shortener: Screenshot preview element not found');
                 return;
             }
 
@@ -1443,7 +1505,7 @@
                     url: url
                 },
                 success: function(response) {
-                    console.log('TP Link Shortener: Screenshot capture response:', response);
+                    TPDebug.log('screenshot', 'TP Link Shortener: Screenshot capture response:', response);
 
                     if (response.success && response.data && response.data.data_uri) {
                         // Update the image src with the data URI
@@ -1458,19 +1520,19 @@
 
                         // Log additional info
                         if (response.data.cached) {
-                            console.log('TP Link Shortener: Screenshot loaded from cache');
+                            TPDebug.log('screenshot', 'TP Link Shortener: Screenshot loaded from cache');
                         }
                         if (response.data.response_time_ms) {
-                            console.log('TP Link Shortener: Screenshot response time:', response.data.response_time_ms + 'ms');
+                            TPDebug.log('screenshot', 'TP Link Shortener: Screenshot response time:', response.data.response_time_ms + 'ms');
                         }
                     } else {
-                        console.error('TP Link Shortener: Screenshot capture failed:', response.data ? response.data.message : 'Unknown error');
+                        TPDebug.error('screenshot', 'TP Link Shortener: Screenshot capture failed:', response.data ? response.data.message : 'Unknown error');
                         // Keep spinner on error - no fallback image
                         $screenshotPreview.addClass('tp-screenshot-error');
                     }
                 },
                 error: function(xhr, status, error) {
-                    console.error('TP Link Shortener: Screenshot AJAX error:', error);
+                    TPDebug.error('screenshot', 'TP Link Shortener: Screenshot AJAX error:', error);
                     // Keep spinner on error - no fallback image
                     $screenshotPreview.addClass('tp-screenshot-error');
                 },
@@ -1492,7 +1554,7 @@
                 navigator.clipboard.writeText(shortUrl).then(function() {
                     // Success - show feedback
                 }.bind(this)).catch(function(err) {
-                    console.error('Failed to copy:', err);
+                    TPDebug.error('clipboard', 'Failed to copy:', err);
                 });
             } else {
                 // Fallback: create temporary input, select and copy
@@ -1781,33 +1843,33 @@
          * Wait for fingerprint to be ready, then search
          */
         waitForFingerprintThenSearch: async function() {
-            console.log('=== WAIT FOR FINGERPRINT THEN SEARCH START ===');
-            console.log('fpPromise exists:', !!this.fpPromise);
+            TPDebug.log('search', '=== WAIT FOR FINGERPRINT THEN SEARCH START ===');
+            TPDebug.log('search', 'fpPromise exists:', !!this.fpPromise);
 
             try {
                 // Wait for fingerprint to be ready
                 if (!this.fpPromise) {
-                    console.warn('FingerprintJS not initialized, cannot search');
-                    console.log('=== WAIT FOR FINGERPRINT THEN SEARCH END (NOT INITIALIZED) ===');
+                    TPDebug.warn('search', 'FingerprintJS not initialized, cannot search');
+                    TPDebug.log('search', '=== WAIT FOR FINGERPRINT THEN SEARCH END (NOT INITIALIZED) ===');
                     return;
                 }
 
-                console.log('Waiting for fingerprint to load...');
+                TPDebug.log('search', 'Waiting for fingerprint to load...');
                 const fp = await this.fpPromise;
-                console.log('FingerprintJS loaded successfully:', fp);
+                TPDebug.log('search', 'FingerprintJS loaded successfully:', fp);
 
                 // Now get the actual fingerprint
-                console.log('Getting visitor fingerprint...');
+                TPDebug.log('search', 'Getting visitor fingerprint...');
                 const result = await fp.get();
                 const fingerprint = result.visitorId;
-                console.log('Fingerprint obtained:', fingerprint);
+                TPDebug.log('search', 'Fingerprint obtained:', fingerprint);
 
                 // Now search with the fingerprint
                 this.searchByFingerprint(fingerprint);
-                console.log('=== WAIT FOR FINGERPRINT THEN SEARCH END (SUCCESS) ===');
+                TPDebug.log('search', '=== WAIT FOR FINGERPRINT THEN SEARCH END (SUCCESS) ===');
             } catch (error) {
-                console.error('Error waiting for fingerprint:', error);
-                console.log('=== WAIT FOR FINGERPRINT THEN SEARCH END (ERROR) ===');
+                TPDebug.error('search', 'Error waiting for fingerprint:', error);
+                TPDebug.log('search', '=== WAIT FOR FINGERPRINT THEN SEARCH END (ERROR) ===');
             }
         },
 
@@ -1815,23 +1877,23 @@
          * Search for user's most recent link by fingerprint
          */
         searchByFingerprint: function(fingerprint) {
-            console.log('=== SEARCH BY FINGERPRINT START ===');
+            TPDebug.log('search', '=== SEARCH BY FINGERPRINT START ===');
             const self = this;
 
-            console.log('Fingerprint provided:', fingerprint);
-            console.log('Fingerprint type:', typeof fingerprint);
-            console.log('Fingerprint length:', fingerprint ? fingerprint.length : 0);
+            TPDebug.log('search', 'Fingerprint provided:', fingerprint);
+            TPDebug.log('search', 'Fingerprint type:', typeof fingerprint);
+            TPDebug.log('search', 'Fingerprint length:', fingerprint ? fingerprint.length : 0);
 
             if (!fingerprint) {
-                console.error('ERROR: Fingerprint not provided, skipping search');
-                console.log('=== SEARCH BY FINGERPRINT END (NO FINGERPRINT) ===');
+                TPDebug.error('search', 'ERROR: Fingerprint not provided, skipping search');
+                TPDebug.log('search', '=== SEARCH BY FINGERPRINT END (NO FINGERPRINT) ===');
                 return;
             }
 
-            console.log('Preparing AJAX request');
-            console.log('AJAX URL:', tpAjax.ajaxUrl);
-            console.log('Nonce:', tpAjax.nonce);
-            console.log('Action: tp_search_by_fingerprint');
+            TPDebug.log('search', 'Preparing AJAX request');
+            TPDebug.log('search', 'AJAX URL:', tpAjax.ajaxUrl);
+            TPDebug.log('search', 'Nonce:', tpAjax.nonce);
+            TPDebug.log('search', 'Action: tp_search_by_fingerprint');
 
             $.ajax({
                 url: tpAjax.ajaxUrl,
@@ -1842,35 +1904,35 @@
                     fingerprint: fingerprint
                 },
                 beforeSend: function() {
-                    console.log('AJAX request being sent...');
+                    TPDebug.log('search', 'AJAX request being sent...');
                 },
                 success: function(response) {
-                    console.log('AJAX response received');
-                    console.log('Response:', JSON.stringify(response, null, 2));
-                    console.log('Response success:', response.success);
-                    console.log('Response has data:', !!response.data);
-                    console.log('Response has record:', response.data ? !!response.data.record : false);
+                    TPDebug.log('search', 'AJAX response received');
+                    TPDebug.log('search', 'Response:', JSON.stringify(response, null, 2));
+                    TPDebug.log('search', 'Response success:', response.success);
+                    TPDebug.log('search', 'Response has data:', !!response.data);
+                    TPDebug.log('search', 'Response has record:', response.data ? !!response.data.record : false);
 
                     if (response.success && response.data.record) {
-                        console.log('Record found, displaying existing link');
+                        TPDebug.log('search', 'Record found, displaying existing link');
                         const record = response.data.record;
-                        console.log('Record details:', JSON.stringify(record, null, 2));
+                        TPDebug.log('search', 'Record details:', JSON.stringify(record, null, 2));
                         self.displayExistingLink(record);
                     } else {
-                        console.log('No existing links found for this fingerprint');
+                        TPDebug.log('search', 'No existing links found for this fingerprint');
                         if (response.data) {
-                            console.log('Response data:', response.data);
+                            TPDebug.log('search', 'Response data:', response.data);
                         }
                     }
-                    console.log('=== SEARCH BY FINGERPRINT END (SUCCESS) ===');
+                    TPDebug.log('search', '=== SEARCH BY FINGERPRINT END (SUCCESS) ===');
                 },
                 error: function(xhr, status, error) {
-                    console.error('AJAX ERROR');
-                    console.error('Status:', status);
-                    console.error('Error:', error);
-                    console.error('XHR status:', xhr.status);
-                    console.error('Response text:', xhr.responseText);
-                    console.log('=== SEARCH BY FINGERPRINT END (ERROR) ===');
+                    TPDebug.error('search', 'AJAX ERROR');
+                    TPDebug.error('search', 'Status:', status);
+                    TPDebug.error('search', 'Error:', error);
+                    TPDebug.error('search', 'XHR status:', xhr.status);
+                    TPDebug.error('search', 'Response text:', xhr.responseText);
+                    TPDebug.log('search', '=== SEARCH BY FINGERPRINT END (ERROR) ===');
                 }
             });
         },
