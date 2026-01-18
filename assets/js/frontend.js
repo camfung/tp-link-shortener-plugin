@@ -27,9 +27,22 @@
         ],
         flags: {},
         init() {
+            this.seedDefaults();
             this.featureKeys.forEach((key) => {
                 this.flags[key] = this.readFlag(key);
             });
+        },
+        seedDefaults() {
+            try {
+                this.featureKeys.forEach((key) => {
+                    const storageKey = 'tpDebug:' + key;
+                    if (window.localStorage.getItem(storageKey) === null) {
+                        window.localStorage.setItem(storageKey, 'off');
+                    }
+                });
+            } catch (error) {
+                // localStorage may be unavailable; fail silently
+            }
         },
         readFlag(key) {
             try {

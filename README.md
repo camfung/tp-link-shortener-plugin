@@ -18,6 +18,22 @@ A WordPress plugin for creating short links using the Traffic Portal API with QR
 - **Self-Contained**: Includes bundled Traffic Portal API client (no external dependencies)
 - **Modern UI**: Clean, responsive interface with Bootstrap 5
 
+## Debug Logging Toggles
+
+Frontend logs can be toggled per feature via `localStorage` (all default to `off`):
+
+- `tpDebug:init`, `tpDebug:fingerprint`, `tpDebug:validation`, `tpDebug:submit`, `tpDebug:update`
+- `tpDebug:suggestion`, `tpDebug:clipboard`, `tpDebug:process`, `tpDebug:search`
+- `tpDebug:qr`, `tpDebug:screenshot`, `tpDebug:storage`, `tpDebug:ui`, `tpDebug:returning`
+- `tpDebug:all` enables every channel
+
+Example (enable validation + process + all):  
+```js
+localStorage.setItem('tpDebug:validation', 'true');
+localStorage.setItem('tpDebug:process', 'true');
+localStorage.setItem('tpDebug:all', 'true');
+```
+
 ## Requirements
 
 - **PHP**: 8.0 or higher
