@@ -6,6 +6,7 @@ namespace TrafficPortal;
 
 use TrafficPortal\DTO\CreateMapRequest;
 use TrafficPortal\DTO\CreateMapResponse;
+use TrafficPortal\DTO\FingerprintSearchResponse;
 use TrafficPortal\Exception\ApiException;
 use TrafficPortal\Exception\AuthenticationException;
 use TrafficPortal\Exception\ValidationException;
@@ -495,12 +496,12 @@ class TrafficPortalApiClient
      * @param string $fingerprint The browser fingerprint to search for
      * @param int $uid The user ID
      * @param string $token The user token
-     * @return array The response data with matching records
+     * @return FingerprintSearchResponse The response with matching records and usage stats
      * @throws AuthenticationException If authentication fails
      * @throws NetworkException If network error occurs
      * @throws ApiException For other API errors
      */
-    public function searchByFingerprint(string $fingerprint, int $uid, string $token): array
+    public function searchByFingerprint(string $fingerprint, int $uid, string $token): FingerprintSearchResponse
     {
         $this->log_to_file('=== API CLIENT SEARCH BY FINGERPRINT START ===');
         $url = $this->apiEndpoint . '/items/by-fingerprint/' . urlencode($fingerprint);
@@ -584,7 +585,7 @@ class TrafficPortalApiClient
         $this->log_to_file('Request completed successfully');
         $this->log_to_file('=== API CLIENT SEARCH BY FINGERPRINT END (SUCCESS) ===');
 
-        return $data;
+        return FingerprintSearchResponse::fromArray($data);
     }
 
     /**

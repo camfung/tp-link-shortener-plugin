@@ -937,27 +937,27 @@ class TP_API_Handler {
             $result = $this->client->searchByFingerprint($fingerprint, 0, '');
 
             $this->log_to_file('Step 4: API client returned result');
-            $this->log_to_file('Result: ' . json_encode($result));
+            $this->log_to_file('Result: ' . json_encode($result->toArray()));
 
-            // Check for records in the source object
-            $has_records = !empty($result['source']['records']);
-            $record_count = isset($result['source']['records']) ? count($result['source']['records']) : 0;
+            // Check for records using DTO methods
+            $has_records = $result->hasRecords();
+            $record_count = $result->getCount();
 
             $this->log_to_file('Result has source.records: ' . ($has_records ? 'yes' : 'no'));
             $this->log_to_file('Record count: ' . $record_count);
 
             if ($has_records && $record_count > 0) {
                 // Get the most recent record (first in array)
-                $latest_record = $result['source']['records'][0];
+                $latest_record = $result->getFirstRecord();
 
                 $this->log_to_file('Step 5: Found record, returning success');
-                $this->log_to_file('Record: ' . json_encode($latest_record));
+                $this->log_to_file('Record: ' . json_encode($latest_record->toArray()));
                 $this->log_to_file('=== AJAX SEARCH BY FINGERPRINT END (SUCCESS - RECORD FOUND) ===');
 
                 wp_send_json_success(array(
-                    'record' => $latest_record,
-                    'fingerprint' => $result['source']['fingerprint'],
-                    'count' => $result['source']['count']
+                    'record' => $latest_record->toArray(),
+                    'fingerprint' => $result->getFingerprint(),
+                    'count' => $result->getCount()
                 ));
             } else {
                 // No records found
