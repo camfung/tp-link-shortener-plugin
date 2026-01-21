@@ -1988,7 +1988,7 @@
             // Clear any existing timer
             this.stopExpiryCountdown();
 
-            const expiryDate = new Date(expiresAt);
+            const expiryDate = new Date(expiresAt + 'Z');
             const self = this;
 
             // Show screenshot expiry timer
