@@ -535,6 +535,59 @@ form .tp-plain-input:focus,
     justify-content: center;
 }
 
+/* Usage Stats Styles */
+.tp-usage-stats {
+    width: 100%;
+    margin-bottom: 1rem;
+}
+
+.tp-usage-stats-row {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+}
+
+.tp-usage-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.75rem 1rem;
+    background: linear-gradient(135deg, #f8faff 0%, #eef4ff 100%);
+    border-radius: 0.75rem;
+    border: 1px solid rgba(60, 122, 229, 0.15);
+    min-width: 80px;
+}
+
+.tp-usage-stat i {
+    font-size: 1.25rem;
+    color: var(--tp-primary, #3c7ae5);
+    margin-bottom: 0.25rem;
+}
+
+.tp-usage-stat-qr i {
+    color: #6c5ce7;
+}
+
+.tp-usage-stat-regular i {
+    color: #00b894;
+}
+
+.tp-usage-stat-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--tp-text, #1a2b4a);
+    line-height: 1;
+}
+
+.tp-usage-stat-label {
+    font-size: 0.7rem;
+    color: var(--tp-text-muted, #6b7c93);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 500;
+}
+
 .tp-screenshot-preview {
     display: flex;
     flex-direction: column;

@@ -754,6 +754,9 @@
                     this.captureScreenshot(destination);
                 }
 
+                // Hide usage stats for newly created links (no usage yet)
+                $('#tp-usage-stats').hide();
+
                 // Show "Try It Now" message for non-logged-in users
                 if (this.$tryItMessage && this.$tryItMessage.length) {
                     this.$tryItMessage.removeClass('d-none');
@@ -1342,6 +1345,9 @@
             this.$destinationInput.removeClass('is-valid is-invalid');
 
             this.hideResult();
+
+            // Hide usage stats when switching to create mode
+            $('#tp-usage-stats').hide();
 
             if (this.$validationMessage) {
                 this.$validationMessage.hide();
@@ -1936,6 +1942,9 @@
             // Always capture fresh screenshot from API
             this.captureScreenshot(record.destination);
 
+            // Display usage stats if available
+            this.displayUsageStats(record.usage);
+
             // If link has expiry, start countdown
             if (record.expires_at) {
                 this.startExpiryCountdown(record.expires_at);
@@ -1943,6 +1952,30 @@
 
             // Switch to update mode
             this.switchToUpdateMode();
+        },
+
+        /**
+         * Display usage statistics (QR scans and direct clicks)
+         */
+        displayUsageStats: function(usage) {
+            const $statsContainer = $('#tp-usage-stats');
+            const $qrValue = $('#tp-usage-qr');
+            const $regularValue = $('#tp-usage-regular');
+
+            if (usage && (usage.total > 0 || usage.qr > 0 || usage.regular > 0)) {
+                // Update the values
+                $qrValue.text(usage.qr || 0);
+                $regularValue.text(usage.regular || 0);
+
+                // Show the stats container
+                $statsContainer.show();
+
+                TPDebug.log('ui', 'Usage stats displayed:', usage);
+            } else {
+                // Hide if no usage data
+                $statsContainer.hide();
+                TPDebug.log('ui', 'No usage stats to display');
+            }
         },
 
         /**
