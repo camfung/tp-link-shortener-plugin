@@ -137,6 +137,7 @@ class TP_API_Handler {
         add_action('wp_ajax_tp_suggest_shortcode_fast', array($this, 'ajax_suggest_shortcode_fast'));
         add_action('wp_ajax_tp_suggest_shortcode_smart', array($this, 'ajax_suggest_shortcode_smart'));
         add_action('wp_ajax_tp_suggest_shortcode_ai', array($this, 'ajax_suggest_shortcode_ai'));
+        add_action('wp_ajax_tp_disable_link_by_fingerprint', array($this, 'ajax_disable_link_by_fingerprint'));
 
         // For non-logged-in users
         add_action('wp_ajax_nopriv_tp_create_link', array($this, 'ajax_create_link'));
@@ -149,6 +150,7 @@ class TP_API_Handler {
         add_action('wp_ajax_nopriv_tp_suggest_shortcode_fast', array($this, 'ajax_suggest_shortcode_fast'));
         add_action('wp_ajax_nopriv_tp_suggest_shortcode_smart', array($this, 'ajax_suggest_shortcode_smart'));
         add_action('wp_ajax_nopriv_tp_suggest_shortcode_ai', array($this, 'ajax_suggest_shortcode_ai'));
+        add_action('wp_ajax_nopriv_tp_disable_link_by_fingerprint', array($this, 'ajax_disable_link_by_fingerprint'));
     }
 
     /**
@@ -1204,5 +1206,76 @@ class TP_API_Handler {
             'url' => $result['url'],
             'message' => __('AI-generated shortcode suggestion', 'tp-link-shortener')
         ));
+    }
+
+    /**
+     * AJAX handler for disabling anonymous links by fingerprint
+     * This allows guests to create a new link after disabling their current one
+     */
+    public function ajax_disable_link_by_fingerprint() {
+        $this->log_to_file('=== DISABLE LINK BY FINGERPRINT REQUEST START ===');
+
+        try {
+            // Verify nonce
+            check_ajax_referer('tp_link_shortener_nonce', 'nonce');
+
+            // Get fingerprint from POST data
+            $fingerprint = isset($_POST['fingerprint']) ? sanitize_text_field($_POST['fingerprint']) : '';
+
+            $this->log_to_file('Fingerprint received: ' . $fingerprint);
+
+            if (empty($fingerprint)) {
+                $this->log_to_file('ERROR: Fingerprint is empty');
+                $this->log_to_file('=== DISABLE LINK BY FINGERPRINT REQUEST END (NO FINGERPRINT) ===');
+                wp_send_json_error(array(
+                    'message' => __('Fingerprint is required.', 'tp-link-shortener')
+                ));
+                return;
+            }
+
+            // Validate fingerprint format (32-64 hex characters)
+            if (!preg_match('/^[a-fA-F0-9]{32,64}$/', $fingerprint)) {
+                $this->log_to_file('ERROR: Invalid fingerprint format');
+                $this->log_to_file('=== DISABLE LINK BY FINGERPRINT REQUEST END (INVALID FORMAT) ===');
+                wp_send_json_error(array(
+                    'message' => __('Invalid fingerprint format. Must be 32-64 hexadecimal characters.', 'tp-link-shortener')
+                ));
+                return;
+            }
+
+            // Call API to disable the link
+            $this->log_to_file('Calling API to disable link by fingerprint');
+            $result = $this->client->disableLinkByFingerprint($fingerprint);
+
+            $this->log_to_file('API response: ' . json_encode($result));
+
+            if ($result['success']) {
+                $this->log_to_file('SUCCESS - Link disabled successfully');
+                $this->log_to_file('=== DISABLE LINK BY FINGERPRINT REQUEST END (SUCCESS) ===');
+
+                wp_send_json_success(array(
+                    'message' => __('Link disabled successfully. You can now create a new link.', 'tp-link-shortener'),
+                    'data' => $result['data'] ?? null
+                ));
+            } else {
+                $this->log_to_file('FAILURE - Failed to disable link: ' . ($result['message'] ?? 'Unknown error'));
+                $this->log_to_file('=== DISABLE LINK BY FINGERPRINT REQUEST END (FAILURE) ===');
+
+                wp_send_json_error(array(
+                    'message' => $result['message'] ?? __('Failed to disable link.', 'tp-link-shortener')
+                ));
+            }
+
+        } catch (Exception $e) {
+            $this->log_to_file('EXCEPTION: ' . get_class($e) . ' - ' . $e->getMessage());
+            $this->log_to_file('Trace: ' . $e->getTraceAsString());
+            $this->log_to_file('=== DISABLE LINK BY FINGERPRINT REQUEST END (EXCEPTION) ===');
+
+            error_log('TP Link Shortener Disable Link Error: ' . $e->getMessage());
+            wp_send_json_error(array(
+                'message' => __('Failed to disable link.', 'tp-link-shortener'),
+                'debug_error' => $e->getMessage()
+            ));
+        }
     }
 }
