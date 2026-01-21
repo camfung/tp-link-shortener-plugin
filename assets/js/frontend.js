@@ -1962,7 +1962,8 @@
             const $qrValue = $('#tp-usage-qr');
             const $regularValue = $('#tp-usage-regular');
 
-            if (usage && (usage.total > 0 || usage.qr > 0 || usage.regular > 0)) {
+            // Always show stats for returning visitors, even if values are 0
+            if (usage) {
                 // Update the values
                 $qrValue.text(usage.qr || 0);
                 $regularValue.text(usage.regular || 0);
@@ -1972,9 +1973,9 @@
 
                 TPDebug.log('ui', 'Usage stats displayed:', usage);
             } else {
-                // Hide if no usage data
+                // Hide only if no usage object at all
                 $statsContainer.hide();
-                TPDebug.log('ui', 'No usage stats to display');
+                TPDebug.log('ui', 'No usage stats object to display');
             }
         },
 
