@@ -111,6 +111,7 @@
         expiryTimer: null,
         urlValidator: null,
         debouncedValidate: null,
+        lastValidatedUrl: '', // Track last successfully validated URL to avoid redundant validations
         formMode: 'create', // 'create' or 'update'
         fpPromise: null, // FingerprintJS promise
 
@@ -354,6 +355,7 @@
             if (result.isError) {
                 TPDebug.log('validation', '🎯 [UI-CALLBACK] ❌ Showing ERROR UI for:', url);
                 this.isValid = false;
+                this.lastValidatedUrl = ''; // Clear last validated URL on error
                 this.$destinationInput.removeClass('is-valid').addClass('is-invalid');
                 // Show error message in validation message area (not main error area)
                 this.$validationMessage.html('<i class="fas fa-times-circle me-2"></i>' + result.message);
@@ -370,6 +372,7 @@
                 TPDebug.log('validation', '🎯 [UI-CALLBACK] ⚠️  Showing WARNING UI for:', url);
                 // Warnings still allow submission but show warning message
                 this.isValid = true;
+                this.lastValidatedUrl = url; // Store last validated URL to avoid redundant validations
                 this.$destinationInput.removeClass('is-invalid').addClass('is-valid');
                 // Show warning message in validation message area
                 this.$validationMessage.html('<i class="fas fa-exclamation-triangle me-2"></i>' + result.message);
@@ -394,6 +397,7 @@
             } else {
                 TPDebug.log('validation', '🎯 [UI-CALLBACK] ✅ Showing SUCCESS UI for:', url);
                 this.isValid = true;
+                this.lastValidatedUrl = url; // Store last validated URL to avoid redundant validations
                 this.$destinationInput.removeClass('is-invalid').addClass('is-valid');
                 // Show success message in validation message area
                 this.$validationMessage.html('<i class="fas fa-check-circle me-2"></i>' + result.message);
@@ -1083,6 +1087,12 @@
                 return;
             }
 
+            // Skip re-validation if URL hasn't changed and is already valid
+            if (value === this.lastValidatedUrl && this.isValid) {
+                TPDebug.log('validation', '🔵 [BLUR] Skipping validation - URL unchanged and already valid:', value);
+                return;
+            }
+
             this.processUrl(value);
         },
 
@@ -1339,6 +1349,7 @@
 
             this.currentRecord = null;
             this.isValid = false;
+            this.lastValidatedUrl = '';
             this.$submitBtn.prop('disabled', true);
         },
 
