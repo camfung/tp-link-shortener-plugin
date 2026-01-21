@@ -73,15 +73,13 @@ class TP_Shortcode {
         // Usage stats section (hidden by default, shown when returning visitor has stats)
         echo '<div class="tp-usage-stats" id="tp-usage-stats" style="display: none;">';
         echo '<div class="tp-usage-stats-row">';
-        echo '<div class="tp-usage-stat tp-usage-stat-qr">';
-        echo '<i class="fas fa-qrcode"></i>';
+        echo '<div class="tp-usage-stat">';
+        echo '<span class="tp-usage-stat-label">' . esc_html__('scanned', 'tp-link-shortener') . '</span>';
         echo '<span class="tp-usage-stat-value" id="tp-usage-qr">0</span>';
-        echo '<span class="tp-usage-stat-label">' . esc_html__('QR Scans', 'tp-link-shortener') . '</span>';
         echo '</div>';
-        echo '<div class="tp-usage-stat tp-usage-stat-regular">';
-        echo '<i class="fas fa-mouse-pointer"></i>';
+        echo '<div class="tp-usage-stat">';
+        echo '<span class="tp-usage-stat-label">' . esc_html__('clicked', 'tp-link-shortener') . '</span>';
         echo '<span class="tp-usage-stat-value" id="tp-usage-regular">0</span>';
-        echo '<span class="tp-usage-stat-label">' . esc_html__('Direct Clicks', 'tp-link-shortener') . '</span>';
         echo '</div>';
         echo '</div>';
         echo '</div>';
