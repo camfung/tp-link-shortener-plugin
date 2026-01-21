@@ -1943,6 +1943,8 @@
             this.captureScreenshot(record.destination);
 
             // Display usage stats if available
+            TPDebug.log('ui', 'Record usage data:', record.usage);
+            TPDebug.log('ui', 'Full record:', record);
             this.displayUsageStats(record.usage);
 
             // If link has expiry, start countdown
