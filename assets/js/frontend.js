@@ -1325,11 +1325,19 @@
          * Show error message
          */
         showError: function(message) {
+            var self = this;
+            clearTimeout(this.errorDismissTimer);
             this.$errorMessage
-                .html('<i class="fas fa-exclamation-circle me-2"></i>' + message)
+                .html('<i class="fas fa-exclamation-circle me-2"></i>' + message + '<button type="button" class="btn-close ms-auto" aria-label="Close"></button>')
                 .removeClass('d-none')
                 .hide()
                 .fadeIn(300);
+            this.$errorMessage.find('.btn-close').on('click', function() {
+                self.$errorMessage.fadeOut(300, function() { self.hideError(); });
+            });
+            this.errorDismissTimer = setTimeout(function() {
+                self.$errorMessage.fadeOut(300, function() { self.hideError(); });
+            }, 10000);
         },
 
         /**
