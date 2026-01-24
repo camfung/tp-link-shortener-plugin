@@ -1327,7 +1327,9 @@
         showError: function(message) {
             this.$errorMessage
                 .html('<i class="fas fa-exclamation-circle me-2"></i>' + message)
-                .removeClass('d-none');
+                .removeClass('d-none')
+                .hide()
+                .fadeIn(300);
         },
 
         /**
