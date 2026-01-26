@@ -23,12 +23,14 @@ class TP_Admin_Settings {
      * Add admin menu
      */
     public function add_admin_menu() {
-        add_options_page(
+        add_menu_page(
             __('Traffic Portal Link Shortener', 'tp-link-shortener'),
             __('Link Shortener', 'tp-link-shortener'),
             'manage_options',
             'tp-link-shortener',
-            array($this, 'render_settings_page')
+            array($this, 'render_settings_page'),
+            'dashicons-admin-links',
+            30
         );
     }
 
