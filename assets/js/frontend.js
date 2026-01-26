@@ -1022,14 +1022,6 @@
                 // Restore lightbulb icon
                 self.$suggestIcon.removeClass('fa-spinner fa-spin').addClass('fa-lightbulb');
 
-                // Only hide message if suggestion was auto-applied (input was empty)
-                // Keep message visible if suggestion is ready but not applied
-                if (self.suggestionApplied) {
-                    setTimeout(function() {
-                        self.$suggestionMessage.fadeOut(300);
-                    }, 2000);
-                }
-
                 TPDebug.log('suggestion', '=== FETCH SHORTCODE SUGGESTION END ===');
             }
         },
@@ -1093,8 +1085,6 @@
                 return;
             }
 
-            const self = this;
-
             // If current suggestion hasn't been applied yet, apply it first
             if (!this.suggestionApplied) {
                 const current = this.suggestionCandidates[this.suggestionIndex];
@@ -1113,11 +1103,6 @@
             this.$suggestionMessage.html('<i class="fa-solid fa-lightbulb me-2"></i>Keep clicking to see more suggestions');
             this.$suggestionMessage.removeClass('text-muted text-danger text-warning').addClass('text-success');
             this.$suggestionMessage.show();
-
-            // Fade out after delay
-            setTimeout(function() {
-                self.$suggestionMessage.fadeOut(300);
-            }, 3000);
         },
 
         /**
