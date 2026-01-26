@@ -161,46 +161,6 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                     <div id="tp-save-link-reminder" class="tp-save-link-reminder d-none mt-3" role="status">
                         <span id="tp-save-link-reminder-text" class="fw-semibold"><?php esc_html_e('Save the link and it never expires', 'tp-link-shortener'); ?></span>
                     </div>
-
-                    <!-- Edit Confirmation Modal -->
-                    <div id="tp-confirm-modal" class="tp-confirm-modal d-none" role="dialog" aria-modal="true" aria-labelledby="tp-confirm-modal-title">
-                        <div class="tp-confirm-modal-backdrop"></div>
-                        <div class="tp-confirm-modal-content">
-                            <div class="tp-confirm-modal-icon">
-                                <i class="fas fa-exclamation-triangle"></i>
-                            </div>
-                            <h3 id="tp-confirm-modal-title" class="tp-confirm-modal-title">
-                                <?php esc_html_e('Change your link?', 'tp-link-shortener'); ?>
-                            </h3>
-                            <p id="tp-confirm-modal-message" class="tp-confirm-modal-message">
-                                <?php esc_html_e('The current shortlink will be disabled and cannot be reused.', 'tp-link-shortener'); ?>
-                            </p>
-                            <div class="tp-confirm-modal-details d-none" id="tp-confirm-modal-details">
-                                <div class="tp-confirm-detail-row" id="tp-confirm-keyword-change">
-                                    <span class="tp-confirm-detail-label"><?php esc_html_e('Keyword:', 'tp-link-shortener'); ?></span>
-                                    <span class="tp-confirm-detail-old" id="tp-confirm-old-keyword"></span>
-                                    <i class="fas fa-arrow-right"></i>
-                                    <span class="tp-confirm-detail-new" id="tp-confirm-new-keyword"></span>
-                                </div>
-                                <div class="tp-confirm-detail-row" id="tp-confirm-destination-change">
-                                    <span class="tp-confirm-detail-label"><?php esc_html_e('Destination:', 'tp-link-shortener'); ?></span>
-                                    <span class="tp-confirm-detail-old" id="tp-confirm-old-destination"></span>
-                                    <i class="fas fa-arrow-right"></i>
-                                    <span class="tp-confirm-detail-new" id="tp-confirm-new-destination"></span>
-                                </div>
-                            </div>
-                            <div class="tp-confirm-modal-actions">
-                                <button type="button" id="tp-confirm-cancel" class="tp-btn tp-btn-cancel">
-                                    <i class="fas fa-times"></i>
-                                    <?php esc_html_e('Cancel', 'tp-link-shortener'); ?>
-                                </button>
-                                <button type="button" id="tp-confirm-proceed" class="tp-btn tp-btn-confirm">
-                                    <i class="fas fa-check"></i>
-                                    <?php esc_html_e('Confirm Change', 'tp-link-shortener'); ?>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
                 </form>
             </div>
         </div>
