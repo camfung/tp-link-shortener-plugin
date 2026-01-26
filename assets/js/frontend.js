@@ -1022,10 +1022,13 @@
                 // Restore lightbulb icon
                 self.$suggestIcon.removeClass('fa-spinner fa-spin').addClass('fa-lightbulb');
 
-                // Hide message after a delay
-                setTimeout(function() {
-                    self.$suggestionMessage.fadeOut(300);
-                }, 3000);
+                // Only hide message if suggestion was auto-applied (input was empty)
+                // Keep message visible if suggestion is ready but not applied
+                if (self.suggestionApplied) {
+                    setTimeout(function() {
+                        self.$suggestionMessage.fadeOut(300);
+                    }, 2000);
+                }
 
                 TPDebug.log('suggestion', '=== FETCH SHORTCODE SUGGESTION END ===');
             }
