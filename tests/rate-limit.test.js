@@ -145,13 +145,22 @@ describe('Rate Limit Error Handling', () => {
     it('should show regular error message for non-rate-limit errors', () => {
       const message = 'This shortcode is already taken.';
 
+      const errorHtml = `
+                <div class="d-flex align-items-start gap-2">
+                    <i class="fas fa-exclamation-circle mt-1"></i>
+                    <div class="flex-grow-1">${message}</div>
+                    <button type="button" class="btn-close ms-auto" aria-label="Close"></button>
+                </div>
+      `;
+
       // Simulate showError
       errorMessageDiv
-        .html('<i class="fas fa-exclamation-circle me-2"></i>' + message)
+        .html(errorHtml)
         .removeClass('d-none');
 
       expect(errorMessageDiv.hasClass('d-none')).toBe(false);
       expect(errorMessageDiv.html()).toContain(message);
+      expect(errorMessageDiv.html()).toContain('btn-close');
       expect(errorMessageDiv.html()).not.toContain('Unlimited short URLs');
     });
   });
