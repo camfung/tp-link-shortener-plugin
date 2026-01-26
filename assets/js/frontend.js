@@ -771,8 +771,13 @@
                     this.captureScreenshot(destination);
                 }
 
-                // Hide usage stats for newly created links (no usage yet)
-                $('#tp-usage-stats').hide();
+                // Show usage stats with 0/0 for newly created links and start polling
+                this.displayUsageStats({ qr: 0, regular: 0 });
+
+                // Start usage polling (every 5 seconds) for anonymous users
+                if (!tpAjax.isLoggedIn) {
+                    this.startUsagePolling();
+                }
 
                 // Show "Try It Now" message for non-logged-in users
                 if (this.$tryItMessage && this.$tryItMessage.length) {
@@ -1494,6 +1499,7 @@
             this.$resultSection.addClass('d-none');
             this.hideQRSection();
             this.stopExpiryCountdown();
+            this.stopUsagePolling();
             // Hide "Try It Now" message
             if (this.$tryItMessage && this.$tryItMessage.length) {
                 this.$tryItMessage.addClass('d-none');
@@ -2006,7 +2012,10 @@
             // Display usage stats if available
             TPDebug.log('ui', 'Record usage data:', record.usage);
             TPDebug.log('ui', 'Full record:', record);
-            this.displayUsageStats(record.usage);
+            this.displayUsageStats(record.usage || { qr: 0, regular: 0 });
+
+            // Start usage polling for returning visitors
+            this.startUsagePolling();
 
             // If link has expiry, start countdown
             if (record.expires_at) {
@@ -2040,6 +2049,67 @@
                 $statsContainer.hide();
                 TPDebug.log('ui', 'No usage stats object to display');
             }
+        },
+
+        /**
+         * Start polling for usage stats updates every 5 seconds
+         */
+        startUsagePolling: function() {
+            // Clear any existing polling timer
+            this.stopUsagePolling();
+
+            const self = this;
+            TPDebug.log('ui', 'Starting usage stats polling (every 5 seconds)');
+
+            this.usagePollingTimer = setInterval(async function() {
+                TPDebug.log('ui', 'Usage polling tick - fetching fingerprint...');
+
+                // Get fingerprint and search for updated stats
+                const fingerprint = await self.getFingerprint();
+                if (fingerprint) {
+                    self.pollUsageByFingerprint(fingerprint);
+                } else {
+                    TPDebug.warn('ui', 'Usage polling: could not get fingerprint');
+                }
+            }, 5000);
+        },
+
+        /**
+         * Stop usage stats polling
+         */
+        stopUsagePolling: function() {
+            if (this.usagePollingTimer) {
+                clearInterval(this.usagePollingTimer);
+                this.usagePollingTimer = null;
+                TPDebug.log('ui', 'Usage stats polling stopped');
+            }
+        },
+
+        /**
+         * Poll for usage stats by fingerprint (only updates usage, doesn't redisplay link)
+         */
+        pollUsageByFingerprint: function(fingerprint) {
+            TPDebug.log('ui', 'Polling usage for fingerprint:', fingerprint);
+            const self = this;
+
+            $.ajax({
+                url: tpAjax.ajaxUrl,
+                type: 'POST',
+                data: {
+                    action: 'tp_search_by_fingerprint',
+                    nonce: tpAjax.nonce,
+                    fingerprint: fingerprint
+                },
+                success: function(response) {
+                    TPDebug.log('ui', 'Usage poll response:', response);
+                    if (response.success && response.data.record && response.data.record.usage) {
+                        self.displayUsageStats(response.data.record.usage);
+                    }
+                },
+                error: function(xhr, status, error) {
+                    TPDebug.error('ui', 'Usage poll error:', error);
+                }
+            });
         },
 
         /**
