@@ -111,6 +111,7 @@ class TP_Assets {
             'enableQRCode' => TP_Link_Shortener::is_qr_code_enabled(),
             'enableScreenshot' => TP_Link_Shortener::is_screenshot_enabled(),
             'enableExpiryTimer' => TP_Link_Shortener::is_expiry_timer_enabled(),
+            'usagePollingInterval' => TP_Link_Shortener::get_usage_polling_interval(),
             'strings' => array(
                 'creating' => __('Creating...', 'tp-link-shortener'),
                 'success' => __('Link created successfully!', 'tp-link-shortener'),

@@ -2052,14 +2052,15 @@
         },
 
         /**
-         * Start polling for usage stats updates every 5 seconds
+         * Start polling for usage stats updates (interval configurable in admin)
          */
         startUsagePolling: function() {
             // Clear any existing polling timer
             this.stopUsagePolling();
 
             const self = this;
-            TPDebug.log('ui', 'Starting usage stats polling (every 5 seconds)');
+            const pollingInterval = tpAjax.usagePollingInterval || 5000;
+            TPDebug.log('ui', 'Starting usage stats polling (every ' + (pollingInterval / 1000) + ' seconds)');
 
             this.usagePollingTimer = setInterval(async function() {
                 TPDebug.log('ui', 'Usage polling tick - fetching fingerprint...');
@@ -2071,7 +2072,7 @@
                 } else {
                     TPDebug.warn('ui', 'Usage polling: could not get fingerprint');
                 }
-            }, 5000);
+            }, pollingInterval);
         },
 
         /**

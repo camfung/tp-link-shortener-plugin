@@ -41,6 +41,11 @@ class TP_Admin_Settings {
         register_setting('tp_link_shortener_settings', 'tp_link_shortener_enable_qr_code');
         register_setting('tp_link_shortener_settings', 'tp_link_shortener_enable_screenshot');
         register_setting('tp_link_shortener_settings', 'tp_link_shortener_enable_expiry_timer');
+        register_setting('tp_link_shortener_settings', 'tp_link_shortener_usage_polling_interval', array(
+            'type' => 'integer',
+            'default' => 5,
+            'sanitize_callback' => array($this, 'sanitize_polling_interval'),
+        ));
 
         // Add settings section
         add_settings_section(
@@ -82,6 +87,15 @@ class TP_Admin_Settings {
             'tp_link_shortener_enable_expiry_timer',
             __('Enable Expiry Timer Display', 'tp-link-shortener'),
             array($this, 'render_enable_expiry_timer_field'),
+            'tp-link-shortener',
+            'tp_link_shortener_main_section'
+        );
+
+        // Usage Polling Interval field
+        add_settings_field(
+            'tp_link_shortener_usage_polling_interval',
+            __('Usage Stats Polling Interval', 'tp-link-shortener'),
+            array($this, 'render_usage_polling_interval_field'),
             'tp-link-shortener',
             'tp_link_shortener_main_section'
         );
@@ -266,5 +280,41 @@ class TP_Admin_Settings {
             <?php esc_html_e('When enabled, anonymous users will see a countdown timer showing when their trial link will expire.', 'tp-link-shortener'); ?>
         </p>
         <?php
+    }
+
+    /**
+     * Render Usage Polling Interval field
+     */
+    public function render_usage_polling_interval_field() {
+        $value = get_option('tp_link_shortener_usage_polling_interval', 5);
+        ?>
+        <input
+            type="number"
+            name="tp_link_shortener_usage_polling_interval"
+            value="<?php echo esc_attr($value); ?>"
+            min="1"
+            max="60"
+            step="1"
+            style="width: 80px;"
+        />
+        <span><?php esc_html_e('seconds', 'tp-link-shortener'); ?></span>
+        <p class="description">
+            <?php esc_html_e('How often to poll for usage statistics updates (scanned/clicked counts). Set between 1 and 60 seconds.', 'tp-link-shortener'); ?>
+        </p>
+        <?php
+    }
+
+    /**
+     * Sanitize polling interval value
+     */
+    public function sanitize_polling_interval($value) {
+        $value = absint($value);
+        if ($value < 1) {
+            $value = 1;
+        }
+        if ($value > 60) {
+            $value = 60;
+        }
+        return $value;
     }
 }

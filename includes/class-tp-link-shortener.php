@@ -148,4 +148,12 @@ class TP_Link_Shortener {
     public static function is_expiry_timer_enabled(): bool {
         return (bool) get_option('tp_link_shortener_enable_expiry_timer', true);
     }
+
+    /**
+     * Get usage stats polling interval in milliseconds
+     */
+    public static function get_usage_polling_interval(): int {
+        $seconds = (int) get_option('tp_link_shortener_usage_polling_interval', 5);
+        return $seconds * 1000;
+    }
 }
