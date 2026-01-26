@@ -1597,8 +1597,10 @@
                     correctLevel: QRCode.CorrectLevel.H
                 });
 
-                // Show QR section with animation after QR code is generated
+                // Remove the title attribute that QRCode.js adds to the img element
+                // (it shows the URL as a tooltip which we don't want)
                 setTimeout(function() {
+                    this.$qrContainer.find('img').removeAttr('title');
                     this.showQRSection();
                 }.bind(this), 100);
             } catch (e) {
