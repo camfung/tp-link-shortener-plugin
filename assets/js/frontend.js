@@ -1093,25 +1093,31 @@
                 return;
             }
 
+            const self = this;
+
             // If current suggestion hasn't been applied yet, apply it first
             if (!this.suggestionApplied) {
                 const current = this.suggestionCandidates[this.suggestionIndex];
                 this.$customKeyInput.val(current);
                 this.suggestionApplied = true;
-                this.$suggestionMessage.hide();
                 TPDebug.log('suggestion', 'Applied pending suggestion at index', this.suggestionIndex, 'value:', current);
-                return;
+            } else {
+                // Advance index and wrap
+                this.suggestionIndex = (this.suggestionIndex + 1) % this.suggestionCandidates.length;
+                const next = this.suggestionCandidates[this.suggestionIndex];
+                this.$customKeyInput.val(next);
+                TPDebug.log('suggestion', 'Cycled suggestion to index', this.suggestionIndex, 'value:', next);
             }
 
-            // Advance index and wrap
-            this.suggestionIndex = (this.suggestionIndex + 1) % this.suggestionCandidates.length;
-            const next = this.suggestionCandidates[this.suggestionIndex];
-            this.$customKeyInput.val(next);
+            // Show hint to keep clicking for more suggestions
+            this.$suggestionMessage.html('<i class="fa-solid fa-lightbulb me-2"></i>Keep clicking to see more suggestions');
+            this.$suggestionMessage.removeClass('text-muted text-danger text-warning').addClass('text-success');
+            this.$suggestionMessage.show();
 
-            // Hide any pending suggestion message since user explicitly applied one
-            this.$suggestionMessage.hide();
-
-            TPDebug.log('suggestion', 'Cycled suggestion to index', this.suggestionIndex, 'value:', next);
+            // Fade out after delay
+            setTimeout(function() {
+                self.$suggestionMessage.fadeOut(300);
+            }, 3000);
         },
 
         /**
