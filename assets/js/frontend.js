@@ -190,6 +190,11 @@
             this.$copyBtn = $('#tp-copy-btn');
             this.$qrSection = $('#tp-qr-section');
             this.$qrContainer = $('#tp-qr-code-container');
+            this.$qrDialogOverlay = $('#tp-qr-dialog-overlay');
+            this.$qrDialogClose = $('#tp-qr-dialog-close');
+            this.$qrDownloadBtn = $('#tp-qr-download-btn');
+            this.$qrOpenBtn = $('#tp-qr-open-btn');
+            this.$qrCopyBtn = $('#tp-qr-copy-btn');
             this.$pasteBtn = $('#tp-paste-btn');
             this.$suggestBtn = $('#tp-suggest-btn');
             this.$saveLinkReminder = $('#tp-save-link-reminder');
@@ -449,7 +454,14 @@
         bindEvents: function() {
             this.$form.on('submit', this.handleSubmit.bind(this));
             this.$copyBtn.on('click', this.copyToClipboard.bind(this));
-            this.$qrContainer.on('click', this.downloadQRCode.bind(this));
+            this.$qrContainer.on('click', this.showQRDialog.bind(this));
+
+            // QR Dialog events
+            this.$qrDialogOverlay.on('click', this.handleQRDialogOverlayClick.bind(this));
+            this.$qrDialogClose.on('click', this.hideQRDialog.bind(this));
+            this.$qrDownloadBtn.on('click', this.downloadQRCode.bind(this));
+            this.$qrOpenBtn.on('click', this.openQRCode.bind(this));
+            this.$qrCopyBtn.on('click', this.copyQRCode.bind(this));
 
             // Validation events for destination input
             this.$destinationInput.on('input', this.handleInput.bind(this));
@@ -1693,6 +1705,32 @@
         },
 
         /**
+         * Show QR Code options dialog
+         */
+        showQRDialog: function() {
+            if (!this.qrCode) {
+                return;
+            }
+            this.$qrDialogOverlay.show();
+        },
+
+        /**
+         * Hide QR Code options dialog
+         */
+        hideQRDialog: function() {
+            this.$qrDialogOverlay.hide();
+        },
+
+        /**
+         * Handle click on dialog overlay (close if clicking outside dialog)
+         */
+        handleQRDialogOverlayClick: function(e) {
+            if (e.target === this.$qrDialogOverlay[0]) {
+                this.hideQRDialog();
+            }
+        },
+
+        /**
          * Download QR Code
          */
         downloadQRCode: function() {
@@ -1716,6 +1754,60 @@
                 a.click();
                 document.body.removeChild(a);
                 URL.revokeObjectURL(url);
+            });
+
+            this.hideQRDialog();
+        },
+
+        /**
+         * Open QR Code in new tab
+         */
+        openQRCode: function() {
+            if (!this.qrCode) {
+                return;
+            }
+
+            const canvas = this.$qrContainer.find('canvas')[0];
+            if (!canvas) {
+                return;
+            }
+
+            const dataUrl = canvas.toDataURL('image/png');
+            window.open(dataUrl, '_blank');
+
+            this.hideQRDialog();
+        },
+
+        /**
+         * Copy QR Code to clipboard
+         */
+        copyQRCode: function() {
+            const self = this;
+
+            if (!this.qrCode) {
+                return;
+            }
+
+            const canvas = this.$qrContainer.find('canvas')[0];
+            if (!canvas) {
+                return;
+            }
+
+            canvas.toBlob(function(blob) {
+                const item = new ClipboardItem({ 'image/png': blob });
+                navigator.clipboard.write([item]).then(function() {
+                    // Show success feedback
+                    const $btn = self.$qrCopyBtn;
+                    const originalHtml = $btn.html();
+                    $btn.html('<i class="fas fa-check"></i><span>Copied!</span>');
+                    setTimeout(function() {
+                        $btn.html(originalHtml);
+                        self.hideQRDialog();
+                    }, 1000);
+                }).catch(function(err) {
+                    TPDebug.error('qr', 'Failed to copy QR code:', err);
+                    self.hideQRDialog();
+                });
             });
         },
 

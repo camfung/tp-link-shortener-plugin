@@ -514,6 +514,110 @@ form .tp-plain-input:focus,
     height: auto;
 }
 
+/* QR Code Dialog Styles */
+.tp-qr-dialog-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    animation: tp-fade-in 0.2s ease-out;
+}
+
+@keyframes tp-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.tp-qr-dialog {
+    background: #fff;
+    border-radius: 1rem;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    min-width: 280px;
+    max-width: 90vw;
+    animation: tp-slide-up 0.2s ease-out;
+}
+
+@keyframes tp-slide-up {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.tp-qr-dialog-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.tp-qr-dialog-title {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--tp-text);
+}
+
+.tp-qr-dialog-close {
+    background: none;
+    border: none;
+    padding: 0.25rem;
+    cursor: pointer;
+    color: var(--tp-muted);
+    font-size: 1.25rem;
+    line-height: 1;
+    transition: color 0.2s;
+}
+
+.tp-qr-dialog-close:hover {
+    color: var(--tp-text);
+}
+
+.tp-qr-dialog-body {
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.tp-qr-dialog-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.875rem 1rem;
+    background: var(--tp-surface);
+    border: 1px solid #e9ecef;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    font-size: 0.9375rem;
+    color: var(--tp-text);
+    transition: all 0.2s;
+    width: 100%;
+    text-align: left;
+}
+
+.tp-qr-dialog-btn:hover {
+    background: var(--tp-primary);
+    border-color: var(--tp-primary);
+    color: #fff;
+}
+
+.tp-qr-dialog-btn i {
+    width: 1.25rem;
+    text-align: center;
+}
+
 /* Screenshot Preview Styles */
 .tp-qr-and-preview-container {
     display: grid;

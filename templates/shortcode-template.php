@@ -137,7 +137,7 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                                 <div id="tp-qr-section" class="tp-qr-section-wrapper d-none">
                                     <div id="tp-qr-and-preview-container" class="tp-qr-and-preview-container">
                                         <div id="tp-qr-card" class="tp-qr-card">
-                                            <div id="tp-qr-code-container" class="tp-qr-code-container rounded-4 d-inline-block" style="cursor: pointer;" title="<?php esc_attr_e('Click to download QR Code', 'tp-link-shortener'); ?>"></div>
+                                            <div id="tp-qr-code-container" class="tp-qr-code-container rounded-4 d-inline-block" style="cursor: pointer;" title="<?php esc_attr_e('Click for QR code options', 'tp-link-shortener'); ?>"></div>
                                         </div>
                                         <div id="tp-screenshot-card" class="tp-screenshot-card">
                                             <?php TP_Shortcode::render_screenshot_preview(); ?>
@@ -163,6 +163,32 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                         <span id="tp-save-link-reminder-text" class="fw-semibold"><?php esc_html_e('Save the link and it never expires', 'tp-link-shortener'); ?></span>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- QR Code Options Dialog -->
+    <div id="tp-qr-dialog-overlay" class="tp-qr-dialog-overlay" style="display: none;">
+        <div id="tp-qr-dialog" class="tp-qr-dialog">
+            <div class="tp-qr-dialog-header">
+                <h5 class="tp-qr-dialog-title"><?php esc_html_e('QR Code Options', 'tp-link-shortener'); ?></h5>
+                <button type="button" id="tp-qr-dialog-close" class="tp-qr-dialog-close" aria-label="<?php esc_attr_e('Close', 'tp-link-shortener'); ?>">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="tp-qr-dialog-body">
+                <button type="button" id="tp-qr-download-btn" class="tp-qr-dialog-btn">
+                    <i class="fas fa-download"></i>
+                    <span><?php esc_html_e('Download', 'tp-link-shortener'); ?></span>
+                </button>
+                <button type="button" id="tp-qr-open-btn" class="tp-qr-dialog-btn">
+                    <i class="fas fa-external-link-alt"></i>
+                    <span><?php esc_html_e('Open in New Tab', 'tp-link-shortener'); ?></span>
+                </button>
+                <button type="button" id="tp-qr-copy-btn" class="tp-qr-dialog-btn">
+                    <i class="fas fa-copy"></i>
+                    <span><?php esc_html_e('Copy to Clipboard', 'tp-link-shortener'); ?></span>
+                </button>
             </div>
         </div>
     </div>
