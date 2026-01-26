@@ -199,6 +199,7 @@
             // Update mode elements
             this.$submitText = $('#tp-submit-text');
             this.$submitIcon = $('#tp-submit-icon');
+
         },
 
         /**
@@ -572,6 +573,7 @@
 
         /**
          * Submit update link request
+         * For anonymous users, disable old link and create new without prompting
          */
         submitUpdate: function() {
             TPDebug.log('update', 'TP Update: submitUpdate called');
@@ -613,6 +615,33 @@
             const oldDestination = this.currentRecord.destination;
             const oldTpKey = this.currentRecord.tpKey || this.currentRecord.key;
 
+            // Check if anything actually changed
+            const keywordChanged = oldTpKey !== tpKey;
+            const destinationChanged = oldDestination !== newDestination;
+
+            // If nothing changed, just show a message and return
+            if (!keywordChanged && !destinationChanged) {
+                TPDebug.log('update', 'TP Update: No changes detected');
+                this.showSnackbar('No changes to save.', 'info');
+                return;
+            }
+
+            // For anonymous users (not logged in), disable the old link and create a new one without prompting
+            if (!tpAjax.isLoggedIn) {
+                TPDebug.log('update', 'TP Update: Anonymous user - disabling old link and creating new without confirmation');
+                this.processAnonymousUpdate(newDestination, tpKey, oldDestination, oldTpKey);
+                return;
+            }
+
+            // For logged-in users, proceed with direct update (existing behavior)
+            this.executeUpdate(newDestination, tpKey, oldDestination, oldTpKey);
+        },
+
+        /**
+         * Execute the actual update request
+         * This is called directly for logged-in users
+         */
+        executeUpdate: function(newDestination, tpKey, oldDestination, oldTpKey) {
             const updateData = {
                 action: 'tp_update_link',
                 nonce: tpAjax.nonce,
@@ -2043,6 +2072,165 @@
                 this.expiryTimer = null;
             }
             $('#tp-screenshot-expiry-timer').hide();
+        },
+
+        // ========================================
+        // Anonymous Update Flow (no UI modal)
+        // ========================================
+
+        /**
+         * For anonymous users, disable the existing link and create a new one without showing a modal
+         */
+        processAnonymousUpdate: function(newDestination, newTpKey, oldDestination, oldTpKey) {
+            const self = this;
+
+            this.setLoadingState(true);
+            this.showSnackbar('Updating your link...', 'info', 2000);
+
+            this.getFingerprint().then(function(fingerprint) {
+                if (!fingerprint) {
+                    TPDebug.error('update', 'Could not get fingerprint');
+                    self.setLoadingState(false);
+                    self.showSnackbar('Error: Could not verify your identity.', 'error');
+                    return;
+                }
+
+                TPDebug.log('update', 'Disabling link by fingerprint:', fingerprint);
+
+                // Step 1: Disable the old link
+                $.ajax({
+                    url: tpAjax.ajaxUrl,
+                    type: 'POST',
+                    data: {
+                        action: 'tp_disable_link_by_fingerprint',
+                        nonce: tpAjax.nonce,
+                        fingerprint: fingerprint
+                    },
+                    success: function(response) {
+                        TPDebug.log('update', 'Disable link response:', response);
+
+                        if (response.success) {
+                            TPDebug.log('update', 'Old link disabled successfully');
+                            self.showSnackbar('Old link disabled. Creating new link...', 'info', 2000);
+
+                            // Step 2: Create a new link with the new values
+                            self.createNewLinkAfterDisable(
+                                newDestination,
+                                newTpKey,
+                                fingerprint
+                            );
+                        } else {
+                            TPDebug.error('update', 'Failed to disable old link:', response);
+                            self.setLoadingState(false);
+                            self.showSnackbar(response.data && response.data.message ? response.data.message : 'Failed to disable old link.', 'error');
+                            // Revert inputs to previous values for clarity
+                            self.$destinationInput.val(oldDestination);
+                            self.$customKeyInput.val(oldTpKey);
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        TPDebug.error('update', 'AJAX error disabling link:', { xhr, status, error });
+                        self.setLoadingState(false);
+                        self.showSnackbar('Error disabling old link. Please try again.', 'error');
+                        self.$destinationInput.val(oldDestination);
+                        self.$customKeyInput.val(oldTpKey);
+                    }
+                });
+            }).catch(function(err) {
+                TPDebug.error('update', 'Error getting fingerprint:', err);
+                self.setLoadingState(false);
+                self.showSnackbar('Error: Could not verify your identity.', 'error');
+                self.$destinationInput.val(oldDestination);
+                self.$customKeyInput.val(oldTpKey);
+            });
+        },
+
+        /**
+         * Create a new link after disabling the old one
+         */
+        createNewLinkAfterDisable: function(destination, customKey, fingerprint) {
+            TPDebug.log('modal', 'Creating new link:', { destination, customKey, fingerprint });
+
+            const self = this;
+
+            $.ajax({
+                url: tpAjax.ajaxUrl,
+                type: 'POST',
+                data: {
+                    action: 'tp_create_link',
+                    nonce: tpAjax.nonce,
+                    destination: destination,
+                    custom_key: customKey,
+                    uid: -1, // Anonymous user
+                    fingerprint: fingerprint
+                },
+                success: function(response) {
+                    TPDebug.log('modal', 'Create new link response:', response);
+
+                    self.setLoadingState(false);
+
+                    if (response.success) {
+                        TPDebug.log('modal', 'New link created successfully');
+                        self.showSnackbar('New link created successfully!', 'success');
+
+                        // Handle success - update UI with new link data
+                        self.handleCreateSuccess(response);
+                    } else {
+                        TPDebug.error('modal', 'Failed to create new link:', response);
+                        const errorMsg = response.data ? response.data.message : 'Failed to create new link.';
+                        self.showSnackbar(errorMsg, 'error');
+
+                        // Revert to create mode since old link is disabled but new one failed
+                        self.switchToCreateMode();
+                    }
+                },
+                error: function(xhr, status, error) {
+                    TPDebug.error('modal', 'AJAX error creating new link:', { xhr, status, error });
+                    self.setLoadingState(false);
+                    self.showSnackbar('Error creating new link. Please try again.', 'error');
+
+                    // Revert to create mode since old link is disabled but new one failed
+                    self.switchToCreateMode();
+                }
+            });
+        },
+
+        /**
+         * Get browser fingerprint (async)
+         * Returns a promise that resolves with the fingerprint string
+         */
+        getFingerprint: function() {
+            const self = this;
+
+            return new Promise(function(resolve, reject) {
+                // Check if we already have a fingerprint stored
+                if (self.currentFingerprint) {
+                    resolve(self.currentFingerprint);
+                    return;
+                }
+
+                // Check if FingerprintJS is available
+                if (typeof FingerprintJS === 'undefined') {
+                    TPDebug.warn('modal', 'FingerprintJS not available, using fallback');
+                    // Generate a simple fallback fingerprint
+                    const fallback = 'fp_' + Date.now() + '_' + Math.random().toString(36).substring(2, 15);
+                    resolve(fallback);
+                    return;
+                }
+
+                // Use FingerprintJS to get the fingerprint
+                FingerprintJS.load().then(function(fp) {
+                    return fp.get();
+                }).then(function(result) {
+                    self.currentFingerprint = result.visitorId;
+                    resolve(result.visitorId);
+                }).catch(function(err) {
+                    TPDebug.error('modal', 'FingerprintJS error:', err);
+                    // Generate a fallback fingerprint
+                    const fallback = 'fp_' + Date.now() + '_' + Math.random().toString(36).substring(2, 15);
+                    resolve(fallback);
+                });
+            });
         }
     };
 
