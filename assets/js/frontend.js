@@ -144,6 +144,7 @@
             this.suggestionCandidates = [];
             this.suggestionIndex = -1;
             this.suggestionSourceUrl = '';
+            this.suggestionApplied = false;
 
             this.cacheElements();
             TPDebug.log('init', 'DOM elements cached');
@@ -195,6 +196,8 @@
 
             // Get validation message element (now exists in template)
             this.$validationMessage = $('#tp-url-validation-message');
+            this.$suggestionMessage = $('#tp-suggestion-message');
+            this.$suggestIcon = $('#tp-suggest-icon');
             this.$tryItMessage = $('#tp-try-it-message');
 
             // Update mode elements
@@ -913,6 +916,7 @@
                 this.suggestionCandidates = [];
                 this.suggestionIndex = -1;
                 this.suggestionSourceUrl = destination;
+                this.suggestionApplied = false;
             }
 
             // If URL is valid, fetch AI suggestion; otherwise generate random
@@ -947,22 +951,15 @@
             }
 
             const currentValue = this.$customKeyInput.val().trim();
-            TPDebug.log('suggestion', 'Current custom key value (will be replaced):', currentValue);
+            TPDebug.log('suggestion', 'Current custom key value:', currentValue);
             TPDebug.log('suggestion', 'Proceeding with suggestion fetch...');
 
-            // Show loading state in custom key input
-            const originalPlaceholder = this.$customKeyInput.attr('placeholder');
-            TPDebug.log('suggestion', 'Original placeholder:', originalPlaceholder);
-
-            // Clear the input first so placeholder is visible
-            this.$customKeyInput.val('');
-            this.$customKeyInput.attr('placeholder', 'Generating suggestion...');
-            this.$customKeyInput.prop('disabled', true);
-
-            // Disable submit button while generating suggestion
-            this.$submitBtn.prop('disabled', true);
-            this.$submitBtn.addClass('disabled');
-            TPDebug.log('suggestion', 'Submit button disabled while generating suggestion');
+            // Show loading state with spinning icon and message (non-blocking)
+            this.$suggestIcon.removeClass('fa-lightbulb').addClass('fa-spinner fa-spin');
+            this.$suggestionMessage.html('<i class="fa-solid fa-spinner fa-spin me-2"></i>Generating suggestion...');
+            this.$suggestionMessage.removeClass('text-success text-danger text-warning').addClass('text-muted');
+            this.$suggestionMessage.show();
+            TPDebug.log('suggestion', 'Showing suggestion loading message (non-blocking)');
 
             try {
                 // Send AJAX request for FAST suggestion only
@@ -989,8 +986,22 @@
                     this.suggestionCandidates = candidates.length ? candidates : [primary];
                     this.suggestionIndex = 0;
                     this.suggestionSourceUrl = destination;
-                    this.$customKeyInput.val(this.suggestionCandidates[this.suggestionIndex]);
                     TPDebug.log('suggestion', 'Stored suggestion candidates:', this.suggestionCandidates);
+
+                    // Only populate input if it's empty
+                    const inputValue = this.$customKeyInput.val().trim();
+                    if (!inputValue) {
+                        this.$customKeyInput.val(this.suggestionCandidates[this.suggestionIndex]);
+                        this.suggestionApplied = true;
+                        this.$suggestionMessage.html('<i class="fa-solid fa-check-circle me-2"></i>Suggestion applied');
+                        this.$suggestionMessage.removeClass('text-muted text-danger text-warning').addClass('text-success');
+                        TPDebug.log('suggestion', 'Input was empty, applied suggestion:', this.suggestionCandidates[this.suggestionIndex]);
+                    } else {
+                        this.suggestionApplied = false;
+                        this.$suggestionMessage.html('<i class="fa-solid fa-lightbulb me-2"></i>Suggestion ready - click lightbulb to apply');
+                        this.$suggestionMessage.removeClass('text-muted text-danger text-warning').addClass('text-success');
+                        TPDebug.log('suggestion', 'Input has value, suggestion ready but not applied');
+                    }
 
                     // Kick off SMART request in the background to enrich the cycle
                     this.fetchSmartSuggestions(destination, this.suggestionIndex);
@@ -999,21 +1010,22 @@
                     this.suggestionCandidates = [];
                     this.suggestionIndex = -1;
                     this.suggestionSourceUrl = destination;
+                    this.$suggestionMessage.hide();
                 }
             } catch (xhr) {
                 TPDebug.error('suggestion', 'FAST suggestion AJAX error:', xhr);
                 this.suggestionCandidates = [];
                 this.suggestionIndex = -1;
                 this.suggestionSourceUrl = destination;
+                this.$suggestionMessage.hide();
             } finally {
-                // Restore placeholder and enable input
-                self.$customKeyInput.attr('placeholder', originalPlaceholder);
-                self.$customKeyInput.prop('disabled', false);
+                // Restore lightbulb icon
+                self.$suggestIcon.removeClass('fa-spinner fa-spin').addClass('fa-lightbulb');
 
-                // Re-enable submit button after suggestion is complete
-                self.$submitBtn.prop('disabled', false);
-                self.$submitBtn.removeClass('disabled');
-                TPDebug.log('suggestion', 'Submit button re-enabled after suggestion complete');
+                // Hide message after a delay
+                setTimeout(function() {
+                    self.$suggestionMessage.fadeOut(300);
+                }, 3000);
 
                 TPDebug.log('suggestion', '=== FETCH SHORTCODE SUGGESTION END ===');
             }
@@ -1078,10 +1090,24 @@
                 return;
             }
 
+            // If current suggestion hasn't been applied yet, apply it first
+            if (!this.suggestionApplied) {
+                const current = this.suggestionCandidates[this.suggestionIndex];
+                this.$customKeyInput.val(current);
+                this.suggestionApplied = true;
+                this.$suggestionMessage.hide();
+                TPDebug.log('suggestion', 'Applied pending suggestion at index', this.suggestionIndex, 'value:', current);
+                return;
+            }
+
             // Advance index and wrap
             this.suggestionIndex = (this.suggestionIndex + 1) % this.suggestionCandidates.length;
             const next = this.suggestionCandidates[this.suggestionIndex];
             this.$customKeyInput.val(next);
+
+            // Hide any pending suggestion message since user explicitly applied one
+            this.$suggestionMessage.hide();
+
             TPDebug.log('suggestion', 'Cycled suggestion to index', this.suggestionIndex, 'value:', next);
         },
 

@@ -106,6 +106,7 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                                 <span id="tp-submit-text" class="visually-hidden"><?php esc_html_e('Save the link and it never expires', 'tp-link-shortener'); ?></span>
                             </button>
                         </div>
+                        <div id="tp-suggestion-message" class="form-text mt-2 text-end" style="display: none;"></div>
                     </div>
                     <?php endif; ?>
 
