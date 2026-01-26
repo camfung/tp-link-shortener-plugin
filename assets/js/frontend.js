@@ -200,20 +200,6 @@
             this.$submitText = $('#tp-submit-text');
             this.$submitIcon = $('#tp-submit-icon');
 
-            // Confirmation modal elements
-            this.$confirmModal = $('#tp-confirm-modal');
-            this.$confirmCancel = $('#tp-confirm-cancel');
-            this.$confirmProceed = $('#tp-confirm-proceed');
-            this.$confirmDetails = $('#tp-confirm-modal-details');
-            this.$confirmKeywordChange = $('#tp-confirm-keyword-change');
-            this.$confirmDestinationChange = $('#tp-confirm-destination-change');
-            this.$confirmOldKeyword = $('#tp-confirm-old-keyword');
-            this.$confirmNewKeyword = $('#tp-confirm-new-keyword');
-            this.$confirmOldDestination = $('#tp-confirm-old-destination');
-            this.$confirmNewDestination = $('#tp-confirm-new-destination');
-
-            // Pending change data (stored when modal is shown)
-            this.pendingChange = null;
         },
 
         /**
@@ -461,18 +447,6 @@
             if (this.$suggestBtn.length) {
                 this.$suggestBtn.on('click', this.handleSuggestClick.bind(this));
             }
-
-            // Confirmation modal events
-            if (this.$confirmCancel.length) {
-                this.$confirmCancel.on('click', this.handleConfirmCancel.bind(this));
-            }
-            if (this.$confirmProceed.length) {
-                this.$confirmProceed.on('click', this.handleConfirmProceed.bind(this));
-            }
-            // Close modal on backdrop click
-            if (this.$confirmModal.length) {
-                this.$confirmModal.find('.tp-confirm-modal-backdrop').on('click', this.handleConfirmCancel.bind(this));
-            }
         },
 
         /**
@@ -599,7 +573,7 @@
 
         /**
          * Submit update link request
-         * For anonymous users, shows confirmation modal before disabling old link and creating new
+         * For anonymous users, disable old link and create new without prompting
          */
         submitUpdate: function() {
             TPDebug.log('update', 'TP Update: submitUpdate called');
@@ -652,23 +626,10 @@
                 return;
             }
 
-            // For anonymous users (not logged in), show confirmation modal
-            // The old link will be disabled and a new one created
+            // For anonymous users (not logged in), disable the old link and create a new one without prompting
             if (!tpAjax.isLoggedIn) {
-                TPDebug.log('update', 'TP Update: Anonymous user - showing confirmation modal');
-
-                // Store the pending change data
-                this.pendingChange = {
-                    newDestination: newDestination,
-                    newTpKey: tpKey,
-                    oldDestination: oldDestination,
-                    oldTpKey: oldTpKey,
-                    keywordChanged: keywordChanged,
-                    destinationChanged: destinationChanged
-                };
-
-                // Show the confirmation modal
-                this.showConfirmModal(keywordChanged, destinationChanged, oldTpKey, tpKey, oldDestination, newDestination);
+                TPDebug.log('update', 'TP Update: Anonymous user - disabling old link and creating new without confirmation');
+                this.processAnonymousUpdate(newDestination, tpKey, oldDestination, oldTpKey);
                 return;
             }
 
@@ -678,7 +639,7 @@
 
         /**
          * Execute the actual update request
-         * This is called directly for logged-in users, or after confirmation for anonymous users
+         * This is called directly for logged-in users
          */
         executeUpdate: function(newDestination, tpKey, oldDestination, oldTpKey) {
             const updateData = {
@@ -2114,121 +2075,27 @@
         },
 
         // ========================================
-        // Confirmation Modal Methods
+        // Anonymous Update Flow (no UI modal)
         // ========================================
 
         /**
-         * Show the confirmation modal for edit changes
+         * For anonymous users, disable the existing link and create a new one without showing a modal
          */
-        showConfirmModal: function(keywordChanged, destinationChanged, oldKeyword, newKeyword, oldDestination, newDestination) {
-            TPDebug.log('modal', 'Showing confirmation modal');
-
-            // Update modal details
-            if (keywordChanged) {
-                this.$confirmKeywordChange.removeClass('d-none');
-                this.$confirmOldKeyword.text(oldKeyword);
-                this.$confirmNewKeyword.text(newKeyword);
-            } else {
-                this.$confirmKeywordChange.addClass('d-none');
-            }
-
-            if (destinationChanged) {
-                this.$confirmDestinationChange.removeClass('d-none');
-                // Truncate long URLs for display
-                const truncateUrl = function(url, maxLen) {
-                    maxLen = maxLen || 40;
-                    if (url.length <= maxLen) return url;
-                    return url.substring(0, maxLen - 3) + '...';
-                };
-                this.$confirmOldDestination.text(truncateUrl(oldDestination));
-                this.$confirmNewDestination.text(truncateUrl(newDestination));
-                this.$confirmOldDestination.attr('title', oldDestination);
-                this.$confirmNewDestination.attr('title', newDestination);
-            } else {
-                this.$confirmDestinationChange.addClass('d-none');
-            }
-
-            // Show details section if either changed
-            if (keywordChanged || destinationChanged) {
-                this.$confirmDetails.removeClass('d-none');
-            } else {
-                this.$confirmDetails.addClass('d-none');
-            }
-
-            // Show the modal
-            this.$confirmModal.removeClass('d-none');
-
-            // Focus the cancel button for accessibility
-            this.$confirmCancel.focus();
-        },
-
-        /**
-         * Hide the confirmation modal
-         */
-        hideConfirmModal: function() {
-            TPDebug.log('modal', 'Hiding confirmation modal');
-            this.$confirmModal.addClass('d-none');
-            this.pendingChange = null;
-        },
-
-        /**
-         * Handle cancel button click - revert input values
-         */
-        handleConfirmCancel: function(e) {
-            if (e) e.preventDefault();
-            TPDebug.log('modal', 'Confirm modal: Cancel clicked');
-
-            // Revert input values to original
-            if (this.currentRecord) {
-                const oldDestination = this.currentRecord.destination;
-                const oldTpKey = this.currentRecord.tpKey || this.currentRecord.key;
-
-                this.$destinationInput.val(oldDestination);
-                this.$customKeyInput.val(oldTpKey);
-
-                TPDebug.log('modal', 'Reverted values to:', { oldDestination, oldTpKey });
-            }
-
-            // Hide the modal
-            this.hideConfirmModal();
-
-            // Show info message
-            this.showSnackbar('Changes cancelled. Your link remains active.', 'info');
-        },
-
-        /**
-         * Handle confirm button click - disable old link and create new
-         */
-        handleConfirmProceed: function(e) {
-            if (e) e.preventDefault();
-            TPDebug.log('modal', 'Confirm modal: Proceed clicked');
-
-            if (!this.pendingChange) {
-                TPDebug.error('modal', 'No pending change data');
-                this.hideConfirmModal();
-                return;
-            }
-
+        processAnonymousUpdate: function(newDestination, newTpKey, oldDestination, oldTpKey) {
             const self = this;
-            const pendingData = this.pendingChange;
 
-            // Hide the modal
-            this.hideConfirmModal();
-
-            // Show loading state
             this.setLoadingState(true);
-            this.showSnackbar('Disabling old link...', 'info', 2000);
+            this.showSnackbar('Updating your link...', 'info', 2000);
 
-            // Get the fingerprint
             this.getFingerprint().then(function(fingerprint) {
                 if (!fingerprint) {
-                    TPDebug.error('modal', 'Could not get fingerprint');
+                    TPDebug.error('update', 'Could not get fingerprint');
                     self.setLoadingState(false);
                     self.showSnackbar('Error: Could not verify your identity.', 'error');
                     return;
                 }
 
-                TPDebug.log('modal', 'Disabling link by fingerprint:', fingerprint);
+                TPDebug.log('update', 'Disabling link by fingerprint:', fingerprint);
 
                 // Step 1: Disable the old link
                 $.ajax({
@@ -2240,34 +2107,41 @@
                         fingerprint: fingerprint
                     },
                     success: function(response) {
-                        TPDebug.log('modal', 'Disable link response:', response);
+                        TPDebug.log('update', 'Disable link response:', response);
 
                         if (response.success) {
-                            TPDebug.log('modal', 'Old link disabled successfully');
+                            TPDebug.log('update', 'Old link disabled successfully');
                             self.showSnackbar('Old link disabled. Creating new link...', 'info', 2000);
 
                             // Step 2: Create a new link with the new values
                             self.createNewLinkAfterDisable(
-                                pendingData.newDestination,
-                                pendingData.newTpKey,
+                                newDestination,
+                                newTpKey,
                                 fingerprint
                             );
                         } else {
-                            TPDebug.error('modal', 'Failed to disable old link:', response);
+                            TPDebug.error('update', 'Failed to disable old link:', response);
                             self.setLoadingState(false);
-                            self.showSnackbar(response.data.message || 'Failed to disable old link.', 'error');
+                            self.showSnackbar(response.data && response.data.message ? response.data.message : 'Failed to disable old link.', 'error');
+                            // Revert inputs to previous values for clarity
+                            self.$destinationInput.val(oldDestination);
+                            self.$customKeyInput.val(oldTpKey);
                         }
                     },
                     error: function(xhr, status, error) {
-                        TPDebug.error('modal', 'AJAX error disabling link:', { xhr, status, error });
+                        TPDebug.error('update', 'AJAX error disabling link:', { xhr, status, error });
                         self.setLoadingState(false);
                         self.showSnackbar('Error disabling old link. Please try again.', 'error');
+                        self.$destinationInput.val(oldDestination);
+                        self.$customKeyInput.val(oldTpKey);
                     }
                 });
             }).catch(function(err) {
-                TPDebug.error('modal', 'Error getting fingerprint:', err);
+                TPDebug.error('update', 'Error getting fingerprint:', err);
                 self.setLoadingState(false);
                 self.showSnackbar('Error: Could not verify your identity.', 'error');
+                self.$destinationInput.val(oldDestination);
+                self.$customKeyInput.val(oldTpKey);
             });
         },
 
