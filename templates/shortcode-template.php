@@ -183,7 +183,7 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                 </button>
                 <button type="button" id="tp-qr-open-btn" class="tp-qr-dialog-btn">
                     <i class="fas fa-external-link-alt"></i>
-                    <span><?php esc_html_e('Open in New Tab', 'tp-link-shortener'); ?></span>
+                    <span><?php esc_html_e('Open Link', 'tp-link-shortener'); ?></span>
                 </button>
                 <button type="button" id="tp-qr-copy-btn" class="tp-qr-dialog-btn">
                     <i class="fas fa-copy"></i>

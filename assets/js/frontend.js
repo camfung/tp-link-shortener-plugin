@@ -1760,21 +1760,15 @@
         },
 
         /**
-         * Open QR Code in new tab
+         * Open short link in new tab
          */
         openQRCode: function() {
-            if (!this.qrCode) {
+            const shortUrl = this.$shortUrlOutput.attr('href');
+            if (!shortUrl) {
                 return;
             }
 
-            const canvas = this.$qrContainer.find('canvas')[0];
-            if (!canvas) {
-                return;
-            }
-
-            const dataUrl = canvas.toDataURL('image/png');
-            window.open(dataUrl, '_blank');
-
+            window.open(shortUrl, '_blank');
             this.hideQRDialog();
         },
 
