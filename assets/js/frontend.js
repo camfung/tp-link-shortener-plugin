@@ -101,6 +101,7 @@
         $validationMessage: null,
         $saveLinkReminder: null,
         snackbarTimer: null,
+        errorDismissTimer: null,
 
         // State
         qrCode: null,
@@ -1257,9 +1258,44 @@
          * Show error message
          */
         showError: function(message) {
+            if (this.errorDismissTimer) {
+                clearTimeout(this.errorDismissTimer);
+                this.errorDismissTimer = null;
+            }
+
+            const errorHtml = `
+                <div class="d-flex align-items-start gap-2">
+                    <i class="fas fa-exclamation-circle mt-1"></i>
+                    <div class="flex-grow-1">${message}</div>
+                    <button type="button" class="btn-close ms-auto" aria-label="Close"></button>
+                </div>
+            `;
+
+            const self = this;
             this.$errorMessage
-                .html('<i class="fas fa-exclamation-circle me-2"></i>' + message)
-                .removeClass('d-none');
+                .html(errorHtml)
+                .removeClass('d-none')
+                .hide()
+                .fadeIn(300);
+
+            const dismissError = function() {
+                if (self.errorDismissTimer) {
+                    clearTimeout(self.errorDismissTimer);
+                    self.errorDismissTimer = null;
+                }
+                self.$errorMessage.fadeOut(300, function() {
+                    self.hideError();
+                });
+            };
+
+            this.$errorMessage
+                .find('.btn-close')
+                .off('click.tpErrorDismiss')
+                .on('click.tpErrorDismiss', function() {
+                    dismissError();
+                });
+
+            this.errorDismissTimer = setTimeout(dismissError, 10000);
         },
 
         /**
