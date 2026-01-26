@@ -376,9 +376,25 @@
                 this.lastValidatedUrl = url; // Store last validated URL to avoid redundant validations
                 this.$destinationInput.removeClass('is-invalid').addClass('is-valid');
                 // Show warning message in validation message area
-                this.$validationMessage.html('<i class="fas fa-exclamation-triangle me-2"></i>' + result.message);
+                // Check if this is a redirect with a suggested URL
+                let warningHtml = '<i class="fas fa-exclamation-triangle me-2"></i>' + result.message;
+                if (result.redirectLocation) {
+                    warningHtml += ' <a href="#" class="tp-replace-url-link" data-url="' + this.escapeHtml(result.redirectLocation) + '">Replace with ' + this.escapeHtml(result.redirectLocation) + '</a>';
+                }
+                this.$validationMessage.html(warningHtml);
                 this.$validationMessage.removeClass('error-message success-message text-muted text-success text-danger').addClass('warning-message text-warning');
                 this.$validationMessage.show();
+
+                // Bind click handler for replace URL link
+                if (result.redirectLocation) {
+                    const self = this;
+                    this.$validationMessage.find('.tp-replace-url-link').on('click', function(e) {
+                        e.preventDefault();
+                        const newUrl = $(this).data('url');
+                        self.$destinationInput.val(newUrl);
+                        self.processUrl(newUrl);
+                    });
+                }
                 // Enable submit button (warnings are allowed)
                 this.$submitBtn.prop('disabled', false);
                 this.$submitBtn.removeClass('disabled');
@@ -1077,6 +1093,15 @@
             }
 
             return result;
+        },
+
+        /**
+         * Escape HTML to prevent XSS
+         */
+        escapeHtml: function(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         },
 
         /**

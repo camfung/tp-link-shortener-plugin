@@ -185,7 +185,7 @@ class URLValidator {
         const location = response.headers.get('Location');
         return this.createWarningResult(
           URLValidator.ErrorTypes.REDIRECT_PERMANENT,
-          `Permanent redirect detected. Consider replacing with: ${location || 'target URL'}`,
+          `Permanent redirect detected.`,
           URLValidator.BorderColors.WARNING,
           { redirectLocation: location }
         );
