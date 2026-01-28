@@ -27,16 +27,6 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
             <div id="tp-hero-shell" class="tp-hero-shell border-0 shadow-sm tp-card">
 
                 <form id="tp-shortener-form" class="tp-shortener-form">
-                    <!-- Try It Now Message (for non-logged-in users, shown after link creation) -->
-                    <?php if (!is_user_logged_in()): ?>
-                    <div id="tp-try-it-message" class="alert alert-info d-none mb-4 tp-try-it">
-                        <div id="tp-try-it-content" class="d-flex align-items-center gap-2">
-                            <i id="tp-try-it-icon" class="fas fa-hand-pointer fs-5"></i>
-                            <strong id="tp-try-it-text" class="text-uppercase"><?php esc_html_e('TRY IT NOW - CLICK THE LINK OR SCAN THE QR CODE', 'tp-link-shortener'); ?></strong>
-                        </div>
-                    </div>
-                    <?php endif; ?>
-
                     <!-- Main URL Input -->
                     <div id="tp-destination-field-group" class="tp-form-group tp-destination-field mb-4">
                         <div id="tp-destination-input-visual" class="tp-input-visual">
@@ -112,10 +102,20 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
 
                     <!-- Result Section (hidden initially) -->
                     <div id="tp-result-section" class="tp-result-panel mb-4 d-none">
+                        <!-- Try It Now Message (for non-logged-in users, shown after link creation) -->
+                        <?php if (!is_user_logged_in()): ?>
+                        <div id="tp-try-it-message" class="alert alert-info d-none mb-3 tp-try-it">
+                            <div id="tp-try-it-content" class="d-flex align-items-center gap-2">
+                                <i id="tp-try-it-icon" class="fas fa-hand-pointer fs-5"></i>
+                                <strong id="tp-try-it-text" class="text-uppercase"><?php esc_html_e('TRY IT NOW - CLICK THE LINK OR SCAN THE QR CODE', 'tp-link-shortener'); ?></strong>
+                            </div>
+                        </div>
+                        <?php endif; ?>
+
                         <div id="tp-result-grid" class="tp-result-grid">
                             <div id="tp-result-details" class="tp-result-details">
                                 <div id="tp-short-url-display" class="tp-short-url-display">
-                                    <label id="tp-short-url-label" class="form-label fw-semibold mb-2"><?php esc_html_e('Short link', 'tp-link-shortener'); ?></label>
+                                    <label id="tp-short-url-label" class="form-label fw-semibold mb-2"><?php esc_html_e('Simple link', 'tp-link-shortener'); ?></label>
                                     <div id="tp-short-url-row" class="tp-short-url-row">
                                         <i id="tp-short-url-copy-icon" class="far fa-copy"></i>
                                         <a
