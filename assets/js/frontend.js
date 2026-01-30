@@ -478,6 +478,27 @@
             if (this.$suggestBtn.length) {
                 this.$suggestBtn.on('click', this.handleSuggestClick.bind(this));
             }
+
+            // Magic Keyword input - filter invalid characters and set custom validation message
+            if (this.$customKeyInput.length) {
+                this.$customKeyInput.on('input', this.handleCustomKeyInput.bind(this));
+            }
+        },
+
+        /**
+         * Handle Magic Keyword input - filter invalid characters
+         */
+        handleCustomKeyInput: function(e) {
+            const input = e.target;
+            const originalValue = input.value;
+            // Only allow letters, numbers, dots, hyphens, and underscores
+            const filteredValue = originalValue.replace(/[^a-zA-Z0-9.\-_]/g, '');
+
+            if (filteredValue !== originalValue) {
+                input.value = filteredValue;
+                // Move cursor to end after filtering
+                input.setSelectionRange(filteredValue.length, filteredValue.length);
+            }
         },
 
         /**

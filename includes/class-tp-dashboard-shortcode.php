@@ -62,11 +62,19 @@ class TP_Dashboard_Shortcode {
             '6.4.0'
         );
 
+        // Enqueue base frontend CSS for shared styles/variables
+        wp_enqueue_style(
+            'tp-link-shortener',
+            TP_LINK_SHORTENER_PLUGIN_URL . 'assets/css/frontend.css',
+            array('tp-bootstrap'),
+            TP_LINK_SHORTENER_VERSION
+        );
+
         // Enqueue dashboard CSS
         wp_enqueue_style(
             'tp-dashboard',
             TP_LINK_SHORTENER_PLUGIN_URL . 'assets/css/dashboard.css',
-            array('tp-bootstrap'),
+            array('tp-bootstrap', 'tp-link-shortener'),
             TP_LINK_SHORTENER_VERSION
         );
 

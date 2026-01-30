@@ -80,6 +80,7 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
                                     class="form-control tp-form-control tp-plain-input"
                                     placeholder=" "
                                     pattern="[a-zA-Z0-9\.\-_]+"
+                                    title="<?php esc_attr_e('Only letters, numbers, dots, hyphens, and underscores allowed', 'tp-link-shortener'); ?>"
                                 />
                                 <label id="tp-custom-key-label" for="tp-custom-key" class="tp-label tp-floating-label text-uppercase">
                                     <?php esc_html_e('Magic Keyword', 'tp-link-shortener'); ?>
