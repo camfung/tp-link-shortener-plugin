@@ -7,11 +7,15 @@ namespace TrafficPortal;
 use TrafficPortal\DTO\CreateMapRequest;
 use TrafficPortal\DTO\CreateMapResponse;
 use TrafficPortal\DTO\FingerprintSearchResponse;
+use TrafficPortal\DTO\PaginatedMapItemsResponse;
 use TrafficPortal\Exception\ApiException;
 use TrafficPortal\Exception\AuthenticationException;
 use TrafficPortal\Exception\ValidationException;
 use TrafficPortal\Exception\NetworkException;
 use TrafficPortal\Exception\RateLimitException;
+use TrafficPortal\Exception\PageNotFoundException;
+use TrafficPortal\Http\HttpClientInterface;
+use TrafficPortal\Http\CurlHttpClient;
 
 /**
  * Traffic Portal API Client
@@ -26,6 +30,7 @@ class TrafficPortalApiClient
     private string $apiEndpoint;
     private string $apiKey;
     private int $timeout;
+    private ?HttpClientInterface $httpClient;
 
     /**
      * Constructor
@@ -33,15 +38,29 @@ class TrafficPortalApiClient
      * @param string $apiEndpoint The API endpoint URL
      * @param string $apiKey The API key for authentication
      * @param int $timeout Request timeout in seconds (default: 30)
+     * @param HttpClientInterface|null $httpClient Optional HTTP client for dependency injection
      */
     public function __construct(
         string $apiEndpoint,
         string $apiKey,
-        int $timeout = 30
+        int $timeout = 30,
+        ?HttpClientInterface $httpClient = null
     ) {
         $this->apiEndpoint = rtrim($apiEndpoint, '/');
         $this->apiKey = $apiKey;
         $this->timeout = $timeout;
+        $this->httpClient = $httpClient;
+    }
+
+    /**
+     * Get HTTP client (lazy initialization for backwards compatibility)
+     */
+    private function getHttpClient(): HttpClientInterface
+    {
+        if ($this->httpClient === null) {
+            $this->httpClient = new CurlHttpClient($this->timeout);
+        }
+        return $this->httpClient;
     }
 
     /**
@@ -300,6 +319,9 @@ class TrafficPortalApiClient
      * Log to file for debugging
      */
     private function log_to_file($message) {
+        if (!defined('WP_CONTENT_DIR')) {
+            return; // Skip logging when not in WordPress environment
+        }
         $log_file = WP_CONTENT_DIR . '/plugins/tp-update-debug.log';
         $timestamp = date('Y-m-d H:i:s');
         file_put_contents($log_file, "[$timestamp] API CLIENT: $message\n", FILE_APPEND);
@@ -586,6 +608,159 @@ class TrafficPortalApiClient
         $this->log_to_file('=== API CLIENT SEARCH BY FINGERPRINT END (SUCCESS) ===');
 
         return FingerprintSearchResponse::fromArray($data);
+    }
+
+    /**
+     * Get paginated map items for a user
+     *
+     * @param int $uid The user ID (can be negative per existing API rules)
+     * @param int $page Page number (1-based)
+     * @param int $pageSize Number of items per page (1-200, default 50)
+     * @param string|null $sort Sort order (e.g., 'updated_at:desc', 'created_at:asc', 'tpKey:asc')
+     * @param bool $includeUsage Whether to include usage statistics (default true)
+     * @param string|null $status Filter by status (e.g., 'active', 'disabled')
+     * @param string|null $search Search term for tpKey and destination
+     * @return PaginatedMapItemsResponse
+     * @throws ValidationException If validation fails
+     * @throws PageNotFoundException If page is beyond total pages
+     * @throws AuthenticationException If authentication fails
+     * @throws NetworkException If network error occurs
+     * @throws ApiException For other API errors
+     */
+    public function getUserMapItems(
+        int $uid,
+        int $page = 1,
+        int $pageSize = 50,
+        ?string $sort = null,
+        bool $includeUsage = true,
+        ?string $status = null,
+        ?string $search = null
+    ): PaginatedMapItemsResponse {
+        $this->log_to_file('=== GET USER MAP ITEMS REQUEST ===');
+        $this->log_to_file('getUserMapItems called');
+        $this->log_to_file('Client IP: ' . $this->get_client_ip());
+        $this->log_to_file('UID: ' . $uid);
+        $this->log_to_file('Page: ' . $page);
+        $this->log_to_file('Page Size: ' . $pageSize);
+        $this->log_to_file('Sort: ' . ($sort ?? 'default'));
+        $this->log_to_file('Include Usage: ' . ($includeUsage ? 'true' : 'false'));
+        $this->log_to_file('Status: ' . ($status ?? 'all'));
+        $this->log_to_file('Search: ' . ($search ?? 'none'));
+
+        // Client-side validation
+        if ($page < 1) {
+            throw new ValidationException('Invalid page. Must be >= 1.', 400);
+        }
+
+        if ($pageSize < 1 || $pageSize > 200) {
+            throw new ValidationException('Invalid page_size. Must be between 1 and 200.', 400);
+        }
+
+        // Validate sort format if provided
+        if ($sort !== null) {
+            $allowedSortFields = ['updated_at', 'created_at', 'tpKey'];
+            $allowedDirections = ['asc', 'desc'];
+            $sortParts = explode(':', $sort);
+
+            if (count($sortParts) !== 2 ||
+                !in_array($sortParts[0], $allowedSortFields, true) ||
+                !in_array($sortParts[1], $allowedDirections, true)
+            ) {
+                throw new ValidationException(
+                    'Invalid sort. Use one of: updated_at, created_at, tpKey with asc/desc.',
+                    400
+                );
+            }
+        }
+
+        // Build query parameters
+        $queryParams = [
+            'page' => $page,
+            'page_size' => $pageSize,
+        ];
+
+        if ($sort !== null) {
+            $queryParams['sort'] = $sort;
+        }
+
+        if (!$includeUsage) {
+            $queryParams['include_usage'] = 'false';
+        }
+
+        if ($status !== null) {
+            $queryParams['status'] = $status;
+        }
+
+        if ($search !== null) {
+            if (strlen($search) > 255) {
+                throw new ValidationException('Search term too long. Maximum 255 characters.', 400);
+            }
+            $queryParams['search'] = $search;
+        }
+
+        $url = $this->apiEndpoint . '/items/user/' . $uid . '?' . http_build_query($queryParams);
+        $this->log_to_file('URL: ' . $url);
+
+        $httpClient = $this->getHttpClient();
+
+        try {
+            $response = $httpClient->request('GET', $url, [
+                'headers' => [
+                    'Content-Type' => 'application/json',
+                    'x-api-key' => $this->apiKey,
+                ],
+                'timeout' => $this->timeout,
+            ]);
+        } catch (NetworkException $e) {
+            $this->log_to_file('Network ERROR: ' . $e->getMessage());
+            $this->log_to_file('=== GET USER MAP ITEMS END (NETWORK ERROR) ===');
+            throw $e;
+        }
+
+        $httpCode = $response->getStatusCode();
+        $body = $response->getBody();
+
+        $this->log_to_file('HTTP Code: ' . $httpCode);
+        $this->log_to_file('Raw response (first 500 chars): ' . substr($body, 0, 500));
+
+        // Handle empty response
+        if ($body === '') {
+            $this->log_to_file('ERROR: Empty response from API');
+            $this->log_to_file('=== GET USER MAP ITEMS END (EMPTY RESPONSE) ===');
+            throw new NetworkException('Empty response from API');
+        }
+
+        // Decode JSON response
+        $data = json_decode($body, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            $this->log_to_file('ERROR: Invalid JSON response: ' . json_last_error_msg());
+            $this->log_to_file('=== GET USER MAP ITEMS END (JSON ERROR) ===');
+            throw new ApiException(
+                sprintf('Invalid JSON response: %s', json_last_error_msg()),
+                $httpCode
+            );
+        }
+
+        $this->log_to_file('Decoded response: ' . json_encode($data, JSON_PRETTY_PRINT));
+
+        // Handle specific HTTP errors for this endpoint
+        if ($httpCode === 404) {
+            $this->log_to_file('Page out of range (404)');
+            $this->log_to_file('=== GET USER MAP ITEMS END (PAGE NOT FOUND) ===');
+            throw new PageNotFoundException(
+                $data['message'] ?? 'Page out of range.',
+                404
+            );
+        }
+
+        // Handle HTTP errors
+        $this->log_to_file('Checking for HTTP errors...');
+        $this->handleHttpErrors($httpCode, $data);
+
+        $this->log_to_file('Request completed successfully');
+        $this->log_to_file('=== GET USER MAP ITEMS END (SUCCESS) ===');
+
+        return PaginatedMapItemsResponse::fromArray($data);
     }
 
     /**
