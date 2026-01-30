@@ -105,7 +105,6 @@ $show_filters = isset($atts['show_filters']) ? ($atts['show_filters'] === 'true'
                         <tr>
                             <th class="tp-col-shortlink"><?php esc_html_e('Short Link', 'tp-link-shortener'); ?></th>
                             <th class="tp-col-destination"><?php esc_html_e('Destination', 'tp-link-shortener'); ?></th>
-                            <th class="tp-col-status"><?php esc_html_e('Status', 'tp-link-shortener'); ?></th>
                             <th class="tp-col-usage"><?php esc_html_e('Usage', 'tp-link-shortener'); ?></th>
                             <th class="tp-col-date"><?php esc_html_e('Created', 'tp-link-shortener'); ?></th>
                             <th class="tp-col-actions"><?php esc_html_e('Actions', 'tp-link-shortener'); ?></th>
@@ -134,3 +133,34 @@ $show_filters = isset($atts['show_filters']) ? ($atts['show_filters'] === 'true'
 
 <!-- Copy tooltip -->
 <div class="tp-copy-tooltip" id="tp-copy-tooltip"><?php esc_html_e('Copied!', 'tp-link-shortener'); ?></div>
+
+<!-- QR Code Modal -->
+<div class="modal fade" id="tp-qr-modal" tabindex="-1" aria-labelledby="tp-qr-modal-label" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content tp-qr-modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="tp-qr-modal-label">
+                    <i class="fas fa-qrcode me-2"></i><?php esc_html_e('QR Code', 'tp-link-shortener'); ?>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="<?php esc_attr_e('Close', 'tp-link-shortener'); ?>"></button>
+            </div>
+            <div class="modal-body text-center">
+                <div class="tp-qr-code-container" id="tp-qr-code-container">
+                    <!-- QR code will be generated here -->
+                </div>
+                <div class="tp-qr-url mt-2" id="tp-qr-url"></div>
+            </div>
+            <div class="modal-footer tp-qr-modal-footer">
+                <button type="button" class="btn btn-primary tp-qr-action-btn" id="tp-qr-download-btn">
+                    <i class="fas fa-download me-1"></i><?php esc_html_e('Download', 'tp-link-shortener'); ?>
+                </button>
+                <button type="button" class="btn btn-outline-secondary tp-qr-action-btn" id="tp-qr-copy-btn">
+                    <i class="fas fa-copy me-1"></i><?php esc_html_e('Copy', 'tp-link-shortener'); ?>
+                </button>
+                <button type="button" class="btn btn-outline-secondary tp-qr-action-btn" id="tp-qr-open-btn">
+                    <i class="fas fa-external-link-alt me-1"></i><?php esc_html_e('Open', 'tp-link-shortener'); ?>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

@@ -38,7 +38,14 @@
         $refreshBtn,
         $retryBtn,
         $searchClear,
-        $copyTooltip;
+        $copyTooltip,
+        $qrModal,
+        $qrContainer,
+        $qrUrl,
+        $qrDownloadBtn,
+        $qrCopyBtn,
+        $qrOpenBtn,
+        currentQrUrl = null;
 
     /**
      * Initialize the dashboard
@@ -66,6 +73,12 @@
         $retryBtn = $('#tp-retry-btn');
         $searchClear = $('#tp-search-clear');
         $copyTooltip = $('#tp-copy-tooltip');
+        $qrModal = $('#tp-qr-modal');
+        $qrContainer = $('#tp-qr-code-container');
+        $qrUrl = $('#tp-qr-url');
+        $qrDownloadBtn = $('#tp-qr-download-btn');
+        $qrCopyBtn = $('#tp-qr-copy-btn');
+        $qrOpenBtn = $('#tp-qr-open-btn');
 
         // Get page size from container data attribute
         state.pageSize = parseInt($container.data('page-size')) || 10;
@@ -145,6 +158,18 @@
             const url = $(this).data('url');
             copyToClipboard(url, $(this));
         });
+
+        // QR button clicks (delegated)
+        $tbody.on('click', '.tp-qr-btn', function(e) {
+            e.preventDefault();
+            const url = $(this).data('url');
+            showQrModal(url);
+        });
+
+        // QR modal button handlers
+        $qrDownloadBtn.on('click', downloadQrCode);
+        $qrCopyBtn.on('click', copyQrCode);
+        $qrOpenBtn.on('click', openQrUrl);
     }
 
     /**
@@ -204,8 +229,6 @@
 
         items.forEach(function(item) {
             const shortUrl = 'https://' + item.domain + '/' + item.tpKey;
-            const statusClass = item.status === 'active' ? 'active' : 'disabled';
-            const statusIcon = item.status === 'active' ? 'fa-check-circle' : 'fa-times-circle';
             const createdDate = formatDate(item.created_at);
 
             // Usage stats
@@ -236,12 +259,6 @@
                             ${item.notes ? `<div class="tp-destination-notes" title="${escapeHtml(item.notes)}">${escapeHtml(item.notes)}</div>` : ''}
                         </div>
                     </td>
-                    <td class="tp-col-status" data-label="Status">
-                        <span class="tp-status-badge ${statusClass}">
-                            <i class="fas ${statusIcon}"></i>
-                            ${escapeHtml(item.status)}
-                        </span>
-                    </td>
                     <td class="tp-col-usage" data-label="Usage">
                         ${usageHtml}
                     </td>
@@ -252,6 +269,9 @@
                         <div class="tp-actions-cell">
                             <button class="btn btn-sm btn-outline-primary tp-action-btn tp-copy-btn" data-url="${escapeHtml(shortUrl)}" title="Copy link">
                                 <i class="fas fa-copy"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary tp-action-btn tp-qr-btn" data-url="${escapeHtml(shortUrl)}" title="QR Code">
+                                <i class="fas fa-qrcode"></i>
                             </button>
                             <a href="${escapeHtml(shortUrl)}" target="_blank" class="btn btn-sm btn-outline-secondary tp-action-btn" title="Open link">
                                 <i class="fas fa-external-link-alt"></i>
@@ -490,6 +510,105 @@
         $error.hide();
         $empty.hide();
         $tableWrapper.show();
+    }
+
+    /**
+     * Show QR code modal
+     */
+    function showQrModal(url) {
+        currentQrUrl = url;
+        $qrContainer.empty();
+        $qrUrl.text(url);
+
+        // Add qr=1 query parameter to the URL
+        const separator = url.includes('?') ? '&' : '?';
+        const qrUrl = url + separator + 'qr=1';
+
+        // Generate QR code
+        try {
+            const qrDiv = $('<div>').attr('id', 'dashboard-qr-' + Date.now());
+            $qrContainer.append(qrDiv);
+
+            new QRCode(qrDiv[0], {
+                text: qrUrl,
+                width: 200,
+                height: 200,
+                colorDark: '#000000',
+                colorLight: '#ffffff',
+                correctLevel: QRCode.CorrectLevel.H
+            });
+
+            // Remove title attribute
+            setTimeout(function() {
+                qrDiv.removeAttr('title');
+            }, 100);
+        } catch (e) {
+            console.error('QR Code generation failed:', e);
+            $qrContainer.html('<p class="text-danger">Failed to generate QR code</p>');
+        }
+
+        // Show modal
+        const modal = new bootstrap.Modal($qrModal[0]);
+        modal.show();
+    }
+
+    /**
+     * Download QR code as PNG
+     */
+    function downloadQrCode() {
+        const canvas = $qrContainer.find('canvas')[0];
+        if (!canvas) {
+            return;
+        }
+
+        canvas.toBlob(function(blob) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'qr-code-' + Date.now() + '.png';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+
+        // Close modal
+        bootstrap.Modal.getInstance($qrModal[0]).hide();
+    }
+
+    /**
+     * Copy QR code to clipboard
+     */
+    function copyQrCode() {
+        const canvas = $qrContainer.find('canvas')[0];
+        if (!canvas) {
+            return;
+        }
+
+        canvas.toBlob(function(blob) {
+            const item = new ClipboardItem({ 'image/png': blob });
+            navigator.clipboard.write([item]).then(function() {
+                // Show success feedback
+                const originalHtml = $qrCopyBtn.html();
+                $qrCopyBtn.html('<i class="fas fa-check me-1"></i>Copied!');
+                setTimeout(function() {
+                    $qrCopyBtn.html(originalHtml);
+                    bootstrap.Modal.getInstance($qrModal[0]).hide();
+                }, 1000);
+            }).catch(function(err) {
+                console.error('Failed to copy QR code:', err);
+            });
+        });
+    }
+
+    /**
+     * Open QR URL in new tab
+     */
+    function openQrUrl() {
+        if (currentQrUrl) {
+            window.open(currentQrUrl, '_blank');
+            bootstrap.Modal.getInstance($qrModal[0]).hide();
+        }
     }
 
     // Initialize on DOM ready

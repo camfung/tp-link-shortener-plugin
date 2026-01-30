@@ -284,12 +284,11 @@
 }
 
 /* Column widths */
-.tp-col-shortlink { width: 20%; min-width: 150px; }
-.tp-col-destination { width: 30%; min-width: 200px; }
-.tp-col-status { width: 10%; min-width: 80px; }
+.tp-col-shortlink { width: 22%; min-width: 150px; }
+.tp-col-destination { width: 35%; min-width: 200px; }
 .tp-col-usage { width: 15%; min-width: 120px; }
-.tp-col-date { width: 12%; min-width: 100px; }
-.tp-col-actions { width: 13%; min-width: 120px; text-align: right; }
+.tp-col-date { width: 13%; min-width: 100px; }
+.tp-col-actions { width: 15%; min-width: 140px; text-align: right; }
 
 /* Short Link Cell - matches tp-short-url-row style */
 .tp-shortlink-cell {
@@ -349,35 +348,6 @@
     overflow: hidden;
     text-overflow: ellipsis;
     font-style: italic;
-}
-
-/* Status Badge - matches tp-screenshot-badge style */
-.tp-status-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 0.35rem 0.75rem;
-    border-radius: 999px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: capitalize;
-    letter-spacing: 0.02em;
-}
-
-.tp-status-badge.active {
-    background: rgba(34, 181, 115, 0.12);
-    color: var(--tp-accent-dark);
-    border: 1px solid rgba(34, 181, 115, 0.3);
-}
-
-.tp-status-badge.disabled {
-    background: rgba(240, 90, 90, 0.1);
-    color: var(--tp-danger);
-    border: 1px solid rgba(240, 90, 90, 0.3);
-}
-
-.tp-status-badge i {
-    font-size: 0.625rem;
 }
 
 /* Usage Stats - matches tp-usage-stat style */
@@ -621,4 +591,65 @@
     background-size: 200px 100%;
     animation: shimmer 1.5s infinite;
     border-radius: 0.5rem;
+}
+
+/* QR Code Modal */
+.tp-qr-modal-content {
+    border-radius: 1rem;
+    border: none;
+    box-shadow: var(--tp-shadow);
+}
+
+.tp-qr-modal-content .modal-header {
+    background: var(--tp-surface-soft);
+    border-bottom: 1px solid var(--tp-border);
+    border-radius: 1rem 1rem 0 0;
+}
+
+.tp-qr-modal-content .modal-title {
+    color: var(--tp-text);
+    font-weight: 600;
+}
+
+.tp-qr-code-container {
+    display: inline-block;
+    padding: 1rem;
+    background: #fff;
+    border-radius: 0.75rem;
+    border: 1px solid var(--tp-border);
+}
+
+.tp-qr-code-container canvas,
+.tp-qr-code-container img {
+    display: block;
+}
+
+.tp-qr-url {
+    font-size: 0.8rem;
+    color: var(--tp-muted);
+    word-break: break-all;
+    padding: 0.5rem;
+}
+
+.tp-qr-modal-footer {
+    background: var(--tp-surface-soft);
+    border-top: 1px solid var(--tp-border);
+    border-radius: 0 0 1rem 1rem;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.tp-qr-action-btn {
+    border-radius: 0.5rem;
+    font-weight: 500;
+    padding: 0.5rem 1rem;
+}
+
+.tp-qr-action-btn.btn-primary {
+    background: linear-gradient(180deg, var(--tp-primary), var(--tp-primary-contrast));
+    border: none;
+}
+
+.tp-qr-action-btn.btn-primary:hover {
+    background: linear-gradient(180deg, var(--tp-primary-contrast), var(--tp-primary-contrast));
 }

@@ -87,11 +87,20 @@ class TP_Dashboard_Shortcode {
             true
         );
 
+        // Enqueue QRCode.js library
+        wp_enqueue_script(
+            'tp-qrcode',
+            'https://cdn.jsdelivr.net/npm/qrcodejs2@0.0.2/qrcode.min.js',
+            array(),
+            '0.0.2',
+            true
+        );
+
         // Enqueue dashboard JS
         wp_enqueue_script(
             'tp-dashboard-js',
             TP_LINK_SHORTENER_PLUGIN_URL . 'assets/js/dashboard.js',
-            array('jquery', 'tp-bootstrap-js'),
+            array('jquery', 'tp-bootstrap-js', 'tp-qrcode'),
             TP_LINK_SHORTENER_VERSION,
             true
         );
