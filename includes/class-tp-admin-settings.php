@@ -48,6 +48,11 @@ class TP_Admin_Settings {
             'default' => 5,
             'sanitize_callback' => array($this, 'sanitize_polling_interval'),
         ));
+        register_setting('tp_link_shortener_settings', 'tp_link_shortener_dashboard_page_size', array(
+            'type' => 'integer',
+            'default' => 10,
+            'sanitize_callback' => array($this, 'sanitize_dashboard_page_size'),
+        ));
 
         // Add settings section
         add_settings_section(
@@ -98,6 +103,15 @@ class TP_Admin_Settings {
             'tp_link_shortener_usage_polling_interval',
             __('Usage Stats Polling Interval', 'tp-link-shortener'),
             array($this, 'render_usage_polling_interval_field'),
+            'tp-link-shortener',
+            'tp_link_shortener_main_section'
+        );
+
+        // Dashboard Page Size field
+        add_settings_field(
+            'tp_link_shortener_dashboard_page_size',
+            __('Dashboard Page Size', 'tp-link-shortener'),
+            array($this, 'render_dashboard_page_size_field'),
             'tp-link-shortener',
             'tp_link_shortener_main_section'
         );
@@ -154,8 +168,10 @@ class TP_Admin_Settings {
 
                     <div class="tp-admin-box">
                         <h3><?php esc_html_e('Usage', 'tp-link-shortener'); ?></h3>
-                        <p><?php esc_html_e('Use the shortcode on any page:', 'tp-link-shortener'); ?></p>
+                        <p><?php esc_html_e('Link Shortener:', 'tp-link-shortener'); ?></p>
                         <code>[tp_link_shortener]</code>
+                        <p style="margin-top: 10px;"><?php esc_html_e('User Dashboard:', 'tp-link-shortener'); ?></p>
+                        <code>[tp_link_dashboard]</code>
                     </div>
                 </div>
             </div>
@@ -316,6 +332,44 @@ class TP_Admin_Settings {
         }
         if ($value > 60) {
             $value = 60;
+        }
+        return $value;
+    }
+
+    /**
+     * Render Dashboard Page Size field
+     */
+    public function render_dashboard_page_size_field() {
+        $value = get_option('tp_link_shortener_dashboard_page_size', 10);
+        ?>
+        <select name="tp_link_shortener_dashboard_page_size">
+            <?php
+            $options = array(5, 10, 25, 50, 100);
+            foreach ($options as $option) {
+                printf(
+                    '<option value="%d" %s>%d</option>',
+                    $option,
+                    selected($value, $option, false),
+                    $option
+                );
+            }
+            ?>
+        </select>
+        <span><?php esc_html_e('links per page', 'tp-link-shortener'); ?></span>
+        <p class="description">
+            <?php esc_html_e('Number of links to display per page in the dashboard table. Can be overridden with the page_size shortcode attribute.', 'tp-link-shortener'); ?>
+        </p>
+        <?php
+    }
+
+    /**
+     * Sanitize dashboard page size value
+     */
+    public function sanitize_dashboard_page_size($value) {
+        $value = absint($value);
+        $allowed = array(5, 10, 25, 50, 100);
+        if (!in_array($value, $allowed, true)) {
+            $value = 10;
         }
         return $value;
     }

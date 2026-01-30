@@ -25,7 +25,7 @@ class TP_Dashboard_Shortcode {
      */
     public function render_shortcode($atts): string {
         $atts = shortcode_atts(array(
-            'page_size' => 10,
+            'page_size' => TP_Link_Shortener::get_dashboard_page_size(),
             'show_search' => 'true',
             'show_filters' => 'true',
         ), $atts);

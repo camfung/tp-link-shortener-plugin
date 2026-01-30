@@ -162,4 +162,11 @@ class TP_Link_Shortener {
         $seconds = (int) get_option('tp_link_shortener_usage_polling_interval', 5);
         return $seconds * 1000;
     }
+
+    /**
+     * Get dashboard page size
+     */
+    public static function get_dashboard_page_size(): int {
+        return (int) get_option('tp_link_shortener_dashboard_page_size', 10);
+    }
 }
