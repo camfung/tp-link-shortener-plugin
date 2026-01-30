@@ -12,10 +12,12 @@ if (!defined('ABSPATH')) {
 
 use TrafficPortal\TrafficPortalApiClient;
 use TrafficPortal\DTO\CreateMapRequest;
+use TrafficPortal\DTO\PaginatedMapItemsResponse;
 use TrafficPortal\Exception\AuthenticationException;
 use TrafficPortal\Exception\ValidationException;
 use TrafficPortal\Exception\NetworkException;
 use TrafficPortal\Exception\RateLimitException;
+use TrafficPortal\Exception\PageNotFoundException;
 use TrafficPortal\Exception\ApiException;
 use SnapCapture\SnapCaptureClient;
 use SnapCapture\DTO\ScreenshotRequest;
@@ -137,6 +139,9 @@ class TP_API_Handler {
         add_action('wp_ajax_tp_suggest_shortcode_fast', array($this, 'ajax_suggest_shortcode_fast'));
         add_action('wp_ajax_tp_suggest_shortcode_smart', array($this, 'ajax_suggest_shortcode_smart'));
         add_action('wp_ajax_tp_suggest_shortcode_ai', array($this, 'ajax_suggest_shortcode_ai'));
+
+        // Paginated Map Items - logged-in users only
+        add_action('wp_ajax_tp_get_user_map_items', array($this, 'ajax_get_user_map_items'));
 
         // For non-logged-in users
         add_action('wp_ajax_nopriv_tp_create_link', array($this, 'ajax_create_link'));
@@ -1204,5 +1209,266 @@ class TP_API_Handler {
             'url' => $result['url'],
             'message' => __('AI-generated shortcode suggestion', 'tp-link-shortener')
         ));
+    }
+
+    /**
+     * AJAX handler for getting paginated user map items
+     * Only available to logged-in users
+     */
+    public function ajax_get_user_map_items() {
+        $this->log_to_file('=== GET USER MAP ITEMS REQUEST START ===');
+        error_log('TP Link Shortener: ajax_get_user_map_items called');
+
+        // Verify nonce
+        check_ajax_referer('tp_link_shortener_nonce', 'nonce');
+
+        // Ensure user is logged in
+        if (!is_user_logged_in()) {
+            $this->log_to_file('ERROR: User not logged in');
+            $this->log_to_file('=== GET USER MAP ITEMS REQUEST END ===');
+            wp_send_json_error(array(
+                'message' => __('You must be logged in to view your links.', 'tp-link-shortener')
+            ), 401);
+            return;
+        }
+
+        // Get parameters
+        $page = isset($_POST['page']) ? intval($_POST['page']) : 1;
+        $page_size = isset($_POST['page_size']) ? intval($_POST['page_size']) : 50;
+        $sort = isset($_POST['sort']) ? sanitize_text_field($_POST['sort']) : null;
+        $include_usage = isset($_POST['include_usage']) ? filter_var($_POST['include_usage'], FILTER_VALIDATE_BOOLEAN) : true;
+        $status = isset($_POST['status']) ? sanitize_text_field($_POST['status']) : null;
+        $search = isset($_POST['search']) ? sanitize_text_field($_POST['search']) : null;
+
+        $this->log_to_file('Parameters: page=' . $page . ', page_size=' . $page_size . ', sort=' . ($sort ?? 'default') . ', include_usage=' . ($include_usage ? 'true' : 'false') . ', status=' . ($status ?? 'all') . ', search=' . ($search ?? 'none'));
+
+        // Validate parameters
+        if ($page < 1) {
+            wp_send_json_error(array(
+                'message' => __('Invalid page. Must be >= 1.', 'tp-link-shortener')
+            ), 400);
+            return;
+        }
+
+        if ($page_size < 1 || $page_size > 200) {
+            wp_send_json_error(array(
+                'message' => __('Invalid page_size. Must be between 1 and 200.', 'tp-link-shortener')
+            ), 400);
+            return;
+        }
+
+        // Validate sort if provided
+        if ($sort !== null) {
+            $allowed_sort_fields = array('updated_at', 'created_at', 'tpKey');
+            $allowed_directions = array('asc', 'desc');
+            $sort_parts = explode(':', $sort);
+
+            if (count($sort_parts) !== 2 ||
+                !in_array($sort_parts[0], $allowed_sort_fields, true) ||
+                !in_array($sort_parts[1], $allowed_directions, true)
+            ) {
+                wp_send_json_error(array(
+                    'message' => __('Invalid sort. Use one of: updated_at, created_at, tpKey with asc/desc.', 'tp-link-shortener')
+                ), 400);
+                return;
+            }
+        }
+
+        // Validate search length
+        if ($search !== null && strlen($search) > 255) {
+            wp_send_json_error(array(
+                'message' => __('Search term too long. Maximum 255 characters.', 'tp-link-shortener')
+            ), 400);
+            return;
+        }
+
+        // Get user ID
+        $uid = TP_Link_Shortener::get_user_id();
+        $this->log_to_file('User ID: ' . $uid);
+
+        // TODO: Replace mock data with real API call when API is ready
+        // Uncomment the following to use the real API:
+        // try {
+        //     $response = $this->client->getUserMapItems($uid, $page, $page_size, $sort, $include_usage, $status, $search);
+        //     wp_send_json_success($response->toArray());
+        // } catch (ValidationException $e) { ... }
+
+        // MOCK DATA - Remove when API is ready
+        $result = $this->get_mock_user_map_items($uid, $page, $page_size, $sort, $include_usage, $status, $search);
+
+        $this->log_to_file('Returning mock data: ' . json_encode($result));
+        $this->log_to_file('=== GET USER MAP ITEMS REQUEST END ===');
+
+        wp_send_json_success($result);
+    }
+
+    /**
+     * Generate mock data for user map items
+     * TODO: Remove this method when the real API is ready
+     *
+     * @param int $uid User ID
+     * @param int $page Page number
+     * @param int $page_size Items per page
+     * @param string|null $sort Sort order
+     * @param bool $include_usage Include usage stats
+     * @param string|null $status Filter by status
+     * @param string|null $search Search term
+     * @return array Mock response data
+     */
+    private function get_mock_user_map_items(int $uid, int $page, int $page_size, ?string $sort, bool $include_usage, ?string $status, ?string $search): array {
+        // Generate a consistent set of mock items based on user ID
+        $all_mock_items = $this->generate_mock_items($uid);
+
+        // Apply search filter
+        if ($search !== null && $search !== '') {
+            $all_mock_items = array_filter($all_mock_items, function($item) use ($search) {
+                return stripos($item['tpKey'], $search) !== false ||
+                       stripos($item['destination'], $search) !== false;
+            });
+            $all_mock_items = array_values($all_mock_items); // Re-index
+        }
+
+        // Apply status filter
+        if ($status !== null && $status !== '') {
+            $all_mock_items = array_filter($all_mock_items, function($item) use ($status) {
+                return $item['status'] === $status;
+            });
+            $all_mock_items = array_values($all_mock_items); // Re-index
+        }
+
+        // Apply sorting
+        if ($sort !== null) {
+            list($sort_field, $sort_direction) = explode(':', $sort);
+            usort($all_mock_items, function($a, $b) use ($sort_field, $sort_direction) {
+                $cmp = strcmp($a[$sort_field] ?? '', $b[$sort_field] ?? '');
+                return $sort_direction === 'desc' ? -$cmp : $cmp;
+            });
+        }
+
+        // Calculate pagination
+        $total_records = count($all_mock_items);
+        $total_pages = (int) ceil($total_records / $page_size);
+        $offset = ($page - 1) * $page_size;
+
+        // Handle page out of range
+        if ($page > $total_pages && $total_records > 0) {
+            return array(
+                'message' => 'Page out of range.',
+                'success' => false,
+                'error_code' => 404
+            );
+        }
+
+        // Get items for current page
+        $page_items = array_slice($all_mock_items, $offset, $page_size);
+
+        // Remove usage if not requested
+        if (!$include_usage) {
+            $page_items = array_map(function($item) {
+                $item['usage'] = null;
+                return $item;
+            }, $page_items);
+        }
+
+        return array(
+            'message' => 'Map items retrieved',
+            'success' => true,
+            'page' => $page,
+            'page_size' => $page_size,
+            'total_records' => $total_records,
+            'total_pages' => $total_pages,
+            'source' => $page_items
+        );
+    }
+
+    /**
+     * Generate mock map items for testing
+     * TODO: Remove this method when the real API is ready
+     *
+     * @param int $uid User ID
+     * @return array Array of mock items
+     */
+    private function generate_mock_items(int $uid): array {
+        $domain = TP_Link_Shortener::get_domain();
+        $now = new \DateTime();
+
+        // Generate 47 mock items for variety
+        $items = array();
+        $sample_destinations = array(
+            'https://example.com/landing-page',
+            'https://docs.google.com/document/d/abc123',
+            'https://github.com/myorg/myrepo',
+            'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+            'https://medium.com/@user/my-article',
+            'https://twitter.com/user/status/123456',
+            'https://linkedin.com/in/username',
+            'https://figma.com/file/abc123',
+            'https://notion.so/workspace/page-abc123',
+            'https://calendly.com/user/meeting',
+            'https://stripe.com/docs/api',
+            'https://aws.amazon.com/s3/',
+            'https://shopify.com/store/products/123',
+            'https://wordpress.org/plugins/my-plugin',
+            'https://stackoverflow.com/questions/12345',
+        );
+
+        $sample_keys = array(
+            'promo2024', 'sale', 'docs', 'repo', 'video', 'article', 'profile',
+            'design', 'notes', 'meeting', 'apidocs', 'storage', 'shop', 'plugin',
+            'help', 'launch', 'demo', 'beta', 'feedback', 'survey', 'signup',
+            'download', 'webinar', 'podcast', 'newsletter', 'ebook', 'guide',
+            'tutorial', 'course', 'pricing', 'features', 'about', 'contact',
+            'support', 'faq', 'blog', 'news', 'events', 'careers', 'partners',
+            'affiliate', 'referral', 'invite', 'share', 'social', 'campaign', 'ad'
+        );
+
+        $sample_notes = array(
+            'Q1 marketing campaign',
+            'Product documentation',
+            'Internal team link',
+            'Customer onboarding',
+            'Social media campaign',
+            'Email newsletter link',
+            'Partner referral',
+            'Conference presentation',
+            'Blog post promotion',
+            ''
+        );
+
+        $statuses = array('active', 'active', 'active', 'active', 'disabled'); // 80% active
+
+        for ($i = 0; $i < 47; $i++) {
+            $created_date = clone $now;
+            $created_date->modify('-' . (47 - $i + rand(0, 30)) . ' days');
+
+            $updated_date = clone $created_date;
+            $updated_date->modify('+' . rand(0, 10) . ' days');
+            if ($updated_date > $now) {
+                $updated_date = clone $now;
+            }
+
+            $total_usage = rand(0, 500);
+            $qr_usage = (int) ($total_usage * (rand(10, 40) / 100)); // 10-40% from QR
+            $regular_usage = $total_usage - $qr_usage;
+
+            $items[] = array(
+                'mid' => 14200 + $i,
+                'uid' => $uid,
+                'tpKey' => $sample_keys[$i % count($sample_keys)] . ($i > count($sample_keys) - 1 ? $i : ''),
+                'domain' => $domain,
+                'destination' => $sample_destinations[$i % count($sample_destinations)],
+                'status' => $statuses[$i % count($statuses)],
+                'notes' => $sample_notes[$i % count($sample_notes)],
+                'created_at' => $created_date->format('Y-m-d\TH:i:s\Z'),
+                'updated_at' => $updated_date->format('Y-m-d\TH:i:s\Z'),
+                'usage' => array(
+                    'total' => $total_usage,
+                    'qr' => $qr_usage,
+                    'regular' => $regular_usage
+                )
+            );
+        }
+
+        return $items;
     }
 }
