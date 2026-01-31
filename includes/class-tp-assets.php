@@ -91,11 +91,20 @@ class TP_Assets {
             true
         );
 
+        // Enqueue QR utilities
+        wp_enqueue_script(
+            'tp-qr-utils',
+            TP_LINK_SHORTENER_PLUGIN_URL . 'assets/js/qr-utils.js',
+            array('jquery', 'tp-qrcode'),
+            TP_LINK_SHORTENER_VERSION,
+            true
+        );
+
         // Enqueue custom JS
         wp_enqueue_script(
             'tp-link-shortener-js',
             TP_LINK_SHORTENER_PLUGIN_URL . 'assets/js/frontend.js',
-            array('jquery', 'tp-qrcode', 'tp-fingerprintjs', 'tp-bootstrap-js', 'tp-storage-service', 'tp-url-validator'),
+            array('jquery', 'tp-qrcode', 'tp-fingerprintjs', 'tp-bootstrap-js', 'tp-storage-service', 'tp-url-validator', 'tp-qr-utils'),
             TP_LINK_SHORTENER_VERSION,
             true
         );

@@ -517,33 +517,12 @@
      */
     function showQrModal(url) {
         currentQrUrl = url;
-        $qrContainer.empty();
         $qrUrl.text(url);
 
-        // Add qr=1 query parameter to the URL
-        const separator = url.includes('?') ? '&' : '?';
-        const qrUrl = url + separator + 'qr=1';
+        // Generate QR code using shared utility
+        const qrCode = window.TPQRUtils.generate($qrContainer, url);
 
-        // Generate QR code
-        try {
-            const qrDiv = $('<div>').attr('id', 'dashboard-qr-' + Date.now());
-            $qrContainer.append(qrDiv);
-
-            new QRCode(qrDiv[0], {
-                text: qrUrl,
-                width: 200,
-                height: 200,
-                colorDark: '#000000',
-                colorLight: '#ffffff',
-                correctLevel: QRCode.CorrectLevel.H
-            });
-
-            // Remove title attribute
-            setTimeout(function() {
-                qrDiv.removeAttr('title');
-            }, 100);
-        } catch (e) {
-            console.error('QR Code generation failed:', e);
+        if (!qrCode) {
             $qrContainer.html('<p class="text-danger">Failed to generate QR code</p>');
         }
 
@@ -556,21 +535,7 @@
      * Download QR code as PNG
      */
     function downloadQrCode() {
-        const canvas = $qrContainer.find('canvas')[0];
-        if (!canvas) {
-            return;
-        }
-
-        canvas.toBlob(function(blob) {
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'qr-code-' + Date.now() + '.png';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        });
+        window.TPQRUtils.download($qrContainer);
 
         // Close modal
         bootstrap.Modal.getInstance($qrModal[0]).hide();
@@ -580,14 +545,9 @@
      * Copy QR code to clipboard
      */
     function copyQrCode() {
-        const canvas = $qrContainer.find('canvas')[0];
-        if (!canvas) {
-            return;
-        }
-
-        canvas.toBlob(function(blob) {
-            const item = new ClipboardItem({ 'image/png': blob });
-            navigator.clipboard.write([item]).then(function() {
+        window.TPQRUtils.copyToClipboard(
+            $qrContainer,
+            function() {
                 // Show success feedback
                 const originalHtml = $qrCopyBtn.html();
                 $qrCopyBtn.html('<i class="fas fa-check me-1"></i>Copied!');
@@ -595,10 +555,11 @@
                     $qrCopyBtn.html(originalHtml);
                     bootstrap.Modal.getInstance($qrModal[0]).hide();
                 }, 1000);
-            }).catch(function(err) {
+            },
+            function(err) {
                 console.error('Failed to copy QR code:', err);
-            });
-        });
+            }
+        );
     }
 
     /**

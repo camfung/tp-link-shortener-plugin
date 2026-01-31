@@ -103,7 +103,7 @@ $show_filters = isset($atts['show_filters']) ? ($atts['show_filters'] === 'true'
                 <table class="table table-hover tp-dashboard-table" id="tp-dashboard-table">
                     <thead>
                         <tr>
-                            <th class="tp-col-shortlink"><?php esc_html_e('Short Link', 'tp-link-shortener'); ?></th>
+                            <th class="tp-col-shortlink"><?php esc_html_e('Link', 'tp-link-shortener'); ?></th>
                             <th class="tp-col-destination"><?php esc_html_e('Destination', 'tp-link-shortener'); ?></th>
                             <th class="tp-col-usage"><?php esc_html_e('Usage', 'tp-link-shortener'); ?></th>
                             <th class="tp-col-date"><?php esc_html_e('Created', 'tp-link-shortener'); ?></th>

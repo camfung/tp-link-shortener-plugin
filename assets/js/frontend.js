@@ -1596,36 +1596,18 @@
          * Generate QR Code
          */
         generateQRCode: function(url) {
-            // Clear existing QR code
-            this.$qrContainer.empty();
+            const self = this;
 
-            // Create new container div
-            const qrDiv = $('<div>').attr('id', 'qr-code-' + Date.now());
-            this.$qrContainer.append(qrDiv);
+            // Generate QR code using shared utility
+            this.qrCode = window.TPQRUtils.generate(this.$qrContainer, url);
 
-            // Add qr=1 query parameter to the URL
-            const separator = url.includes('?') ? '&' : '?';
-            const qrUrl = url + separator + 'qr=1';
-
-            // Generate QR code
-            try {
-                this.qrCode = new QRCode(qrDiv[0], {
-                    text: qrUrl,
-                    width: 200,
-                    height: 200,
-                    colorDark: '#000000',
-                    colorLight: '#ffffff',
-                    correctLevel: QRCode.CorrectLevel.H
-                });
-
-                // Remove the title attribute that QRCode.js adds to the container div
-                // (it shows the URL as a tooltip which we don't want)
+            if (this.qrCode) {
+                // Show QR section after generation
                 setTimeout(function() {
-                    qrDiv.removeAttr('title');
-                    this.showQRSection();
-                }.bind(this), 100);
-            } catch (e) {
-                TPDebug.error('qr', 'QR Code generation failed:', e);
+                    self.showQRSection();
+                }, 100);
+            } else {
+                TPDebug.error('qr', 'QR Code generation failed');
             }
         },
 
@@ -1761,24 +1743,7 @@
                 return;
             }
 
-            // Get the canvas
-            const canvas = this.$qrContainer.find('canvas')[0];
-            if (!canvas) {
-                return;
-            }
-
-            // Convert to blob and download
-            canvas.toBlob(function(blob) {
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = 'qr-code-' + Date.now() + '.png';
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-            });
-
+            window.TPQRUtils.download(this.$qrContainer);
             this.hideQRDialog();
         },
 
@@ -1805,14 +1770,9 @@
                 return;
             }
 
-            const canvas = this.$qrContainer.find('canvas')[0];
-            if (!canvas) {
-                return;
-            }
-
-            canvas.toBlob(function(blob) {
-                const item = new ClipboardItem({ 'image/png': blob });
-                navigator.clipboard.write([item]).then(function() {
+            window.TPQRUtils.copyToClipboard(
+                this.$qrContainer,
+                function() {
                     // Show success feedback
                     const $btn = self.$qrCopyBtn;
                     const originalHtml = $btn.html();
@@ -1821,11 +1781,12 @@
                         $btn.html(originalHtml);
                         self.hideQRDialog();
                     }, 1000);
-                }).catch(function(err) {
+                },
+                function(err) {
                     TPDebug.error('qr', 'Failed to copy QR code:', err);
                     self.hideQRDialog();
-                });
-            });
+                }
+            );
         },
 
         /**
