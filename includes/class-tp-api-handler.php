@@ -1286,189 +1286,58 @@ class TP_API_Handler {
         $uid = TP_Link_Shortener::get_user_id();
         $this->log_to_file('User ID: ' . $uid);
 
-        // TODO: Replace mock data with real API call when API is ready
-        // Uncomment the following to use the real API:
-        // try {
-        //     $response = $this->client->getUserMapItems($uid, $page, $page_size, $sort, $include_usage, $status, $search);
-        //     wp_send_json_success($response->toArray());
-        // } catch (ValidationException $e) { ... }
+        try {
+            // Call the real API
+            $response = $this->client->getUserMapItems($uid, $page, $page_size, $sort, $include_usage, $status, $search);
 
-        // MOCK DATA - Remove when API is ready
-        $result = $this->get_mock_user_map_items($uid, $page, $page_size, $sort, $include_usage, $status, $search);
+            $this->log_to_file('API response received: ' . json_encode($response->toArray()));
+            $this->log_to_file('=== GET USER MAP ITEMS REQUEST END ===');
 
-        $this->log_to_file('Returning mock data: ' . json_encode($result));
-        $this->log_to_file('=== GET USER MAP ITEMS REQUEST END ===');
+            wp_send_json_success($response->toArray());
 
-        wp_send_json_success($result);
-    }
-
-    /**
-     * Generate mock data for user map items
-     * TODO: Remove this method when the real API is ready
-     *
-     * @param int $uid User ID
-     * @param int $page Page number
-     * @param int $page_size Items per page
-     * @param string|null $sort Sort order
-     * @param bool $include_usage Include usage stats
-     * @param string|null $status Filter by status
-     * @param string|null $search Search term
-     * @return array Mock response data
-     */
-    private function get_mock_user_map_items(int $uid, int $page, int $page_size, ?string $sort, bool $include_usage, ?string $status, ?string $search): array {
-        // Generate a consistent set of mock items based on user ID
-        $all_mock_items = $this->generate_mock_items($uid);
-
-        // Apply search filter
-        if ($search !== null && $search !== '') {
-            $all_mock_items = array_filter($all_mock_items, function($item) use ($search) {
-                return stripos($item['tpKey'], $search) !== false ||
-                       stripos($item['destination'], $search) !== false;
-            });
-            $all_mock_items = array_values($all_mock_items); // Re-index
-        }
-
-        // Apply status filter
-        if ($status !== null && $status !== '') {
-            $all_mock_items = array_filter($all_mock_items, function($item) use ($status) {
-                return $item['status'] === $status;
-            });
-            $all_mock_items = array_values($all_mock_items); // Re-index
-        }
-
-        // Apply sorting
-        if ($sort !== null) {
-            list($sort_field, $sort_direction) = explode(':', $sort);
-            usort($all_mock_items, function($a, $b) use ($sort_field, $sort_direction) {
-                $cmp = strcmp($a[$sort_field] ?? '', $b[$sort_field] ?? '');
-                return $sort_direction === 'desc' ? -$cmp : $cmp;
-            });
-        }
-
-        // Calculate pagination
-        $total_records = count($all_mock_items);
-        $total_pages = (int) ceil($total_records / $page_size);
-        $offset = ($page - 1) * $page_size;
-
-        // Handle page out of range
-        if ($page > $total_pages && $total_records > 0) {
-            return array(
-                'message' => 'Page out of range.',
-                'success' => false,
+        } catch (PageNotFoundException $e) {
+            $this->log_to_file('Page not found: ' . $e->getMessage());
+            $this->log_to_file('=== GET USER MAP ITEMS REQUEST END ===');
+            wp_send_json_error(array(
+                'message' => __('Page not found. Please try a different page.', 'tp-link-shortener'),
                 'error_code' => 404
-            );
+            ), 404);
+
+        } catch (ValidationException $e) {
+            $this->log_to_file('Validation error: ' . $e->getMessage());
+            $this->log_to_file('=== GET USER MAP ITEMS REQUEST END ===');
+            wp_send_json_error(array(
+                'message' => $e->getMessage()
+            ), 400);
+
+        } catch (AuthenticationException $e) {
+            $this->log_to_file('Authentication error: ' . $e->getMessage());
+            $this->log_to_file('=== GET USER MAP ITEMS REQUEST END ===');
+            wp_send_json_error(array(
+                'message' => __('Authentication failed. Please check configuration.', 'tp-link-shortener')
+            ), 401);
+
+        } catch (NetworkException $e) {
+            $this->log_to_file('Network error: ' . $e->getMessage());
+            $this->log_to_file('=== GET USER MAP ITEMS REQUEST END ===');
+            wp_send_json_error(array(
+                'message' => __('Network error. Please try again later.', 'tp-link-shortener')
+            ), 503);
+
+        } catch (ApiException $e) {
+            $this->log_to_file('API error: ' . $e->getMessage());
+            $this->log_to_file('=== GET USER MAP ITEMS REQUEST END ===');
+            wp_send_json_error(array(
+                'message' => __('API error. Please try again.', 'tp-link-shortener')
+            ), 500);
+
+        } catch (Exception $e) {
+            $this->log_to_file('Unexpected error: ' . $e->getMessage());
+            $this->log_to_file('Trace: ' . $e->getTraceAsString());
+            $this->log_to_file('=== GET USER MAP ITEMS REQUEST END ===');
+            wp_send_json_error(array(
+                'message' => __('An unexpected error occurred. Please try again.', 'tp-link-shortener')
+            ), 500);
         }
-
-        // Get items for current page
-        $page_items = array_slice($all_mock_items, $offset, $page_size);
-
-        // Remove usage if not requested
-        if (!$include_usage) {
-            $page_items = array_map(function($item) {
-                $item['usage'] = null;
-                return $item;
-            }, $page_items);
-        }
-
-        return array(
-            'message' => 'Map items retrieved',
-            'success' => true,
-            'page' => $page,
-            'page_size' => $page_size,
-            'total_records' => $total_records,
-            'total_pages' => $total_pages,
-            'source' => $page_items
-        );
-    }
-
-    /**
-     * Generate mock map items for testing
-     * TODO: Remove this method when the real API is ready
-     *
-     * @param int $uid User ID
-     * @return array Array of mock items
-     */
-    private function generate_mock_items(int $uid): array {
-        $domain = TP_Link_Shortener::get_domain();
-        $now = new \DateTime();
-
-        // Generate 47 mock items for variety
-        $items = array();
-        $sample_destinations = array(
-            'https://example.com/landing-page',
-            'https://docs.google.com/document/d/abc123',
-            'https://github.com/myorg/myrepo',
-            'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-            'https://medium.com/@user/my-article',
-            'https://twitter.com/user/status/123456',
-            'https://linkedin.com/in/username',
-            'https://figma.com/file/abc123',
-            'https://notion.so/workspace/page-abc123',
-            'https://calendly.com/user/meeting',
-            'https://stripe.com/docs/api',
-            'https://aws.amazon.com/s3/',
-            'https://shopify.com/store/products/123',
-            'https://wordpress.org/plugins/my-plugin',
-            'https://stackoverflow.com/questions/12345',
-        );
-
-        $sample_keys = array(
-            'promo2024', 'sale', 'docs', 'repo', 'video', 'article', 'profile',
-            'design', 'notes', 'meeting', 'apidocs', 'storage', 'shop', 'plugin',
-            'help', 'launch', 'demo', 'beta', 'feedback', 'survey', 'signup',
-            'download', 'webinar', 'podcast', 'newsletter', 'ebook', 'guide',
-            'tutorial', 'course', 'pricing', 'features', 'about', 'contact',
-            'support', 'faq', 'blog', 'news', 'events', 'careers', 'partners',
-            'affiliate', 'referral', 'invite', 'share', 'social', 'campaign', 'ad'
-        );
-
-        $sample_notes = array(
-            'Q1 marketing campaign',
-            'Product documentation',
-            'Internal team link',
-            'Customer onboarding',
-            'Social media campaign',
-            'Email newsletter link',
-            'Partner referral',
-            'Conference presentation',
-            'Blog post promotion',
-            ''
-        );
-
-        $statuses = array('active', 'active', 'active', 'active', 'disabled'); // 80% active
-
-        for ($i = 0; $i < 47; $i++) {
-            $created_date = clone $now;
-            $created_date->modify('-' . (47 - $i + rand(0, 30)) . ' days');
-
-            $updated_date = clone $created_date;
-            $updated_date->modify('+' . rand(0, 10) . ' days');
-            if ($updated_date > $now) {
-                $updated_date = clone $now;
-            }
-
-            $total_usage = rand(0, 500);
-            $qr_usage = (int) ($total_usage * (rand(10, 40) / 100)); // 10-40% from QR
-            $regular_usage = $total_usage - $qr_usage;
-
-            $items[] = array(
-                'mid' => 14200 + $i,
-                'uid' => $uid,
-                'tpKey' => $sample_keys[$i % count($sample_keys)] . ($i > count($sample_keys) - 1 ? $i : ''),
-                'domain' => $domain,
-                'destination' => $sample_destinations[$i % count($sample_destinations)],
-                'status' => $statuses[$i % count($statuses)],
-                'notes' => $sample_notes[$i % count($sample_notes)],
-                'created_at' => $created_date->format('Y-m-d\TH:i:s\Z'),
-                'updated_at' => $updated_date->format('Y-m-d\TH:i:s\Z'),
-                'usage' => array(
-                    'total' => $total_usage,
-                    'qr' => $qr_usage,
-                    'regular' => $regular_usage
-                )
-            );
-        }
-
-        return $items;
     }
 }
