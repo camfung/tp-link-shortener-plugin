@@ -39,7 +39,8 @@
         $retryBtn,
         $searchClear,
         $copyTooltip,
-        $qrModal,
+        $qrDialogOverlay,
+        $qrDialogClose,
         $qrContainer,
         $qrUrl,
         $qrDownloadBtn,
@@ -73,7 +74,8 @@
         $retryBtn = $('#tp-retry-btn');
         $searchClear = $('#tp-search-clear');
         $copyTooltip = $('#tp-copy-tooltip');
-        $qrModal = $('#tp-qr-modal');
+        $qrDialogOverlay = $('#tp-qr-dialog-overlay');
+        $qrDialogClose = $('#tp-qr-dialog-close');
         $qrContainer = $('#tp-qr-code-container');
         $qrUrl = $('#tp-qr-url');
         $qrDownloadBtn = $('#tp-qr-download-btn');
@@ -163,10 +165,12 @@
         $tbody.on('click', '.tp-qr-btn', function(e) {
             e.preventDefault();
             const url = $(this).data('url');
-            showQrModal(url);
+            showQrDialog(url);
         });
 
-        // QR modal button handlers
+        // QR dialog event handlers
+        $qrDialogOverlay.on('click', handleQrDialogOverlayClick);
+        $qrDialogClose.on('click', hideQrDialog);
         $qrDownloadBtn.on('click', downloadQrCode);
         $qrCopyBtn.on('click', copyQrCode);
         $qrOpenBtn.on('click', openQrUrl);
@@ -513,9 +517,9 @@
     }
 
     /**
-     * Show QR code modal
+     * Show QR code dialog
      */
-    function showQrModal(url) {
+    function showQrDialog(url) {
         currentQrUrl = url;
         $qrUrl.text(url);
 
@@ -526,9 +530,24 @@
             $qrContainer.html('<p class="text-danger">Failed to generate QR code</p>');
         }
 
-        // Show modal
-        const modal = new bootstrap.Modal($qrModal[0]);
-        modal.show();
+        // Show dialog
+        $qrDialogOverlay.show();
+    }
+
+    /**
+     * Hide QR code dialog
+     */
+    function hideQrDialog() {
+        $qrDialogOverlay.hide();
+    }
+
+    /**
+     * Handle click on dialog overlay (close if clicking outside dialog)
+     */
+    function handleQrDialogOverlayClick(e) {
+        if (e.target === $qrDialogOverlay[0]) {
+            hideQrDialog();
+        }
     }
 
     /**
@@ -536,9 +555,7 @@
      */
     function downloadQrCode() {
         window.TPQRUtils.download($qrContainer);
-
-        // Close modal
-        bootstrap.Modal.getInstance($qrModal[0]).hide();
+        hideQrDialog();
     }
 
     /**
@@ -550,10 +567,10 @@
             function() {
                 // Show success feedback
                 const originalHtml = $qrCopyBtn.html();
-                $qrCopyBtn.html('<i class="fas fa-check me-1"></i>Copied!');
+                $qrCopyBtn.html('<i class="fas fa-check"></i><span>Copied!</span>');
                 setTimeout(function() {
                     $qrCopyBtn.html(originalHtml);
-                    bootstrap.Modal.getInstance($qrModal[0]).hide();
+                    hideQrDialog();
                 }, 1000);
             },
             function(err) {
@@ -568,7 +585,7 @@
     function openQrUrl() {
         if (currentQrUrl) {
             window.open(currentQrUrl, '_blank');
-            bootstrap.Modal.getInstance($qrModal[0]).hide();
+            hideQrDialog();
         }
     }
 

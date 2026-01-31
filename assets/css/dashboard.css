@@ -593,27 +593,120 @@
     border-radius: 0.5rem;
 }
 
-/* QR Code Modal */
-.tp-qr-modal-content {
+/* QR Code Dialog - matches frontend.css style */
+.tp-qr-dialog-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    animation: fadeIn 0.2s ease;
+}
+
+.tp-qr-dialog {
+    background: #fff;
     border-radius: 1rem;
-    border: none;
-    box-shadow: var(--tp-shadow);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    min-width: 280px;
+    max-width: 90vw;
+    animation: slideUp 0.3s ease;
 }
 
-.tp-qr-modal-content .modal-header {
-    background: var(--tp-surface-soft);
-    border-bottom: 1px solid var(--tp-border);
-    border-radius: 1rem 1rem 0 0;
+.tp-qr-dialog-with-preview {
+    min-width: 480px;
 }
 
-.tp-qr-modal-content .modal-title {
-    color: var(--tp-text);
+.tp-qr-dialog-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.tp-qr-dialog-title {
+    margin: 0;
+    font-size: 1rem;
     font-weight: 600;
+    color: var(--tp-text);
+}
+
+.tp-qr-dialog-close {
+    background: none;
+    border: none;
+    padding: 0.25rem;
+    cursor: pointer;
+    color: var(--tp-muted);
+    font-size: 1.25rem;
+    line-height: 1;
+    transition: color 0.2s ease;
+}
+
+.tp-qr-dialog-close:hover {
+    color: var(--tp-text);
+}
+
+.tp-qr-dialog-body {
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.tp-qr-dialog-body-split {
+    flex-direction: row;
+    gap: 1.5rem;
+    padding: 1.25rem;
+}
+
+.tp-qr-dialog-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    flex: 1;
+}
+
+.tp-qr-dialog-preview {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.tp-qr-dialog-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.875rem 1rem;
+    background: var(--tp-surface);
+    border: 1px solid var(--tp-border);
+    border-radius: 0.75rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--tp-text);
+    transition: all 0.2s ease;
+}
+
+.tp-qr-dialog-btn:hover {
+    background: var(--tp-primary);
+    border-color: var(--tp-primary);
+    color: #fff;
+}
+
+.tp-qr-dialog-btn i {
+    width: 1.25rem;
+    text-align: center;
 }
 
 .tp-qr-code-container {
     display: inline-block;
-    padding: 1rem;
+    padding: 0.75rem;
     background: #fff;
     border-radius: 0.75rem;
     border: 1px solid var(--tp-border);
@@ -625,31 +718,46 @@
 }
 
 .tp-qr-url {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     color: var(--tp-muted);
     word-break: break-all;
-    padding: 0.5rem;
+    text-align: center;
+    max-width: 200px;
 }
 
-.tp-qr-modal-footer {
-    background: var(--tp-surface-soft);
-    border-top: 1px solid var(--tp-border);
-    border-radius: 0 0 1rem 1rem;
-    justify-content: center;
-    gap: 0.5rem;
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
 
-.tp-qr-action-btn {
-    border-radius: 0.5rem;
-    font-weight: 500;
-    padding: 0.5rem 1rem;
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
-.tp-qr-action-btn.btn-primary {
-    background: linear-gradient(180deg, var(--tp-primary), var(--tp-primary-contrast));
-    border: none;
-}
+/* Responsive: stack layout on small screens */
+@media (max-width: 520px) {
+    .tp-qr-dialog-with-preview {
+        min-width: auto;
+        width: 90vw;
+    }
 
-.tp-qr-action-btn.btn-primary:hover {
-    background: linear-gradient(180deg, var(--tp-primary-contrast), var(--tp-primary-contrast));
+    .tp-qr-dialog-body-split {
+        flex-direction: column-reverse;
+        align-items: center;
+    }
+
+    .tp-qr-dialog-buttons {
+        width: 100%;
+    }
+
+    .tp-qr-dialog-preview {
+        margin-bottom: 0.5rem;
+    }
 }

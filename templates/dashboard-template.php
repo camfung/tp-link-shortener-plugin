@@ -134,32 +134,35 @@ $show_filters = isset($atts['show_filters']) ? ($atts['show_filters'] === 'true'
 <!-- Copy tooltip -->
 <div class="tp-copy-tooltip" id="tp-copy-tooltip"><?php esc_html_e('Copied!', 'tp-link-shortener'); ?></div>
 
-<!-- QR Code Modal -->
-<div class="modal fade" id="tp-qr-modal" tabindex="-1" aria-labelledby="tp-qr-modal-label" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-sm">
-        <div class="modal-content tp-qr-modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="tp-qr-modal-label">
-                    <i class="fas fa-qrcode me-2"></i><?php esc_html_e('QR Code', 'tp-link-shortener'); ?>
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="<?php esc_attr_e('Close', 'tp-link-shortener'); ?>"></button>
+<!-- QR Code Options Dialog -->
+<div id="tp-qr-dialog-overlay" class="tp-qr-dialog-overlay" style="display: none;">
+    <div id="tp-qr-dialog" class="tp-qr-dialog tp-qr-dialog-with-preview">
+        <div class="tp-qr-dialog-header">
+            <h5 class="tp-qr-dialog-title"><?php esc_html_e('QR Code Options', 'tp-link-shortener'); ?></h5>
+            <button type="button" id="tp-qr-dialog-close" class="tp-qr-dialog-close" aria-label="<?php esc_attr_e('Close', 'tp-link-shortener'); ?>">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="tp-qr-dialog-body tp-qr-dialog-body-split">
+            <div class="tp-qr-dialog-buttons">
+                <button type="button" id="tp-qr-download-btn" class="tp-qr-dialog-btn">
+                    <i class="fas fa-download"></i>
+                    <span><?php esc_html_e('Download', 'tp-link-shortener'); ?></span>
+                </button>
+                <button type="button" id="tp-qr-open-btn" class="tp-qr-dialog-btn">
+                    <i class="fas fa-external-link-alt"></i>
+                    <span><?php esc_html_e('Open Link', 'tp-link-shortener'); ?></span>
+                </button>
+                <button type="button" id="tp-qr-copy-btn" class="tp-qr-dialog-btn">
+                    <i class="fas fa-copy"></i>
+                    <span><?php esc_html_e('Copy to Clipboard', 'tp-link-shortener'); ?></span>
+                </button>
             </div>
-            <div class="modal-body text-center">
+            <div class="tp-qr-dialog-preview">
                 <div class="tp-qr-code-container" id="tp-qr-code-container">
                     <!-- QR code will be generated here -->
                 </div>
-                <div class="tp-qr-url mt-2" id="tp-qr-url"></div>
-            </div>
-            <div class="modal-footer tp-qr-modal-footer">
-                <button type="button" class="btn btn-primary tp-qr-action-btn" id="tp-qr-download-btn">
-                    <i class="fas fa-download me-1"></i><?php esc_html_e('Download', 'tp-link-shortener'); ?>
-                </button>
-                <button type="button" class="btn btn-outline-secondary tp-qr-action-btn" id="tp-qr-copy-btn">
-                    <i class="fas fa-copy me-1"></i><?php esc_html_e('Copy', 'tp-link-shortener'); ?>
-                </button>
-                <button type="button" class="btn btn-outline-secondary tp-qr-action-btn" id="tp-qr-open-btn">
-                    <i class="fas fa-external-link-alt me-1"></i><?php esc_html_e('Open', 'tp-link-shortener'); ?>
-                </button>
+                <div class="tp-qr-url" id="tp-qr-url"></div>
             </div>
         </div>
     </div>
