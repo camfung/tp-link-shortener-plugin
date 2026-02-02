@@ -71,12 +71,24 @@ $show_filters = isset($atts['show_filters']) ? ($atts['show_filters'] === 'true'
             <?php endif; ?>
         </div>
 
-        <!-- Loading State -->
+        <!-- Loading State (Skeleton Loader) -->
         <div class="tp-dashboard-loading" id="tp-dashboard-loading">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden"><?php esc_html_e('Loading...', 'tp-link-shortener'); ?></span>
+            <div class="table-responsive">
+                <table class="table tp-dashboard-table tp-skeleton-table">
+                    <thead>
+                        <tr>
+                            <th class="tp-col-shortlink"><?php esc_html_e('Link', 'tp-link-shortener'); ?></th>
+                            <th class="tp-col-destination"><?php esc_html_e('Destination', 'tp-link-shortener'); ?></th>
+                            <th class="tp-col-usage"><?php esc_html_e('Usage', 'tp-link-shortener'); ?></th>
+                            <th class="tp-col-date"><?php esc_html_e('Created', 'tp-link-shortener'); ?></th>
+                            <th class="tp-col-actions"><?php esc_html_e('Actions', 'tp-link-shortener'); ?></th>
+                        </tr>
+                    </thead>
+                    <tbody id="tp-skeleton-tbody">
+                        <!-- Skeleton rows will be populated by JavaScript based on page_size -->
+                    </tbody>
+                </table>
             </div>
-            <p class="mt-2"><?php esc_html_e('Loading your links...', 'tp-link-shortener'); ?></p>
         </div>
 
         <!-- Error State -->

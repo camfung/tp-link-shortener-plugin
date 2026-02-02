@@ -194,18 +194,17 @@
     box-shadow: 0 12px 24px -12px rgba(54, 115, 225, 0.7);
 }
 
-/* Loading State */
+/* Loading State (Skeleton Table) */
 .tp-dashboard-loading {
-    text-align: center;
-    padding: 4rem 2rem;
-    color: var(--tp-muted);
+    background: #f8fbff;
+    border: 1px solid #d7e8ff;
+    border-radius: 1rem;
+    overflow: hidden;
+    box-shadow: 0 12px 30px -20px rgba(30, 79, 159, 0.5);
 }
 
-.tp-dashboard-loading .spinner-border {
-    width: 3rem;
-    height: 3rem;
-    border-width: 3px;
-    color: var(--tp-primary);
+.tp-skeleton-table {
+    margin-bottom: 0;
 }
 
 /* Error State */
@@ -575,22 +574,135 @@
     }
 }
 
-/* Loading Row Animation */
+/* Skeleton Row Animation */
 @keyframes shimmer {
-    0% { background-position: -200px 0; }
-    100% { background-position: 200px 0; }
+    0% { background-position: -400px 0; }
+    100% { background-position: 400px 0; }
 }
 
-.tp-loading-row td {
-    height: 60px;
+.tp-skeleton-row td {
+    background: var(--tp-surface);
+    padding: 1rem;
+    border-bottom: 1px solid rgba(207, 226, 255, 0.5);
 }
 
-.tp-loading-placeholder {
-    height: 20px;
+.tp-skeleton-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.tp-skeleton-placeholder {
+    height: 16px;
     background: linear-gradient(90deg, #eef4ff 25%, #dce9ff 50%, #eef4ff 75%);
-    background-size: 200px 100%;
-    animation: shimmer 1.5s infinite;
+    background-size: 400px 100%;
+    animation: shimmer 1.5s infinite linear;
+    border-radius: 0.375rem;
+}
+
+.tp-skeleton-placeholder-lg {
+    height: 20px;
+    width: 85%;
+}
+
+.tp-skeleton-placeholder-sm {
+    height: 12px;
+    width: 60%;
+}
+
+.tp-skeleton-placeholder-md {
+    height: 16px;
+    width: 70%;
+}
+
+.tp-skeleton-placeholder-xs {
+    height: 10px;
+    width: 40%;
+}
+
+/* Skeleton action buttons */
+.tp-skeleton-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+}
+
+.tp-skeleton-btn {
+    width: 36px;
+    height: 32px;
+    background: linear-gradient(90deg, #eef4ff 25%, #dce9ff 50%, #eef4ff 75%);
+    background-size: 400px 100%;
+    animation: shimmer 1.5s infinite linear;
     border-radius: 0.5rem;
+}
+
+/* Staggered animation delay for each row */
+.tp-skeleton-row:nth-child(1) .tp-skeleton-placeholder,
+.tp-skeleton-row:nth-child(1) .tp-skeleton-btn { animation-delay: 0s; }
+.tp-skeleton-row:nth-child(2) .tp-skeleton-placeholder,
+.tp-skeleton-row:nth-child(2) .tp-skeleton-btn { animation-delay: 0.1s; }
+.tp-skeleton-row:nth-child(3) .tp-skeleton-placeholder,
+.tp-skeleton-row:nth-child(3) .tp-skeleton-btn { animation-delay: 0.2s; }
+.tp-skeleton-row:nth-child(4) .tp-skeleton-placeholder,
+.tp-skeleton-row:nth-child(4) .tp-skeleton-btn { animation-delay: 0.3s; }
+.tp-skeleton-row:nth-child(5) .tp-skeleton-placeholder,
+.tp-skeleton-row:nth-child(5) .tp-skeleton-btn { animation-delay: 0.4s; }
+.tp-skeleton-row:nth-child(6) .tp-skeleton-placeholder,
+.tp-skeleton-row:nth-child(6) .tp-skeleton-btn { animation-delay: 0.5s; }
+.tp-skeleton-row:nth-child(7) .tp-skeleton-placeholder,
+.tp-skeleton-row:nth-child(7) .tp-skeleton-btn { animation-delay: 0.6s; }
+.tp-skeleton-row:nth-child(8) .tp-skeleton-placeholder,
+.tp-skeleton-row:nth-child(8) .tp-skeleton-btn { animation-delay: 0.7s; }
+.tp-skeleton-row:nth-child(9) .tp-skeleton-placeholder,
+.tp-skeleton-row:nth-child(9) .tp-skeleton-btn { animation-delay: 0.8s; }
+.tp-skeleton-row:nth-child(10) .tp-skeleton-placeholder,
+.tp-skeleton-row:nth-child(10) .tp-skeleton-btn { animation-delay: 0.9s; }
+
+/* Mobile skeleton styles */
+@media (max-width: 768px) {
+    .tp-dashboard-loading .tp-skeleton-table thead {
+        display: none;
+    }
+
+    .tp-dashboard-loading .tp-skeleton-row {
+        display: block;
+        margin-bottom: 1rem;
+        border: 2px solid var(--tp-border);
+        border-radius: 1rem;
+        padding: 1rem;
+        background: var(--tp-surface);
+        box-shadow: 0 8px 20px -15px rgba(30, 79, 159, 0.4);
+    }
+
+    .tp-dashboard-loading .tp-skeleton-row td {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.6rem 0;
+        border-bottom: 1px solid rgba(207, 226, 255, 0.5);
+        background: transparent;
+    }
+
+    .tp-dashboard-loading .tp-skeleton-row td:last-child {
+        border-bottom: none;
+        padding-top: 0.8rem;
+    }
+
+    .tp-dashboard-loading .tp-skeleton-row td::before {
+        content: attr(data-label);
+        font-weight: 700;
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--tp-primary-contrast);
+        margin-right: 10px;
+        flex-shrink: 0;
+    }
+
+    .tp-skeleton-actions {
+        justify-content: flex-start;
+        width: 100%;
+    }
 }
 
 /* QR Code Dialog - matches frontend.css style */

@@ -24,6 +24,7 @@
         $loginRequired,
         $content,
         $loading,
+        $skeletonTbody,
         $error,
         $empty,
         $tableWrapper,
@@ -59,6 +60,7 @@
         $loginRequired = $('#tp-dashboard-login-required');
         $content = $('#tp-dashboard-content');
         $loading = $('#tp-dashboard-loading');
+        $skeletonTbody = $('#tp-skeleton-tbody');
         $error = $('#tp-dashboard-error');
         $empty = $('#tp-dashboard-empty');
         $tableWrapper = $('#tp-dashboard-table-wrapper');
@@ -85,6 +87,9 @@
         // Get page size from container data attribute
         state.pageSize = parseInt($container.data('page-size')) || 10;
 
+        // Generate skeleton rows based on page size
+        generateSkeletonRows(state.pageSize);
+
         // Check if user is logged in
         if (!tpDashboard.isLoggedIn) {
             showLoginRequired();
@@ -96,6 +101,50 @@
 
         // Load initial data
         loadData();
+    }
+
+    /**
+     * Generate skeleton loading rows based on page size
+     */
+    function generateSkeletonRows(count) {
+        $skeletonTbody.empty();
+
+        for (let i = 0; i < count; i++) {
+            const row = `
+                <tr class="tp-skeleton-row">
+                    <td class="tp-col-shortlink" data-label="Link">
+                        <div class="tp-skeleton-cell">
+                            <div class="tp-skeleton-placeholder tp-skeleton-placeholder-lg"></div>
+                            <div class="tp-skeleton-placeholder tp-skeleton-placeholder-sm"></div>
+                        </div>
+                    </td>
+                    <td class="tp-col-destination" data-label="Destination">
+                        <div class="tp-skeleton-cell">
+                            <div class="tp-skeleton-placeholder tp-skeleton-placeholder-lg"></div>
+                            <div class="tp-skeleton-placeholder tp-skeleton-placeholder-xs"></div>
+                        </div>
+                    </td>
+                    <td class="tp-col-usage" data-label="Usage">
+                        <div class="tp-skeleton-cell">
+                            <div class="tp-skeleton-placeholder tp-skeleton-placeholder-md" style="width: 50px;"></div>
+                            <div class="tp-skeleton-placeholder tp-skeleton-placeholder-xs" style="width: 80px;"></div>
+                        </div>
+                    </td>
+                    <td class="tp-col-date" data-label="Created">
+                        <div class="tp-skeleton-placeholder tp-skeleton-placeholder-md" style="width: 80px;"></div>
+                    </td>
+                    <td class="tp-col-actions" data-label="Actions">
+                        <div class="tp-skeleton-actions">
+                            <div class="tp-skeleton-btn"></div>
+                            <div class="tp-skeleton-btn"></div>
+                            <div class="tp-skeleton-btn"></div>
+                            <div class="tp-skeleton-btn"></div>
+                        </div>
+                    </td>
+                </tr>
+            `;
+            $skeletonTbody.append(row);
+        }
     }
 
     /**
