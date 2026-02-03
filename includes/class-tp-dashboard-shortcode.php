@@ -24,6 +24,11 @@ class TP_Dashboard_Shortcode {
      * Render the dashboard shortcode
      */
     public function render_shortcode($atts): string {
+        // Return nothing if user is not signed in
+        if (!is_user_logged_in()) {
+            return '';
+        }
+
         $atts = shortcode_atts(array(
             'page_size' => TP_Link_Shortener::get_dashboard_page_size(),
             'show_search' => 'true',
