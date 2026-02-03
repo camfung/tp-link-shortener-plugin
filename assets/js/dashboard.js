@@ -222,30 +222,19 @@
         $tbody.on('click', '.tp-edit-btn', function(e) {
             e.preventDefault();
             const mid = parseInt($(this).data('mid'));
-            console.log('Dashboard: Edit button clicked for mid:', mid);
+            emitEditItem(mid);
+        });
 
-            const item = state.items.find(function(i) {
-                return i.mid === mid;
-            });
-
-            if (item) {
-                console.log('Dashboard: Found item:', item);
-                console.log('Dashboard: Emitting tp:editItem event');
-
-                // Emit custom event with item data for frontend to consume
-                $(document).trigger('tp:editItem', [item]);
-
-                // Scroll to form if it exists on the page
-                const $form = $('#tp-shortener-form');
-                if ($form.length) {
-                    console.log('Dashboard: Scrolling to form');
-                    $('html, body').animate({
-                        scrollTop: $form.offset().top - 100
-                    }, 500);
-                }
-            } else {
-                console.error('Dashboard: Item not found for mid:', mid);
+        // Row clicks (delegated) - emit event to populate frontend form
+        $tbody.on('click', 'tr', function(e) {
+            // Ignore clicks on interactive elements (buttons, links)
+            const $target = $(e.target);
+            if ($target.closest('a, button, .tp-action-btn').length) {
+                return;
             }
+
+            const mid = parseInt($(this).data('mid'));
+            emitEditItem(mid);
         });
 
         // QR dialog event handlers
@@ -254,6 +243,32 @@
         $qrDownloadBtn.on('click', downloadQrCode);
         $qrCopyBtn.on('click', copyQrCode);
         $qrOpenBtn.on('click', openQrUrl);
+    }
+
+    /**
+     * Emit edit item event for frontend form to consume
+     * @param {number} mid - Map item ID
+     */
+    function emitEditItem(mid) {
+        const item = state.items.find(function(i) {
+            return i.mid === mid;
+        });
+
+        if (!item) {
+            console.error('Dashboard: Item not found for mid:', mid);
+            return;
+        }
+
+        // Emit custom event with item data for frontend to consume
+        $(document).trigger('tp:editItem', [item]);
+
+        // Scroll to form if it exists on the page
+        const $form = $('#tp-shortener-form');
+        if ($form.length) {
+            $('html, body').animate({
+                scrollTop: $form.offset().top - 100
+            }, 500);
+        }
     }
 
     /**
