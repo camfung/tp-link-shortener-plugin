@@ -580,7 +580,7 @@
      */
     function showLoginRequired() {
         $content.hide();
-        $loginRequired.show();
+        // Display nothing when user is not signed in
     }
 
     function showLoading() {
