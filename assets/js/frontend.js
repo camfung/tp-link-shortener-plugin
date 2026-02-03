@@ -483,6 +483,12 @@
             if (this.$customKeyInput.length) {
                 this.$customKeyInput.on('input', this.handleCustomKeyInput.bind(this));
             }
+
+            // Listen for edit item events from dashboard (only for logged-in users)
+            if (tpAjax.isLoggedIn) {
+                $(document).on('tp:editItem', this.handleDashboardEditItem.bind(this));
+                TPDebug.log('init', 'Dashboard edit item event listener bound');
+            }
         },
 
         /**
@@ -2114,6 +2120,38 @@
 
             // Switch to update mode
             this.switchToUpdateMode();
+        },
+
+        /**
+         * Handle edit item event from dashboard
+         * Populates the form with the clicked item's data
+         */
+        handleDashboardEditItem: function(event, item) {
+            TPDebug.log('ui', '=== DASHBOARD EDIT ITEM EVENT ===');
+            TPDebug.log('ui', 'Item received:', item);
+
+            if (!item) {
+                TPDebug.error('ui', 'No item data received');
+                return;
+            }
+
+            // Transform dashboard item to match the record format expected by displayExistingLink
+            const record = {
+                mid: item.mid,
+                domain: item.domain,
+                tpKey: item.tpKey,
+                destination: item.destination,
+                usage: item.usage || { qr: 0, regular: 0 },
+                expires_at: item.expires_at || null,
+                notes: item.notes || ''
+            };
+
+            TPDebug.log('ui', 'Transformed record:', record);
+
+            // Use the existing displayExistingLink method to populate the form
+            this.displayExistingLink(record);
+
+            TPDebug.log('ui', '=== DASHBOARD EDIT ITEM COMPLETE ===');
         },
 
         /**

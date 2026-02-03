@@ -16,7 +16,8 @@
         status: '',
         search: '',
         isLoading: false,
-        searchDebounceTimer: null
+        searchDebounceTimer: null,
+        items: [] // Store current page items for lookup
     };
 
     // DOM elements
@@ -217,6 +218,28 @@
             showQrDialog(url);
         });
 
+        // Edit button clicks (delegated) - emit event to populate frontend form
+        $tbody.on('click', '.tp-edit-btn', function(e) {
+            e.preventDefault();
+            const mid = parseInt($(this).data('mid'));
+            const item = state.items.find(function(i) {
+                return i.mid === mid;
+            });
+
+            if (item) {
+                // Emit custom event with item data for frontend to consume
+                $(document).trigger('tp:editItem', [item]);
+
+                // Scroll to form if it exists on the page
+                const $form = $('#tp-shortener-form');
+                if ($form.length) {
+                    $('html, body').animate({
+                        scrollTop: $form.offset().top - 100
+                    }, 500);
+                }
+            }
+        });
+
         // QR dialog event handlers
         $qrDialogOverlay.on('click', handleQrDialogOverlayClick);
         $qrDialogClose.on('click', hideQrDialog);
@@ -253,6 +276,7 @@
                 if (response.success) {
                     state.totalRecords = response.data.total_records;
                     state.totalPages = response.data.total_pages;
+                    state.items = response.data.source; // Store items for lookup
                     renderTable(response.data.source);
                     renderPagination();
                     updateTotalCount();
