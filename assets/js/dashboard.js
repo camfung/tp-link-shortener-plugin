@@ -222,21 +222,29 @@
         $tbody.on('click', '.tp-edit-btn', function(e) {
             e.preventDefault();
             const mid = parseInt($(this).data('mid'));
+            console.log('Dashboard: Edit button clicked for mid:', mid);
+
             const item = state.items.find(function(i) {
                 return i.mid === mid;
             });
 
             if (item) {
+                console.log('Dashboard: Found item:', item);
+                console.log('Dashboard: Emitting tp:editItem event');
+
                 // Emit custom event with item data for frontend to consume
                 $(document).trigger('tp:editItem', [item]);
 
                 // Scroll to form if it exists on the page
                 const $form = $('#tp-shortener-form');
                 if ($form.length) {
+                    console.log('Dashboard: Scrolling to form');
                     $('html, body').animate({
                         scrollTop: $form.offset().top - 100
                     }, 500);
                 }
+            } else {
+                console.error('Dashboard: Item not found for mid:', mid);
             }
         });
 
