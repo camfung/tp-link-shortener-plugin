@@ -88,9 +88,9 @@
 
 .tp-dashboard-total-count {
     font-size: 0.875rem;
-    background: rgba(60, 122, 229, 0.12);
-    color: var(--tp-primary-contrast);
-    border: 1px solid rgba(60, 122, 229, 0.2);
+    background: rgb(60, 122, 229);
+    color: #ffffff;
+    border: 1px solid rgb(60, 122, 229);
     padding: 0.35rem 0.85rem;
     border-radius: 999px;
     font-weight: 600;
