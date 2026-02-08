@@ -937,7 +937,7 @@
             } catch (err) {
                 TPDebug.log('clipboard', '[PASTE DEBUG] Clipboard read failed with error:', err);
                 if (err.name === 'NotAllowedError') {
-                    this.showError('Clipboard permission denied. Please allow clipboard access or paste manually. <a href="https://trafficportal.dev/help/" target="_blank">Help, Q&A, How-to</a>');
+                    this.showError('Clipboard permission denied. Please allow clipboard access or paste manually. <a href="https://trafficportal.dev/help/" target="_blank">Read more…</a>');
                 } else {
                     this.showError('Unable to read clipboard. Please paste manually (Ctrl+V or Cmd+V).');
                 }
