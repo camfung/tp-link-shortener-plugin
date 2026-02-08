@@ -43,6 +43,16 @@ class TP_Link_Shortener {
     private $api_handler;
 
     /**
+     * Auth handler
+     */
+    private $auth_handler;
+
+    /**
+     * Auth shortcodes
+     */
+    private $auth_shortcodes;
+
+    /**
      * Get plugin instance
      */
     public static function get_instance() {
@@ -62,6 +72,8 @@ class TP_Link_Shortener {
         $this->shortcode = new TP_Shortcode($this->assets);
         $this->dashboard_shortcode = new TP_Dashboard_Shortcode();
         $this->admin = new TP_Admin_Settings();
+        $this->auth_handler = new TP_Auth_Handler();
+        $this->auth_shortcodes = new TP_Auth_Shortcodes($this->auth_handler);
 
         // Register hooks
         add_action('init', array($this, 'load_textdomain'));

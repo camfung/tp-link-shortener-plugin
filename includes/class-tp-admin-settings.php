@@ -115,6 +115,81 @@ class TP_Admin_Settings {
             'tp-link-shortener',
             'tp_link_shortener_main_section'
         );
+
+        // ── User Form Settings ──────────────────────────────────────
+
+        register_setting('tp_link_shortener_settings', 'tp_link_shortener_register_fields', array(
+            'type' => 'array',
+            'default' => array(),
+            'sanitize_callback' => array($this, 'sanitize_field_checkboxes'),
+        ));
+        register_setting('tp_link_shortener_settings', 'tp_link_shortener_profile_fields', array(
+            'type' => 'array',
+            'default' => array(),
+            'sanitize_callback' => array($this, 'sanitize_field_checkboxes'),
+        ));
+        register_setting('tp_link_shortener_settings', 'tp_link_shortener_login_redirect', array(
+            'type' => 'string',
+            'default' => '',
+            'sanitize_callback' => 'esc_url_raw',
+        ));
+        register_setting('tp_link_shortener_settings', 'tp_link_shortener_register_redirect', array(
+            'type' => 'string',
+            'default' => '',
+            'sanitize_callback' => 'esc_url_raw',
+        ));
+        register_setting('tp_link_shortener_settings', 'tp_link_shortener_logout_redirect', array(
+            'type' => 'string',
+            'default' => '',
+            'sanitize_callback' => 'esc_url_raw',
+        ));
+
+        add_settings_section(
+            'tp_link_shortener_auth_section',
+            __('User Form Settings', 'tp-link-shortener'),
+            array($this, 'render_auth_section_description'),
+            'tp-link-shortener'
+        );
+
+        add_settings_field(
+            'tp_link_shortener_register_fields',
+            __('Register Form Fields', 'tp-link-shortener'),
+            array($this, 'render_register_fields_field'),
+            'tp-link-shortener',
+            'tp_link_shortener_auth_section'
+        );
+
+        add_settings_field(
+            'tp_link_shortener_profile_fields',
+            __('Profile Form Fields', 'tp-link-shortener'),
+            array($this, 'render_profile_fields_field'),
+            'tp-link-shortener',
+            'tp_link_shortener_auth_section'
+        );
+
+        add_settings_field(
+            'tp_link_shortener_login_redirect',
+            __('Login Redirect URL', 'tp-link-shortener'),
+            array($this, 'render_login_redirect_field'),
+            'tp-link-shortener',
+            'tp_link_shortener_auth_section'
+        );
+
+        add_settings_field(
+            'tp_link_shortener_register_redirect',
+            __('Register Redirect URL', 'tp-link-shortener'),
+            array($this, 'render_register_redirect_field'),
+            'tp-link-shortener',
+            'tp_link_shortener_auth_section'
+        );
+
+        add_settings_field(
+            'tp_link_shortener_logout_redirect',
+            __('Logout Redirect URL', 'tp-link-shortener'),
+            array($this, 'render_logout_redirect_field'),
+            'tp-link-shortener',
+            'tp_link_shortener_auth_section'
+        );
     }
 
     /**
@@ -172,6 +247,12 @@ class TP_Admin_Settings {
                         <code>[tp_link_shortener]</code>
                         <p style="margin-top: 10px;"><?php esc_html_e('User Dashboard:', 'tp-link-shortener'); ?></p>
                         <code>[tp_link_dashboard]</code>
+                        <p style="margin-top: 10px;"><?php esc_html_e('Register Form:', 'tp-link-shortener'); ?></p>
+                        <code>[tp_register]</code>
+                        <p style="margin-top: 10px;"><?php esc_html_e('Login Form:', 'tp-link-shortener'); ?></p>
+                        <code>[tp_login]</code>
+                        <p style="margin-top: 10px;"><?php esc_html_e('Profile Edit:', 'tp-link-shortener'); ?></p>
+                        <code>[tp_profile]</code>
                     </div>
                 </div>
             </div>
@@ -372,5 +453,124 @@ class TP_Admin_Settings {
             $value = 10;
         }
         return $value;
+    }
+
+    // ── User Form Settings renderers ─────────────────────────────
+
+    /**
+     * Render auth section description
+     */
+    public function render_auth_section_description() {
+        echo '<p>' . esc_html__('Configure custom user forms (register, login, profile). Requires the UsersWP plugin for custom field support.', 'tp-link-shortener') . '</p>';
+    }
+
+    /**
+     * Get available UWP form fields from the database
+     */
+    private function get_available_uwp_fields(): array {
+        global $wpdb;
+
+        $table = $wpdb->prefix . 'uwp_form_fields';
+
+        if ($wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $table)) !== $table) {
+            return array();
+        }
+
+        return $wpdb->get_results(
+            "SELECT htmlvar_name, site_title, field_type
+             FROM {$table}
+             WHERE form_type = 'account'
+             AND is_active = 1
+             ORDER BY sort_order ASC"
+        ) ?: array();
+    }
+
+    /**
+     * Render multi-checkbox for UWP fields
+     */
+    private function render_uwp_field_checkboxes(string $option_name): void {
+        $fields = $this->get_available_uwp_fields();
+        $selected = get_option($option_name, array());
+        if (!is_array($selected)) {
+            $selected = array();
+        }
+
+        if (empty($fields)) {
+            echo '<p class="description">' . esc_html__('No UsersWP fields found. Install and configure the UsersWP plugin to use custom fields.', 'tp-link-shortener') . '</p>';
+            return;
+        }
+
+        echo '<fieldset>';
+        foreach ($fields as $field) {
+            $checked = in_array($field->htmlvar_name, $selected, true) ? 'checked' : '';
+            printf(
+                '<label style="display:block; margin-bottom:4px;"><input type="checkbox" name="%s[]" value="%s" %s /> %s <code>(%s)</code></label>',
+                esc_attr($option_name),
+                esc_attr($field->htmlvar_name),
+                $checked,
+                esc_html($field->site_title),
+                esc_html($field->field_type)
+            );
+        }
+        echo '</fieldset>';
+    }
+
+    /**
+     * Render register fields checkboxes
+     */
+    public function render_register_fields_field() {
+        $this->render_uwp_field_checkboxes('tp_link_shortener_register_fields');
+        echo '<p class="description">' . esc_html__('Select which UsersWP fields to show on the registration form.', 'tp-link-shortener') . '</p>';
+    }
+
+    /**
+     * Render profile fields checkboxes
+     */
+    public function render_profile_fields_field() {
+        $this->render_uwp_field_checkboxes('tp_link_shortener_profile_fields');
+        echo '<p class="description">' . esc_html__('Select which UsersWP fields to show on the profile edit form.', 'tp-link-shortener') . '</p>';
+    }
+
+    /**
+     * Render login redirect URL field
+     */
+    public function render_login_redirect_field() {
+        $value = get_option('tp_link_shortener_login_redirect', '');
+        ?>
+        <input type="url" name="tp_link_shortener_login_redirect" value="<?php echo esc_attr($value); ?>" class="regular-text" placeholder="<?php esc_attr_e('https://example.com/dashboard', 'tp-link-shortener'); ?>" />
+        <p class="description"><?php esc_html_e('URL to redirect to after login. Leave empty to redirect to home page.', 'tp-link-shortener'); ?></p>
+        <?php
+    }
+
+    /**
+     * Render register redirect URL field
+     */
+    public function render_register_redirect_field() {
+        $value = get_option('tp_link_shortener_register_redirect', '');
+        ?>
+        <input type="url" name="tp_link_shortener_register_redirect" value="<?php echo esc_attr($value); ?>" class="regular-text" placeholder="<?php esc_attr_e('https://example.com/welcome', 'tp-link-shortener'); ?>" />
+        <p class="description"><?php esc_html_e('URL to redirect to after registration. Leave empty to redirect to home page.', 'tp-link-shortener'); ?></p>
+        <?php
+    }
+
+    /**
+     * Render logout redirect URL field
+     */
+    public function render_logout_redirect_field() {
+        $value = get_option('tp_link_shortener_logout_redirect', '');
+        ?>
+        <input type="url" name="tp_link_shortener_logout_redirect" value="<?php echo esc_attr($value); ?>" class="regular-text" placeholder="<?php esc_attr_e('https://example.com/', 'tp-link-shortener'); ?>" />
+        <p class="description"><?php esc_html_e('URL to redirect to after logout. Leave empty to redirect to home page.', 'tp-link-shortener'); ?></p>
+        <?php
+    }
+
+    /**
+     * Sanitize field checkbox array
+     */
+    public function sanitize_field_checkboxes($value) {
+        if (!is_array($value)) {
+            return array();
+        }
+        return array_map('sanitize_text_field', $value);
     }
 }

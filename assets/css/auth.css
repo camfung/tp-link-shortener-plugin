@@ -1,0 +1,297 @@
+/**
+ * Traffic Portal Auth Forms — CSS
+ * Extends existing frontend.css variables and .tp-* classes
+ */
+
+/* Auth container — centered, responsive max-width */
+.tp-auth-container {
+    max-width: 520px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+    font-family: 'Poppins', 'Trebuchet MS', 'Segoe UI', sans-serif;
+    color: var(--tp-text);
+}
+
+/* Profile container gets wider */
+.tp-auth-container.tp-profile-container {
+    max-width: 700px;
+}
+
+/* Auth card — glassmorphism style matching .tp-card */
+.tp-auth-card {
+    border-radius: 1rem;
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(207, 226, 255, 0.8);
+    box-shadow: var(--tp-shadow);
+    padding: 2rem 1.75rem;
+}
+
+/* Auth header */
+.tp-auth-header {
+    margin-bottom: 1.5rem;
+}
+
+.tp-auth-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, rgba(60, 122, 229, 0.12) 0%, rgba(60, 122, 229, 0.06) 100%);
+    color: var(--tp-primary);
+    font-size: 1.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.tp-auth-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--tp-primary-contrast);
+    letter-spacing: 0.01em;
+    margin: 0;
+}
+
+/* Auth input visual — slightly softer than shortener fields */
+.tp-auth-input-visual {
+    border-width: 2px;
+    border-color: var(--tp-border);
+    background: linear-gradient(180deg, #f8fcff 0%, #eef5ff 100%);
+    box-shadow: 0 8px 20px -16px rgba(30, 79, 159, 0.3);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.tp-auth-input-visual:focus-within {
+    border-color: var(--tp-primary);
+    box-shadow: 0 8px 24px -14px rgba(60, 122, 229, 0.5);
+}
+
+/* Valid state */
+.tp-auth-input-visual:has(.is-valid) {
+    border-color: var(--tp-accent);
+    box-shadow: 0 8px 24px -14px rgba(34, 181, 115, 0.4);
+}
+
+/* Invalid state */
+.tp-auth-input-visual:has(.is-invalid) {
+    border-color: #f05a5a;
+    box-shadow: 0 8px 24px -14px rgba(240, 90, 90, 0.4);
+}
+
+/* Read-only inputs */
+.tp-input-readonly {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.tp-input-readonly input {
+    cursor: not-allowed;
+    color: var(--tp-muted);
+}
+
+/* Field icon (left side of input visual) */
+.tp-auth-field-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 48px;
+    padding: 0.75rem 0.75rem;
+    color: var(--tp-primary);
+    font-size: 1.1rem;
+    opacity: 0.7;
+    transition: opacity 0.2s ease;
+}
+
+.tp-auth-input-visual:focus-within .tp-auth-field-icon {
+    opacity: 1;
+}
+
+/* Auth floating label positioning */
+.tp-auth-input-visual .tp-floating-label {
+    left: -1.8rem;
+}
+
+/* Password toggle button */
+.tp-password-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    padding: 0.75rem;
+    border: none;
+    background: transparent;
+    color: var(--tp-muted);
+    font-size: 1rem;
+    cursor: pointer;
+    border-radius: 0 0.625rem 0.625rem 0;
+    transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.tp-password-toggle:hover,
+.tp-password-toggle:focus-visible {
+    color: var(--tp-primary);
+    background: rgba(60, 122, 229, 0.06);
+}
+
+/* Password strength meter */
+.tp-password-strength {
+    padding: 0 0.25rem;
+}
+
+.tp-password-strength-bar {
+    height: 4px;
+    background: #e0e5ee;
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.tp-password-strength-fill {
+    height: 100%;
+    width: 0;
+    border-radius: 999px;
+    transition: width 0.3s ease, background-color 0.3s ease;
+}
+
+.tp-password-strength-fill[data-strength="0"] {
+    width: 0;
+}
+
+.tp-password-strength-fill[data-strength="1"] {
+    width: 25%;
+    background: #f05a5a;
+}
+
+.tp-password-strength-fill[data-strength="2"] {
+    width: 50%;
+    background: var(--tp-warning);
+}
+
+.tp-password-strength-fill[data-strength="3"] {
+    width: 75%;
+    background: #5bc0de;
+}
+
+.tp-password-strength-fill[data-strength="4"] {
+    width: 100%;
+    background: var(--tp-accent);
+}
+
+.tp-password-strength-text {
+    display: inline-block;
+    margin-top: 0.25rem;
+    font-weight: 600;
+    color: var(--tp-muted);
+}
+
+/* Auth link (bottom of card) */
+.tp-auth-link {
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(207, 226, 255, 0.5);
+}
+
+.tp-link {
+    color: var(--tp-primary);
+    font-weight: 600;
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+
+.tp-link:hover {
+    color: var(--tp-primary-contrast);
+    text-decoration: underline;
+}
+
+/* Profile section headings */
+.tp-profile-section {
+    margin-bottom: 1.5rem;
+}
+
+.tp-profile-section-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--tp-primary-contrast);
+    letter-spacing: 0.02em;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid rgba(60, 122, 229, 0.1);
+}
+
+.tp-profile-section-title i {
+    color: var(--tp-primary);
+    font-size: 0.9rem;
+}
+
+/* Collapsible password section toggle */
+.tp-profile-section-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 0.75rem 0;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.tp-profile-section-toggle:hover {
+    opacity: 0.8;
+}
+
+.tp-toggle-icon {
+    color: var(--tp-muted);
+    font-size: 0.8rem;
+    transition: transform 0.3s ease;
+}
+
+.tp-profile-section-toggle[aria-expanded="true"] .tp-toggle-icon {
+    transform: rotate(180deg);
+}
+
+/* Field error */
+.tp-field-error {
+    padding-left: 0.5rem;
+    font-size: 0.8rem;
+}
+
+/* Auth checkbox alignment */
+.tp-auth-checkbox {
+    padding: 0.5rem 0;
+}
+
+/* Loading state on submit button */
+.tp-auth-form .btn[disabled] {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+/* Responsive */
+@media (max-width: 575.98px) {
+    .tp-auth-container {
+        padding: 0 0.5rem;
+        margin: 1rem auto;
+    }
+
+    .tp-auth-card {
+        padding: 1.5rem 1rem;
+    }
+
+    .tp-auth-title {
+        font-size: 1.25rem;
+    }
+
+    .tp-auth-icon {
+        width: 48px;
+        height: 48px;
+        font-size: 1.25rem;
+    }
+
+    .tp-auth-field-icon {
+        min-width: 40px;
+        padding: 0.5rem;
+    }
+}
