@@ -498,8 +498,8 @@
         handleCustomKeyInput: function(e) {
             const input = e.target;
             const originalValue = input.value;
-            // Only allow letters, numbers, dots, hyphens, and underscores
-            const filteredValue = originalValue.replace(/[^a-zA-Z0-9.\-_]/g, '');
+            // Replace spaces with hyphens, then strip any remaining invalid characters
+            const filteredValue = originalValue.replace(/ /g, '-').replace(/[^a-zA-Z0-9.\-_]/g, '');
 
             if (filteredValue !== originalValue) {
                 input.value = filteredValue;
