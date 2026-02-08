@@ -1430,7 +1430,7 @@
             this.$submitText.text(updateLabel);
             this.$submitBtn.attr('aria-label', updateLabel);
             this.$submitBtn.attr('title', updateLabel);
-            this.$submitIcon.removeClass('fa-link').addClass('fa-edit');
+            this.$submitIcon.removeClass('fa-link').addClass('fa-save');
 
             // Ensure the destination input is enabled in update mode
             this.$destinationInput.prop('disabled', false);
@@ -1463,7 +1463,7 @@
             this.$submitText.text(createLabel);
             this.$submitBtn.attr('aria-label', createLabel);
             this.$submitBtn.attr('title', createLabel);
-            this.$submitIcon.removeClass('fa-edit').addClass('fa-link');
+            this.$submitIcon.removeClass('fa-edit').addClass('fa-save');
 
             this.$destinationInput.val('');
             this.$customKeyInput.val('');
