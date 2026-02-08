@@ -115,6 +115,11 @@
             return;
         }
 
+        // Hide the form on the page — only accessible via modal when signed in
+        if ($formWrapper.length) {
+            $formWrapper.hide();
+        }
+
         // Bind events
         bindEvents();
 
@@ -289,10 +294,11 @@
         // Set title based on mode
         $editModalTitle.text(mode === 'edit' ? 'Edit link' : 'Add a link');
 
-        // Move the form into the modal
+        // Move the form into the modal and show it
         var $formWrapper = $('#tp-link-shortener-wrapper');
         if ($formWrapper.length) {
             $editModalBody.append($formWrapper);
+            $formWrapper.show();
         }
 
         $editModalOverlay.show();
@@ -302,9 +308,10 @@
      * Close the edit/add modal and return form to original position
      */
     function closeEditModal() {
-        // Move the form back to its original position
+        // Move the form back to its original position and hide it
         var $formWrapper = $('#tp-link-shortener-wrapper');
         if ($formWrapper.length && $formPlaceholder && $formPlaceholder.length) {
+            $formWrapper.hide();
             $formPlaceholder.after($formWrapper);
         }
 
