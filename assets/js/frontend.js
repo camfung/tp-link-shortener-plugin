@@ -487,6 +487,7 @@
             // Listen for edit item events from dashboard (only for logged-in users)
             if (tpAjax.isLoggedIn) {
                 $(document).on('tp:editItem', this.handleDashboardEditItem.bind(this));
+                $(document).on('tp:resetForm', this.switchToCreateMode.bind(this));
                 TPDebug.log('init', 'Dashboard edit item event listener bound');
             }
         },

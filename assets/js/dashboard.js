@@ -246,8 +246,9 @@
             emitEditItem(mid);
         });
 
-        // Add a link button
+        // Add a link button - clear form and open modal
         $addLinkBtn.on('click', function() {
+            $(document).trigger('tp:resetForm');
             openEditModal('add');
         });
 
