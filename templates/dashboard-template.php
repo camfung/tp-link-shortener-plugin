@@ -64,6 +64,10 @@ $show_filters = isset($atts['show_filters']) ? ($atts['show_filters'] === 'true'
                 </div>
                 <?php endif; ?>
 
+                <button class="btn btn-primary" id="tp-add-link-btn" title="<?php esc_attr_e('Add a link', 'tp-link-shortener'); ?>">
+                    <i class="fas fa-plus me-1"></i><?php esc_html_e('Add a link', 'tp-link-shortener'); ?>
+                </button>
+
                 <button class="btn btn-primary" id="tp-refresh-btn" title="<?php esc_attr_e('Refresh', 'tp-link-shortener'); ?>">
                     <i class="fas fa-sync-alt"></i>
                 </button>
@@ -81,7 +85,6 @@ $show_filters = isset($atts['show_filters']) ? ($atts['show_filters'] === 'true'
                             <th class="tp-col-destination"><?php esc_html_e('Destination', 'tp-link-shortener'); ?></th>
                             <th class="tp-col-usage"><?php esc_html_e('Usage', 'tp-link-shortener'); ?></th>
                             <th class="tp-col-date"><?php esc_html_e('Created', 'tp-link-shortener'); ?></th>
-                            <th class="tp-col-actions"><?php esc_html_e('Actions', 'tp-link-shortener'); ?></th>
                         </tr>
                     </thead>
                     <tbody id="tp-skeleton-tbody">
@@ -119,7 +122,6 @@ $show_filters = isset($atts['show_filters']) ? ($atts['show_filters'] === 'true'
                             <th class="tp-col-destination"><?php esc_html_e('Destination', 'tp-link-shortener'); ?></th>
                             <th class="tp-col-usage"><?php esc_html_e('Usage', 'tp-link-shortener'); ?></th>
                             <th class="tp-col-date"><?php esc_html_e('Created', 'tp-link-shortener'); ?></th>
-                            <th class="tp-col-actions"><?php esc_html_e('Actions', 'tp-link-shortener'); ?></th>
                         </tr>
                     </thead>
                     <tbody id="tp-dashboard-tbody">
@@ -143,6 +145,21 @@ $show_filters = isset($atts['show_filters']) ? ($atts['show_filters'] === 'true'
     </div>
 </div>
 
+<!-- Edit/Add Modal -->
+<div id="tp-edit-modal-overlay" class="tp-edit-modal-overlay" style="display:none;">
+    <div class="tp-edit-modal">
+        <div class="tp-edit-modal-header">
+            <h5 class="tp-edit-modal-title"><?php esc_html_e('Add a link', 'tp-link-shortener'); ?></h5>
+            <button type="button" id="tp-edit-modal-close" class="tp-qr-dialog-close" aria-label="<?php esc_attr_e('Close', 'tp-link-shortener'); ?>">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="tp-edit-modal-body" id="tp-edit-modal-body">
+            <!-- Form will be moved here dynamically -->
+        </div>
+    </div>
+</div>
+
 <!-- Copy tooltip -->
 <div class="tp-copy-tooltip" id="tp-copy-tooltip"><?php esc_html_e('Copied!', 'tp-link-shortener'); ?></div>
 
@@ -155,8 +172,14 @@ $show_filters = isset($atts['show_filters']) ? ($atts['show_filters'] === 'true'
                 <i class="fas fa-times"></i>
             </button>
         </div>
-        <div class="tp-qr-dialog-body tp-qr-dialog-body-split">
-            <div class="tp-qr-dialog-buttons">
+        <div class="tp-qr-dialog-body tp-qr-dialog-body-stacked">
+            <div class="tp-qr-dialog-preview">
+                <div class="tp-qr-code-container" id="tp-qr-code-container">
+                    <!-- QR code will be generated here -->
+                </div>
+                <div class="tp-qr-url" id="tp-qr-url"></div>
+            </div>
+            <div class="tp-qr-dialog-buttons tp-qr-dialog-buttons-horizontal">
                 <button type="button" id="tp-qr-download-btn" class="tp-qr-dialog-btn">
                     <i class="fas fa-download"></i>
                     <span><?php esc_html_e('Download', 'tp-link-shortener'); ?></span>
@@ -169,12 +192,6 @@ $show_filters = isset($atts['show_filters']) ? ($atts['show_filters'] === 'true'
                     <i class="fas fa-copy"></i>
                     <span><?php esc_html_e('Copy to Clipboard', 'tp-link-shortener'); ?></span>
                 </button>
-            </div>
-            <div class="tp-qr-dialog-preview">
-                <div class="tp-qr-code-container" id="tp-qr-code-container">
-                    <!-- QR code will be generated here -->
-                </div>
-                <div class="tp-qr-url" id="tp-qr-url"></div>
             </div>
         </div>
     </div>
