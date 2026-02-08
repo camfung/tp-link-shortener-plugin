@@ -57,7 +57,7 @@ function tp_link_shortener_activate() {
     }
 
     if (!get_option('tp_link_shortener_user_id')) {
-        add_option('tp_link_shortener_user_id', '125');
+        add_option('tp_link_shortener_user_id', '-1');
     }
 
     if (!get_option('tp_link_shortener_domain')) {

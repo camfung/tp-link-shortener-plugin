@@ -109,7 +109,11 @@ class TP_Link_Shortener {
      * Get user ID for API calls
      */
     public static function get_user_id(): int {
-        $uid = get_option('tp_link_shortener_user_id', '125');
+        if (is_user_logged_in()) {
+            return (int) get_current_user_id();
+        }
+
+        $uid = get_option('tp_link_shortener_user_id', '-1');
         return (int) $uid;
     }
 
