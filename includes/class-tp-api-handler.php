@@ -143,6 +143,12 @@ class TP_API_Handler {
         // Paginated Map Items - logged-in users only
         add_action('wp_ajax_tp_get_user_map_items', array($this, 'ajax_get_user_map_items'));
 
+        // Toggle link status (enable/disable) - logged-in users only
+        add_action('wp_ajax_tp_toggle_link_status', array($this, 'ajax_toggle_link_status'));
+
+        // Link change history - logged-in users only
+        add_action('wp_ajax_tp_get_link_history', array($this, 'ajax_get_link_history'));
+
         // For non-logged-in users
         add_action('wp_ajax_nopriv_tp_create_link', array($this, 'ajax_create_link'));
         add_action('wp_ajax_nopriv_tp_validate_key', array($this, 'ajax_validate_key'));
@@ -244,6 +250,16 @@ class TP_API_Handler {
             $this->log_to_file('SUCCESS - Link created successfully: ' . json_encode($result['data']));
             $this->log_to_file('=== CREATE LINK REQUEST END ===');
             error_log('TP Link Shortener: Link created successfully: ' . json_encode($result['data']));
+
+            // Log history
+            $created_mid = isset($result['data']['mid']) ? intval($result['data']['mid']) : 0;
+            if ($created_mid) {
+                $this->log_link_history($created_mid, $uid, 'created', json_encode(array(
+                    'destination' => $destination,
+                    'tpKey' => $custom_key,
+                )));
+            }
+
             wp_send_json_success($result['data']);
         } else {
             $this->log_to_file('FAILURE - Link creation failed: ' . $result['message']);
@@ -1072,6 +1088,14 @@ class TP_API_Handler {
             if ($response['success']) {
                 $this->log_to_file('SUCCESS - Link updated successfully');
                 $this->log_to_file('=== UPDATE LINK REQUEST END ===');
+
+                // Log history
+                $this->log_link_history($mid, $user_id, 'updated', json_encode(array(
+                    'destination' => $destination,
+                    'tpKey' => $tpKey,
+                    'domain' => $domain,
+                )));
+
                 wp_send_json_success(array(
                     'message' => __('Link updated successfully!', 'tp-link-shortener'),
                     'data' => $response
@@ -1259,7 +1283,7 @@ class TP_API_Handler {
 
         // Validate sort if provided
         if ($sort !== null) {
-            $allowed_sort_fields = array('updated_at', 'created_at', 'tpKey');
+            $allowed_sort_fields = array('updated_at', 'created_at', 'tpKey', 'destination', 'clicks');
             $allowed_directions = array('asc', 'desc');
             $sort_parts = explode(':', $sort);
 
@@ -1339,5 +1363,134 @@ class TP_API_Handler {
                 'message' => __('An unexpected error occurred. Please try again.', 'tp-link-shortener')
             ), 500);
         }
+    }
+
+    /**
+     * AJAX handler for toggling link status (enable/disable)
+     */
+    public function ajax_toggle_link_status() {
+        $this->log_to_file('=== TOGGLE LINK STATUS REQUEST START ===');
+
+        check_ajax_referer('tp_link_shortener_nonce', 'nonce');
+
+        if (!is_user_logged_in()) {
+            wp_send_json_error(array(
+                'message' => __('You must be logged in.', 'tp-link-shortener')
+            ), 401);
+            return;
+        }
+
+        $mid = isset($_POST['mid']) ? intval($_POST['mid']) : 0;
+        $new_status = isset($_POST['status']) ? sanitize_text_field($_POST['status']) : '';
+
+        if (empty($mid) || !in_array($new_status, array('active', 'disabled'), true)) {
+            wp_send_json_error(array(
+                'message' => __('Invalid parameters.', 'tp-link-shortener')
+            ), 400);
+            return;
+        }
+
+        $user_id = TP_Link_Shortener::get_user_id();
+
+        try {
+            $response = $this->client->updateMaskedRecord($mid, array(
+                'uid'    => $user_id,
+                'status' => $new_status,
+            ));
+
+            if ($response['success']) {
+                // Log history
+                $this->log_link_history($mid, $user_id, $new_status === 'active' ? 'enabled' : 'disabled', '');
+
+                $this->log_to_file('SUCCESS - Status toggled to ' . $new_status);
+                $this->log_to_file('=== TOGGLE LINK STATUS REQUEST END ===');
+                wp_send_json_success(array(
+                    'message' => $new_status === 'active'
+                        ? __('Link enabled.', 'tp-link-shortener')
+                        : __('Link disabled.', 'tp-link-shortener'),
+                    'status' => $new_status
+                ));
+            } else {
+                $this->log_to_file('FAILURE - API returned success=false');
+                $this->log_to_file('=== TOGGLE LINK STATUS REQUEST END ===');
+                wp_send_json_error(array(
+                    'message' => __('Failed to update status.', 'tp-link-shortener')
+                ));
+            }
+        } catch (Exception $e) {
+            $this->log_to_file('EXCEPTION: ' . $e->getMessage());
+            $this->log_to_file('=== TOGGLE LINK STATUS REQUEST END ===');
+            wp_send_json_error(array(
+                'message' => __('Error: ', 'tp-link-shortener') . $e->getMessage()
+            ));
+        }
+    }
+
+    /**
+     * AJAX handler for retrieving link change history
+     */
+    public function ajax_get_link_history() {
+        check_ajax_referer('tp_link_shortener_nonce', 'nonce');
+
+        if (!is_user_logged_in()) {
+            wp_send_json_error(array(
+                'message' => __('You must be logged in.', 'tp-link-shortener')
+            ), 401);
+            return;
+        }
+
+        $mid = isset($_POST['mid']) ? intval($_POST['mid']) : 0;
+        if (empty($mid)) {
+            wp_send_json_error(array('message' => __('Invalid link ID.', 'tp-link-shortener')), 400);
+            return;
+        }
+
+        global $wpdb;
+        $table = $wpdb->prefix . 'tp_link_history';
+
+        // Check if table exists
+        if ($wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $table)) !== $table) {
+            wp_send_json_success(array());
+            return;
+        }
+
+        $results = $wpdb->get_results($wpdb->prepare(
+            "SELECT action, changes, created_at FROM {$table} WHERE mid = %d ORDER BY created_at DESC LIMIT 50",
+            $mid
+        ), ARRAY_A);
+
+        wp_send_json_success($results ?: array());
+    }
+
+    /**
+     * Log a link change to the history table
+     */
+    private function log_link_history(int $mid, int $uid, string $action, string $changes): void {
+        global $wpdb;
+        $table = $wpdb->prefix . 'tp_link_history';
+
+        // Create table if it doesn't exist
+        if ($wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $table)) !== $table) {
+            $charset_collate = $wpdb->get_charset_collate();
+            $wpdb->query("CREATE TABLE {$table} (
+                id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+                mid BIGINT(20) UNSIGNED NOT NULL,
+                uid BIGINT(20) NOT NULL,
+                action VARCHAR(50) NOT NULL,
+                changes TEXT,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (id),
+                KEY idx_mid (mid),
+                KEY idx_uid (uid)
+            ) {$charset_collate}");
+        }
+
+        $wpdb->insert($table, array(
+            'mid'        => $mid,
+            'uid'        => $uid,
+            'action'     => $action,
+            'changes'    => $changes,
+            'created_at' => current_time('mysql'),
+        ), array('%d', '%d', '%s', '%s', '%s'));
     }
 }
