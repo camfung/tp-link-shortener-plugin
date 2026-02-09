@@ -29,5 +29,8 @@
         <env name="TP_DOMAIN" value="dev.trfc.link"/>
         <env name="TP_USER_ID" value="125"/>
         <env name="TP_USER_TOKEN" value="MkmFJGQJlCyAuFWkkIiG"/>
+        <!-- Logs API Integration Test Environment Variables -->
+        <env name="TP_SITE_URL" value="https://trafficportal.dev"/>
+        <env name="TP_LOGS_API_KEY" value=""/>
     </php>
 </phpunit>
