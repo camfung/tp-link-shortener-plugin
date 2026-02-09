@@ -319,10 +319,10 @@ class TrafficPortalApiClient
      * Log to file for debugging
      */
     private function log_to_file($message) {
-        if (!defined('WP_CONTENT_DIR')) {
+        if (!defined('WP_CONTENT_DIR') || !function_exists('tp_get_log_file_path')) {
             return; // Skip logging when not in WordPress environment
         }
-        $log_file = WP_CONTENT_DIR . '/plugins/tp-update-debug.log';
+        $log_file = tp_get_log_file_path();
         $timestamp = date('Y-m-d H:i:s');
         file_put_contents($log_file, "[$timestamp] API CLIENT: $message\n", FILE_APPEND);
     }

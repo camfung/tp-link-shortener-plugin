@@ -43,6 +43,11 @@ class TP_Link_Shortener {
     private $api_handler;
 
     /**
+     * Logs API
+     */
+    private $logs_api;
+
+    /**
      * Get plugin instance
      */
     public static function get_instance() {
@@ -62,6 +67,7 @@ class TP_Link_Shortener {
         $this->shortcode = new TP_Shortcode($this->assets);
         $this->dashboard_shortcode = new TP_Dashboard_Shortcode();
         $this->admin = new TP_Admin_Settings();
+        $this->logs_api = new TP_Logs_API();
 
         // Register hooks
         add_action('init', array($this, 'load_textdomain'));
