@@ -13,7 +13,7 @@
         pageSize: 10,
         totalRecords: 0,
         totalPages: 0,
-        sort: 'created_at:desc',
+        sort: 'updated_at:desc',
         status: '',
         search: '',
         isLoading: false,
