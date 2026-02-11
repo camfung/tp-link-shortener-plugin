@@ -12,26 +12,30 @@ Usage:
 """
 
 import os
+from pathlib import Path
+
 import pytest
-from playwright.sync_api import sync_playwright, Page, Browser, BrowserContext
+from playwright.sync_api import Page, Browser, BrowserContext
 
 # -------------------------------------------------------------------
-# Configuration — override via environment variables
+# Load .env file from the same directory as this conftest
+# -------------------------------------------------------------------
+_env_path = Path(__file__).parent / ".env"
+if _env_path.exists():
+    for line in _env_path.read_text().splitlines():
+        line = line.strip()
+        if line and not line.startswith("#") and "=" in line:
+            key, _, value = line.partition("=")
+            os.environ.setdefault(key.strip(), value.strip())
+
+# -------------------------------------------------------------------
+# Configuration — override via environment variables or .env
 # -------------------------------------------------------------------
 BASE_URL = os.getenv("TP_BASE_URL", "https://trafficportal.dev")
-LOGIN_URL = os.getenv("TP_LOGIN_URL", f"{BASE_URL}/wp-login.php")
-CLIENT_LINKS_PATH = os.getenv("TP_CLIENT_LINKS_PATH", "/client-links/")
-TEST_USER = os.getenv("TP_TEST_USER", "TestUser@gmail.com")
-TEST_PASS = os.getenv("TP_TEST_PASS", "Test123456!?")
-
-
-@pytest.fixture(scope="session")
-def browser():
-    """Launch a single browser instance for the whole test session."""
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        yield browser
-        browser.close()
+LOGIN_URL = os.getenv("TP_LOGIN_URL", f"{BASE_URL}/login/")
+CLIENT_LINKS_PATH = os.getenv("TP_CLIENT_LINKS_PATH", "/camerons-test-page/")
+TEST_USER = os.getenv("TP_TEST_USER", "")
+TEST_PASS = os.getenv("TP_TEST_PASS", "")
 
 
 @pytest.fixture(scope="session")
@@ -46,12 +50,12 @@ def auth_context(browser: Browser):
     )
     page = context.new_page()
 
-    # WordPress login
+    # WordPress login (custom UsersWP form)
     page.goto(LOGIN_URL)
-    page.fill("#user_login", TEST_USER)
-    page.fill("#user_pass", TEST_PASS)
-    page.click("#wp-submit")
-    page.wait_for_url(f"{BASE_URL}/**")
+    page.get_by_label("Username or Email").fill(TEST_USER)
+    page.get_by_label("Password").fill(TEST_PASS)
+    page.get_by_role("button", name="Login").click()
+    page.wait_for_url(f"{BASE_URL}/**", timeout=15_000)
 
     page.close()
     yield context
@@ -63,9 +67,9 @@ def page(auth_context: BrowserContext):
     """
     Provide a fresh page (tab) for each test, already authenticated.
     """
-    page = auth_context.new_page()
-    yield page
-    page.close()
+    pg = auth_context.new_page()
+    yield pg
+    pg.close()
 
 
 @pytest.fixture()

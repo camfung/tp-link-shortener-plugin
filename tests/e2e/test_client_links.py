@@ -213,9 +213,11 @@ class TestStatusToggle:
         if active_toggle.count() == 0:
             pytest.skip("No active links to toggle")
 
-        # Set up dialog handler to dismiss
+        # The checkbox input is hidden (opacity: 0) with a CSS toggle overlay.
+        # Click the visible <label class="tp-cl-toggle"> wrapper instead.
+        toggle_label = active_toggle.locator("xpath=..")
         page.on("dialog", lambda dialog: dialog.dismiss())
-        active_toggle.click()
+        toggle_label.click()
 
         # The toggle should still be checked (dismissed the confirm)
         expect(active_toggle).to_be_checked()
@@ -300,8 +302,9 @@ class TestAddLinkModal:
         overlay = page.locator("#tp-cl-edit-modal-overlay")
         expect(overlay).to_be_visible()
 
-        # Click the overlay itself (not the modal content)
-        overlay.click(position={"x": 10, "y": 10})
+        # Click the overlay background. Use force=True to bypass the WP
+        # admin bar (#wpadminbar) that intercepts pointer events at the top.
+        overlay.click(position={"x": 10, "y": 10}, force=True)
         expect(overlay).to_be_hidden()
 
 
@@ -319,8 +322,16 @@ class TestEditModal:
         if not page.locator("#tp-cl-table-wrapper").is_visible():
             pytest.skip("No links to test row click")
 
+        # The edit modal moves #tp-link-shortener-wrapper into the modal body.
+        # If the [tp_link_shortener] shortcode isn't on the page, skip.
+        if page.locator("#tp-link-shortener-wrapper").count() == 0:
+            pytest.skip("Form shortcode [tp_link_shortener] not on page")
+
+        # Click the link-name cell specifically to avoid the toggle <label>
+        # and action buttons, which are excluded by the row click handler.
         row = page.locator("tr[data-mid]").first
-        row.click()
+        link_cell = row.locator(".tp-cl-link").first
+        link_cell.click()
 
         modal = page.locator("#tp-cl-edit-modal-overlay")
         expect(modal).to_be_visible()
