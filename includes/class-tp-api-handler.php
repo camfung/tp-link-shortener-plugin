@@ -1038,10 +1038,10 @@ class TP_API_Handler {
     }
 
     /**
-     * Verify API key from query param or X-API-Key header
+     * Verify logs API key from X-API-Key header
      */
     public function verify_api_key(\WP_REST_Request $request): bool {
-        $expected = TP_Link_Shortener::get_api_key();
+        $expected = defined('LOGS_API_KEY') ? LOGS_API_KEY : '';
 
         if (empty($expected)) {
             return false;

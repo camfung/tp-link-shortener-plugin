@@ -10,13 +10,19 @@ GET /wp-json/tp-link-shortener/v1/logs
 
 ## Authentication
 
-Requires the `X-API-Key` header set to the `API_KEY` value defined in `wp-config.php`.
+Requires the `LOGS_API_KEY` constant to be defined in `wp-config.php`:
+
+```php
+define('LOGS_API_KEY', 'your-logs-api-key');
+```
+
+Pass it via the `X-API-Key` header:
 
 ```
-X-API-Key: your-api-key
+X-API-Key: your-logs-api-key
 ```
 
-Requests without a valid key receive a `403 Forbidden` response.
+This is separate from the main `API_KEY` used by the TrafficPortal client. Requests without a valid key receive a `403 Forbidden` response.
 
 ## Parameters
 
