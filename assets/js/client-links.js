@@ -383,7 +383,12 @@
             error: function(xhr, status, error) {
                 state.isLoading = false;
                 console.error('Client links AJAX error:', error);
-                showError(tpClientLinks.strings.error);
+                if (xhr.status === 401) {
+                    var resp = xhr.responseJSON;
+                    showError((resp && resp.data && resp.data.message) || tpClientLinks.strings.loginRequired);
+                } else {
+                    showError(tpClientLinks.strings.error);
+                }
             }
         });
     }
@@ -614,9 +619,14 @@
                     alert(response.data.message || 'Failed to update status.');
                 }
             },
-            error: function() {
+            error: function(xhr) {
                 $toggle.prop('checked', !enable);
-                alert('Network error. Please try again.');
+                if (xhr.status === 401) {
+                    var resp = xhr.responseJSON;
+                    alert((resp && resp.data && resp.data.message) || tpClientLinks.strings.loginRequired);
+                } else {
+                    alert('Network error. Please try again.');
+                }
             }
         });
     }
@@ -655,8 +665,13 @@
                     $historyList.html('<div class="text-center text-muted py-3">No history found.</div>');
                 }
             },
-            error: function() {
-                $historyList.html('<div class="text-center text-danger py-3">Failed to load history.</div>');
+            error: function(xhr) {
+                if (xhr.status === 401) {
+                    var resp = xhr.responseJSON;
+                    $historyList.html('<div class="text-center text-danger py-3">' + ((resp && resp.data && resp.data.message) || tpClientLinks.strings.loginRequired) + '</div>');
+                } else {
+                    $historyList.html('<div class="text-center text-danger py-3">Failed to load history.</div>');
+                }
             }
         });
     }

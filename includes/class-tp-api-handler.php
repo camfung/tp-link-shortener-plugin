@@ -150,6 +150,11 @@ class TP_API_Handler {
         // Link change history - logged-in users only
         add_action('wp_ajax_tp_get_link_history', array($this, 'ajax_get_link_history'));
 
+        // Client links endpoints for non-logged-in users (return 401)
+        add_action('wp_ajax_nopriv_tp_get_user_map_items', array($this, 'ajax_require_login'));
+        add_action('wp_ajax_nopriv_tp_toggle_link_status', array($this, 'ajax_require_login'));
+        add_action('wp_ajax_nopriv_tp_get_link_history', array($this, 'ajax_require_login'));
+
         // For non-logged-in users
         add_action('wp_ajax_nopriv_tp_create_link', array($this, 'ajax_create_link'));
         add_action('wp_ajax_nopriv_tp_validate_key', array($this, 'ajax_validate_key'));
@@ -1342,22 +1347,45 @@ class TP_API_Handler {
     }
 
     /**
+     * AJAX handler for non-logged-in users hitting protected endpoints
+     */
+    public function ajax_require_login() {
+        $action = isset($_POST['action']) ? sanitize_text_field($_POST['action']) : 'unknown';
+        $this->log_to_file('=== AUTH REJECTED (nopriv) ===');
+        $this->log_to_file('Action: ' . $action);
+        $this->log_to_file('IP: ' . ($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
+        $this->log_to_file('User-Agent: ' . ($_SERVER['HTTP_USER_AGENT'] ?? 'unknown'));
+        $this->log_to_file('Referer: ' . ($_SERVER['HTTP_REFERER'] ?? 'none'));
+        wp_send_json_error(array(
+            'message' => __('You must be logged in to view your links.', 'tp-link-shortener'),
+            'code'    => 'login_required',
+        ), 401);
+    }
+
+    /**
      * AJAX handler for getting paginated user map items
      * Only available to logged-in users
      */
     public function ajax_get_user_map_items() {
         $this->log_to_file('=== GET USER MAP ITEMS REQUEST START ===');
-        error_log('TP Link Shortener: ajax_get_user_map_items called');
+        $this->log_to_file('IP: ' . ($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
+        $this->log_to_file('User-Agent: ' . ($_SERVER['HTTP_USER_AGENT'] ?? 'unknown'));
+        $this->log_to_file('Referer: ' . ($_SERVER['HTTP_REFERER'] ?? 'none'));
+        $this->log_to_file('WP User ID: ' . get_current_user_id());
+        $this->log_to_file('is_user_logged_in: ' . (is_user_logged_in() ? 'true' : 'false'));
+        $this->log_to_file('Nonce received: ' . (isset($_POST['nonce']) ? 'yes' : 'no'));
 
         // Verify nonce
         check_ajax_referer('tp_link_shortener_nonce', 'nonce');
+        $this->log_to_file('Nonce verified OK');
 
         // Ensure user is logged in
         if (!is_user_logged_in()) {
-            $this->log_to_file('ERROR: User not logged in');
+            $this->log_to_file('ERROR: User not logged in after nonce check');
             $this->log_to_file('=== GET USER MAP ITEMS REQUEST END ===');
             wp_send_json_error(array(
-                'message' => __('You must be logged in to view your links.', 'tp-link-shortener')
+                'message' => __('You must be logged in to view your links.', 'tp-link-shortener'),
+                'code'    => 'login_required',
             ), 401);
             return;
         }
@@ -1476,12 +1504,19 @@ class TP_API_Handler {
      */
     public function ajax_toggle_link_status() {
         $this->log_to_file('=== TOGGLE LINK STATUS REQUEST START ===');
+        $this->log_to_file('IP: ' . ($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
+        $this->log_to_file('WP User ID: ' . get_current_user_id());
+        $this->log_to_file('is_user_logged_in: ' . (is_user_logged_in() ? 'true' : 'false'));
 
         check_ajax_referer('tp_link_shortener_nonce', 'nonce');
+        $this->log_to_file('Nonce verified OK');
 
         if (!is_user_logged_in()) {
+            $this->log_to_file('ERROR: User not logged in');
+            $this->log_to_file('=== TOGGLE LINK STATUS REQUEST END ===');
             wp_send_json_error(array(
-                'message' => __('You must be logged in.', 'tp-link-shortener')
+                'message' => __('You must be logged in.', 'tp-link-shortener'),
+                'code'    => 'login_required',
             ), 401);
             return;
         }
@@ -1536,11 +1571,20 @@ class TP_API_Handler {
      * AJAX handler for retrieving link change history
      */
     public function ajax_get_link_history() {
+        $this->log_to_file('=== GET LINK HISTORY REQUEST START ===');
+        $this->log_to_file('IP: ' . ($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
+        $this->log_to_file('WP User ID: ' . get_current_user_id());
+        $this->log_to_file('is_user_logged_in: ' . (is_user_logged_in() ? 'true' : 'false'));
+
         check_ajax_referer('tp_link_shortener_nonce', 'nonce');
+        $this->log_to_file('Nonce verified OK');
 
         if (!is_user_logged_in()) {
+            $this->log_to_file('ERROR: User not logged in');
+            $this->log_to_file('=== GET LINK HISTORY REQUEST END ===');
             wp_send_json_error(array(
-                'message' => __('You must be logged in.', 'tp-link-shortener')
+                'message' => __('You must be logged in.', 'tp-link-shortener'),
+                'code'    => 'login_required',
             ), 401);
             return;
         }
