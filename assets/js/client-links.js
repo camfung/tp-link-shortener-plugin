@@ -384,11 +384,10 @@
                 state.isLoading = false;
                 console.error('Client links AJAX error:', error);
                 if (xhr.status === 401) {
-                    var resp = xhr.responseJSON;
-                    showError((resp && resp.data && resp.data.message) || tpClientLinks.strings.loginRequired);
-                } else {
-                    showError(tpClientLinks.strings.error);
+                    redirectToLogin();
+                    return;
                 }
+                showError(tpClientLinks.strings.error);
             }
         });
     }
@@ -622,11 +621,10 @@
             error: function(xhr) {
                 $toggle.prop('checked', !enable);
                 if (xhr.status === 401) {
-                    var resp = xhr.responseJSON;
-                    alert((resp && resp.data && resp.data.message) || tpClientLinks.strings.loginRequired);
-                } else {
-                    alert('Network error. Please try again.');
+                    redirectToLogin();
+                    return;
                 }
+                alert('Network error. Please try again.');
             }
         });
     }
@@ -667,11 +665,10 @@
             },
             error: function(xhr) {
                 if (xhr.status === 401) {
-                    var resp = xhr.responseJSON;
-                    $historyList.html('<div class="text-center text-danger py-3">' + ((resp && resp.data && resp.data.message) || tpClientLinks.strings.loginRequired) + '</div>');
-                } else {
-                    $historyList.html('<div class="text-center text-danger py-3">Failed to load history.</div>');
+                    redirectToLogin();
+                    return;
                 }
+                $historyList.html('<div class="text-center text-danger py-3">Failed to load history.</div>');
             }
         });
     }
@@ -793,6 +790,7 @@
     /* ---------------------------------------------------------------
      * UI states
      * ------------------------------------------------------------- */
+    function redirectToLogin() { window.location.href = tpClientLinks.loginUrl || '/login/'; }
     function showLoading() { $loading.show(); $error.hide(); $empty.hide(); $tableWrapper.hide(); }
     function showError(msg) { $loading.hide(); $error.show(); $('#tp-cl-error-message').text(msg); $empty.hide(); $tableWrapper.hide(); }
     function showEmpty() { $loading.hide(); $error.hide(); $empty.show(); $tableWrapper.hide(); }

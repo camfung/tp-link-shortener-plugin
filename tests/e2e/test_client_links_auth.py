@@ -158,10 +158,10 @@ class TestExpiredSession:
     The JS fires AJAX calls that should get 401 and show login messages.
     """
 
-    def test_expired_session_shows_login_error(self, browser: Browser):
+    def test_expired_session_redirects_to_login(self, browser: Browser):
         """
         Load the page authenticated, then clear cookies to simulate
-        session expiry. The next AJAX call should show a login error.
+        session expiry. The next AJAX call should redirect to /login/.
         """
         login_url = os.getenv("TP_LOGIN_URL", f"{BASE_URL}/login/")
         test_user = os.getenv("TP_TEST_USER", "")
@@ -195,13 +195,10 @@ class TestExpiredSession:
         header = page.locator('th.tp-cl-sortable[data-sort="created_at"]')
         header.click()
 
-        # Wait for the error state to appear
-        error = page.locator("#tp-cl-error")
-        error.wait_for(state="visible", timeout=15_000)
-
-        error_msg = page.locator("#tp-cl-error-message").inner_text()
-        assert "logged in" in error_msg.lower(), (
-            f"Expected login error message, got: {error_msg}"
+        # Should redirect to login page
+        page.wait_for_url("**/login/**", timeout=15_000)
+        assert "/login" in page.url, (
+            f"Expected redirect to /login, got: {page.url}"
         )
 
         page.close()

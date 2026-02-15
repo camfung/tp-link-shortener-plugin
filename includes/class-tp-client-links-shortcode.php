@@ -122,6 +122,7 @@ class TP_Client_Links_Shortcode {
             'nonce'      => wp_create_nonce('tp_link_shortener_nonce'),
             'domain'     => TP_Link_Shortener::get_domain(),
             'isLoggedIn' => is_user_logged_in(),
+            'loginUrl'   => home_url('/login/'),
             'dateRange'  => array(
                 'start' => $start_date,
                 'end'   => $end_date,
