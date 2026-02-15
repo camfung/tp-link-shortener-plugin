@@ -51,6 +51,7 @@ class TP_API_Handler {
     public function __construct() {
         $this->init_client();
         $this->register_ajax_handlers();
+        add_action('rest_api_init', array($this, 'register_rest_routes'));
     }
 
     /**
@@ -1009,6 +1010,89 @@ class TP_API_Handler {
     /**
      * Log to file for debugging
      */
+    /**
+     * Register REST API routes
+     */
+    public function register_rest_routes() {
+        register_rest_route('tp-link-shortener/v1', '/logs', array(
+            'methods'             => 'GET',
+            'callback'            => array($this, 'rest_get_logs'),
+            'permission_callback' => function () {
+                return current_user_can('manage_options');
+            },
+            'args'                => array(
+                'log' => array(
+                    'default'           => 'debug',
+                    'sanitize_callback' => 'sanitize_text_field',
+                    'enum'              => array('debug', 'snapcapture', 'wp'),
+                ),
+                'mode' => array(
+                    'default'           => 'tail',
+                    'sanitize_callback' => 'sanitize_text_field',
+                    'enum'              => array('head', 'tail'),
+                ),
+                'n' => array(
+                    'default'           => 50,
+                    'sanitize_callback' => 'absint',
+                ),
+            ),
+        ));
+    }
+
+    /**
+     * REST handler: read log files with head/tail and -n
+     */
+    public function rest_get_logs(\WP_REST_Request $request): \WP_REST_Response {
+        $log_name = $request->get_param('log');
+        $mode     = $request->get_param('mode');
+        $n        = (int) $request->get_param('n');
+
+        if ($n < 1) {
+            $n = 50;
+        }
+        if ($n > 5000) {
+            $n = 5000;
+        }
+
+        $log_files = array(
+            'debug'       => WP_CONTENT_DIR . '/plugins/tp-update-debug.log',
+            'snapcapture' => TP_LINK_SHORTENER_PLUGIN_DIR . 'logs/snapcapture.log',
+            'wp'          => WP_CONTENT_DIR . '/debug.log',
+        );
+
+        if (!isset($log_files[$log_name])) {
+            return new \WP_REST_Response(array('error' => 'Invalid log name. Use: debug, snapcapture, wp'), 400);
+        }
+
+        $file = $log_files[$log_name];
+
+        if (!file_exists($file)) {
+            return new \WP_REST_Response(array('error' => "Log file not found: {$log_name}"), 404);
+        }
+
+        $all_lines = file($file, FILE_IGNORE_NEW_LINES);
+        if ($all_lines === false) {
+            return new \WP_REST_Response(array('error' => 'Could not read log file'), 500);
+        }
+
+        $total = count($all_lines);
+
+        if ($mode === 'head') {
+            $lines = array_slice($all_lines, 0, $n);
+        } else {
+            $lines = array_slice($all_lines, -$n);
+        }
+
+        return new \WP_REST_Response(array(
+            'log'   => $log_name,
+            'file'  => basename($file),
+            'mode'  => $mode,
+            'n'     => $n,
+            'total' => $total,
+            'lines' => $lines,
+        ), 200);
+    }
+
     private function log_to_file($message) {
         $log_file = WP_CONTENT_DIR . '/plugins/tp-update-debug.log';
         $timestamp = date('Y-m-d H:i:s');
