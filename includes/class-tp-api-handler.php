@@ -1017,9 +1017,7 @@ class TP_API_Handler {
         register_rest_route('tp-link-shortener/v1', '/logs', array(
             'methods'             => 'GET',
             'callback'            => array($this, 'rest_get_logs'),
-            'permission_callback' => function () {
-                return current_user_can('manage_options');
-            },
+            'permission_callback' => array($this, 'verify_api_key'),
             'args'                => array(
                 'log' => array(
                     'default'           => 'debug',
@@ -1037,6 +1035,21 @@ class TP_API_Handler {
                 ),
             ),
         ));
+    }
+
+    /**
+     * Verify API key from query param or X-API-Key header
+     */
+    public function verify_api_key(\WP_REST_Request $request): bool {
+        $expected = TP_Link_Shortener::get_api_key();
+
+        if (empty($expected)) {
+            return false;
+        }
+
+        $key = $request->get_header('X-API-Key');
+
+        return hash_equals($expected, (string) $key);
     }
 
     /**
