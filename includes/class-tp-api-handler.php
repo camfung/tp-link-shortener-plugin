@@ -1079,21 +1079,30 @@ class TP_API_Handler {
 
         $file = $log_files[$log_name];
 
-        if (!file_exists($file)) {
+        if (!file_exists($file) || !is_readable($file)) {
             return new \WP_REST_Response(array('error' => "Log file not found: {$log_name}"), 404);
         }
 
-        $all_lines = file($file, FILE_IGNORE_NEW_LINES);
-        if ($all_lines === false) {
-            return new \WP_REST_Response(array('error' => 'Could not read log file'), 500);
-        }
-
-        $total = count($all_lines);
+        $spl = new \SplFileObject($file, 'r');
+        $spl->seek(PHP_INT_MAX);
+        $total = $spl->key();
 
         if ($mode === 'head') {
-            $lines = array_slice($all_lines, 0, $n);
+            $start = 0;
         } else {
-            $lines = array_slice($all_lines, -$n);
+            $start = max(0, $total - $n);
+        }
+
+        $lines = array();
+        $spl->seek($start);
+        $count = 0;
+        while (!$spl->eof() && $count < $n) {
+            $line = rtrim($spl->current(), "\r\n");
+            if ($line !== '' || !$spl->eof()) {
+                $lines[] = $line;
+                $count++;
+            }
+            $spl->next();
         }
 
         return new \WP_REST_Response(array(
