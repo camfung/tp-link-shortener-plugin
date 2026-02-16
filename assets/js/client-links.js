@@ -65,6 +65,11 @@
         $historyModalOverlay,
         $historyModalClose,
         $historyList,
+        // Chart mobile
+        $chartMobile,
+        $chartToggle,
+        $statClicks,
+        $statQr,
         currentQrUrl = null;
 
     /* ---------------------------------------------------------------
@@ -144,6 +149,12 @@
         $historyModalOverlay = $('#tp-cl-history-modal-overlay');
         $historyModalClose   = $('#tp-cl-history-modal-close');
         $historyList         = $('#tp-cl-history-list');
+
+        // Chart mobile
+        $chartMobile     = $('#tp-cl-chart-mobile');
+        $chartToggle     = $('#tp-cl-chart-toggle');
+        $statClicks      = $('#tp-cl-stat-clicks');
+        $statQr          = $('#tp-cl-stat-qr');
     }
 
     /* ---------------------------------------------------------------
@@ -183,6 +194,24 @@
             state.search = '';
             state.currentPage = 1;
             loadData();
+        });
+
+        // Chart mobile toggle
+        $chartToggle.on('click', function() {
+            var expanded = $chartWrapper.hasClass('tp-cl-chart-expanded');
+            if (expanded) {
+                $chartWrapper.removeClass('tp-cl-chart-expanded');
+                $chartMobile.removeClass('tp-cl-chart-expanded');
+                $('#tp-cl-chart-toggle-text').text(tpClientLinks.strings.showChart || 'Show Chart');
+            } else {
+                $chartWrapper.addClass('tp-cl-chart-expanded');
+                $chartMobile.addClass('tp-cl-chart-expanded');
+                $('#tp-cl-chart-toggle-text').text(tpClientLinks.strings.hideChart || 'Hide Chart');
+                // Resize chart to prevent Chart.js loop
+                if (state.chart) {
+                    setTimeout(function() { state.chart.resize(); }, 50);
+                }
+            }
         });
 
         // Status filter
@@ -498,12 +527,36 @@
     /* ---------------------------------------------------------------
      * Chart
      * ------------------------------------------------------------- */
+    function isMobileView() {
+        return window.matchMedia('(max-width: 767.98px)').matches;
+    }
+
     function renderChart(items) {
+        // Update mobile stats bar
+        var totalClicks = 0, totalQr = 0;
+        items.forEach(function(item) {
+            totalClicks += item.usage ? item.usage.regular : 0;
+            totalQr += item.usage ? item.usage.qr : 0;
+        });
+        $statClicks.text(totalClicks);
+        $statQr.text(totalQr);
+
         if (!items.length) {
             $chartWrapper.hide();
+            $chartMobile.hide();
             return;
         }
-        $chartWrapper.show();
+
+        if (isMobileView()) {
+            // Show stats bar, hide chart (unless expanded)
+            $chartMobile.css('display', 'flex');
+            if (!$chartWrapper.hasClass('tp-cl-chart-expanded')) {
+                $chartWrapper.hide();
+            }
+        } else {
+            $chartMobile.hide();
+            $chartWrapper.show();
+        }
 
         // Build per-link data for a bar chart
         var labels = [];

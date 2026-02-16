@@ -69,6 +69,25 @@ $show_filters = isset($atts['show_filters']) ? ($atts['show_filters'] === 'true'
             </div>
         </div>
 
+        <!-- Mobile: Chart summary stats + toggle -->
+        <div class="tp-cl-chart-mobile" id="tp-cl-chart-mobile" style="display:none;">
+            <div class="tp-cl-chart-stats">
+                <span class="tp-cl-stat">
+                    <i class="fas fa-mouse-pointer"></i>
+                    <strong id="tp-cl-stat-clicks">0</strong> <?php esc_html_e('clicks', 'tp-link-shortener'); ?>
+                </span>
+                <span class="tp-cl-stat">
+                    <i class="fas fa-qrcode"></i>
+                    <strong id="tp-cl-stat-qr">0</strong> <?php esc_html_e('scans', 'tp-link-shortener'); ?>
+                </span>
+            </div>
+            <button type="button" class="tp-cl-chart-toggle" id="tp-cl-chart-toggle">
+                <i class="fas fa-chart-bar me-1"></i>
+                <span id="tp-cl-chart-toggle-text"><?php esc_html_e('Show Chart', 'tp-link-shortener'); ?></span>
+                <i class="fas fa-chevron-down ms-1 tp-cl-chart-toggle-icon" id="tp-cl-chart-toggle-icon"></i>
+            </button>
+        </div>
+
         <!-- Performance Chart -->
         <div class="tp-cl-chart-wrapper" id="tp-cl-chart-wrapper">
             <canvas id="tp-cl-chart" height="200"></canvas>
