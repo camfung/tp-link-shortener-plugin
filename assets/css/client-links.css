@@ -320,19 +320,27 @@
 
 .tp-cl-link:hover { color: var(--tp-primary); }
 
-/* Inline actions */
+/* Inline actions — visible by default for touch devices */
 .tp-cl-inline-actions {
     display: flex;
     gap: 4px;
-    opacity: 0;
-    visibility: hidden;
+    opacity: 1;
+    visibility: visible;
     transition: opacity .15s, visibility .15s;
     flex-shrink: 0;
 }
 
-.tp-cl-table tbody tr:hover .tp-cl-inline-actions {
-    opacity: 1;
-    visibility: visible;
+/* Only hide behind hover on devices that support it (not touch) */
+@media (hover: hover) {
+    .tp-cl-inline-actions {
+        opacity: 0;
+        visibility: hidden;
+    }
+
+    .tp-cl-table tbody tr:hover .tp-cl-inline-actions {
+        opacity: 1;
+        visibility: visible;
+    }
 }
 
 .tp-cl-inline-btn {
@@ -466,17 +474,18 @@
 /* ----------------------------------------------------------------
  * Domain group row
  * -------------------------------------------------------------- */
-.tp-cl-domain-row td {
-    background: linear-gradient(180deg, #eef4ff, #e8f0ff) !important;
-    border-bottom: 2px solid var(--tp-border) !important;
-    padding: .6rem 1rem !important;
+/* Domain group row — high specificity to override table td styles without !important */
+.tp-cl-table tbody tr.tp-cl-domain-row td {
+    background: linear-gradient(180deg, #eef4ff, #e8f0ff);
+    border-bottom: 2px solid var(--tp-border);
+    padding: .6rem 1rem;
     font-weight: 700;
     font-size: .82rem;
     color: var(--tp-primary-contrast);
 }
 
-.tp-cl-domain-row:hover td {
-    background: linear-gradient(180deg, #e8f0ff, #e2ebff) !important;
+.tp-cl-table tbody tr.tp-cl-domain-row:hover td {
+    background: linear-gradient(180deg, #e8f0ff, #e2ebff);
 }
 
 .tp-cl-domain-label {
@@ -813,7 +822,7 @@
 /* ----------------------------------------------------------------
  * Responsive
  * -------------------------------------------------------------- */
-@media (max-width: 992px) {
+@media (max-width: 991.98px) {
     .tp-cl-header {
         flex-direction: column;
         align-items: stretch;
@@ -823,7 +832,7 @@
     .tp-cl-date-range { width: 100%; }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 767.98px) {
     .tp-cl-container { padding: 1rem; border-radius: 1rem; }
     .tp-cl-content { padding: 1rem; }
 
@@ -864,7 +873,7 @@
         flex-shrink: 0;
     }
 
-    .tp-cl-inline-actions { opacity: 1; visibility: visible; }
+    /* Inline actions already visible by default via @media (hover: hover) pattern */
 
     .tp-cl-domain-row {
         display: block;
@@ -875,10 +884,10 @@
         background: linear-gradient(180deg, #eef4ff, #e8f0ff);
     }
 
-    .tp-cl-domain-row td {
+    .tp-cl-table tbody tr.tp-cl-domain-row td {
         display: block;
-        border-bottom: none !important;
-        padding: 0 !important;
+        border-bottom: none;
+        padding: 0;
     }
 
     .tp-cl-pagination { flex-direction: column; gap: 1rem; }
@@ -886,14 +895,14 @@
     .tp-cl-chart-wrapper { min-height: 180px; }
 }
 
-@media (max-width: 520px) {
+@media (max-width: 519.98px) {
     .tp-cl-modal { width: 95vw; max-height: 95vh; border-radius: .75rem; }
     .tp-cl-qr-dialog { min-width: auto; width: 90vw; }
     .tp-cl-qr-buttons { flex-direction: column; }
 }
 
 /* Mobile skeleton */
-@media (max-width: 768px) {
+@media (max-width: 767.98px) {
     .tp-cl-loading .tp-cl-skeleton-table thead { display: none; }
 
     .tp-cl-loading .tp-cl-skeleton-row {

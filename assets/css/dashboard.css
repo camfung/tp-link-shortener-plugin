@@ -381,19 +381,27 @@
     font-weight: 500;
 }
 
-/* Inline Actions (copy/QR icons next to link) */
+/* Inline Actions (copy/QR icons next to link) — visible by default for touch devices */
 .tp-inline-actions {
     display: flex;
     gap: 4px;
-    opacity: 0;
-    visibility: hidden;
+    opacity: 1;
+    visibility: visible;
     transition: opacity 0.15s ease, visibility 0.15s ease;
     flex-shrink: 0;
 }
 
-.tp-dashboard-table tbody tr:hover .tp-inline-actions {
-    opacity: 1;
-    visibility: visible;
+/* Only hide behind hover on devices that support it (not touch) */
+@media (hover: hover) {
+    .tp-inline-actions {
+        opacity: 0;
+        visibility: hidden;
+    }
+
+    .tp-dashboard-table tbody tr:hover .tp-inline-actions {
+        opacity: 1;
+        visibility: visible;
+    }
 }
 
 .tp-inline-btn {
@@ -419,18 +427,18 @@
     border-color: var(--tp-secondary);
 }
 
-/* Domain Group Row */
-.tp-domain-group-row td {
-    background: linear-gradient(180deg, #eef4ff 0%, #e8f0ff 100%) !important;
-    border-bottom: 2px solid var(--tp-border) !important;
-    padding: 0.65rem 1rem !important;
+/* Domain Group Row — high specificity to override table td styles without !important */
+.tp-dashboard-table tbody tr.tp-domain-group-row td {
+    background: linear-gradient(180deg, #eef4ff 0%, #e8f0ff 100%);
+    border-bottom: 2px solid var(--tp-border);
+    padding: 0.65rem 1rem;
     font-weight: 700;
     font-size: 0.85rem;
     color: var(--tp-primary-contrast);
 }
 
-.tp-domain-group-row:hover td {
-    background: linear-gradient(180deg, #e8f0ff 0%, #e2ebff 100%) !important;
+.tp-dashboard-table tbody tr.tp-domain-group-row:hover td {
+    background: linear-gradient(180deg, #e8f0ff 0%, #e2ebff 100%);
 }
 
 .tp-domain-group-label {
@@ -528,7 +536,7 @@
 }
 
 /* Responsive */
-@media (max-width: 992px) {
+@media (max-width: 991.98px) {
     .tp-dashboard-header {
         flex-direction: column;
         align-items: stretch;
@@ -553,7 +561,7 @@
     }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 767.98px) {
     .tp-dashboard-container {
         padding: 1rem;
         border-radius: 1rem;
@@ -602,11 +610,7 @@
         flex-shrink: 0;
     }
 
-    /* Always show inline actions on mobile (no hover) */
-    .tp-inline-actions {
-        opacity: 1;
-        visibility: visible;
-    }
+    /* Inline actions already visible by default via @media (hover: hover) pattern */
 
     /* Domain group row as mobile card */
     .tp-domain-group-row {
@@ -618,10 +622,10 @@
         background: linear-gradient(180deg, #eef4ff 0%, #e8f0ff 100%);
     }
 
-    .tp-domain-group-row td {
+    .tp-dashboard-table tbody tr.tp-domain-group-row td {
         display: block;
-        border-bottom: none !important;
-        padding: 0 !important;
+        border-bottom: none;
+        padding: 0;
     }
 
     .tp-dashboard-pagination {
@@ -715,7 +719,7 @@
 .tp-skeleton-row:nth-child(10) .tp-skeleton-btn { animation-delay: 0.9s; }
 
 /* Mobile skeleton styles */
-@media (max-width: 768px) {
+@media (max-width: 767.98px) {
     .tp-dashboard-loading .tp-skeleton-table thead {
         display: none;
     }
@@ -992,7 +996,7 @@
 }
 
 /* Responsive: stack layout on small screens */
-@media (max-width: 520px) {
+@media (max-width: 519.98px) {
     .tp-qr-dialog-with-preview {
         min-width: auto;
         width: 90vw;

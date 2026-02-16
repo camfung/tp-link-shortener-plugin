@@ -121,16 +121,16 @@
 }
 
 /* Increase specificity to override theme styles */
-form .tp-plain-input,
-.tp-plain-input {
-    border-color: transparent !important;
-    border: none !important;
+.tp-link-shortener-wrapper form .tp-plain-input,
+.tp-link-shortener-wrapper .tp-plain-input {
+    border-color: transparent;
+    border: none;
     background: transparent;
     box-shadow: none;
     padding: 1rem 1rem;
     font-weight: 600;
     font-size: 1.05rem;
-    border-radius: 0 0.625rem 0.625rem 0 !important;
+    border-radius: 0 0.625rem 0.625rem 0;
 }
 
 form .tp-plain-input:focus,
@@ -272,10 +272,10 @@ form .tp-plain-input:focus,
     background: linear-gradient(180deg, rgba(248, 252, 255, 0.95) 0%, #e5edff 100%);
 }
 
-.tp-submit-btn.disabled,
-.tp-submit-btn:disabled {
+.tp-link-shortener-wrapper .tp-submit-btn.disabled,
+.tp-link-shortener-wrapper .tp-submit-btn:disabled {
     opacity: 0.6;
-    color: var(--tp-muted) !important;
+    color: var(--tp-muted);
     background: rgba(240, 242, 250, 0.9);
     cursor: not-allowed;
 }
@@ -296,10 +296,10 @@ form .tp-plain-input:focus,
     background: rgba(60, 122, 229, 0.08);
 }
 
-.tp-submit-btn:hover,
-.tp-submit-btn:focus-visible {
-    color: #fff !important;
-    background: linear-gradient(90deg, #3673e1 0%, #2b63c8 100%) !important;
+.tp-link-shortener-wrapper .tp-submit-btn:hover:not(:disabled),
+.tp-link-shortener-wrapper .tp-submit-btn:focus-visible:not(:disabled) {
+    color: #fff;
+    background: linear-gradient(90deg, #3673e1 0%, #2b63c8 100%);
 }
 
 
