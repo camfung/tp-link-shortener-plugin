@@ -902,10 +902,33 @@
 }
 
 @media (max-width: 767.98px) {
-    .tp-cl-container { padding: 1rem; border-radius: 1rem; }
-    .tp-cl-content { padding: 1rem; }
+    .tp-cl-container { padding: .75rem; border-radius: 1rem; }
+    .tp-cl-content { padding: .75rem; }
+
+    /* Break table layout completely for card mode */
+    .tp-cl-table,
+    .tp-cl-table tbody {
+        display: block;
+        width: 100%;
+    }
 
     .tp-cl-table thead { display: none; }
+
+    /* Remove desktop column width constraints for card layout */
+    .tp-cl-col-link,
+    .tp-cl-col-dest,
+    .tp-cl-col-clicks,
+    .tp-cl-col-date,
+    .tp-cl-col-status {
+        width: auto;
+        min-width: 0;
+    }
+
+    /* Force inline actions visible on mobile (override @media(hover:hover)) */
+    .tp-cl-table .tp-cl-inline-actions {
+        opacity: 1;
+        visibility: visible;
+    }
 
     .tp-cl-table tbody tr {
         display: block;
@@ -919,8 +942,8 @@
 
     .tp-cl-table tbody td {
         display: flex;
-        justify-content: space-between;
         align-items: flex-start;
+        gap: 10px;
         padding: .5rem 0;
         border-bottom: 1px solid rgba(207,226,255,.5);
         background: transparent;
@@ -938,11 +961,50 @@
         text-transform: uppercase;
         letter-spacing: .04em;
         color: var(--tp-primary-contrast);
-        margin-right: 10px;
         flex-shrink: 0;
+        min-width: 5.5em;
     }
 
-    /* Inline actions already visible by default via @media (hover: hover) pattern */
+    /* Content inside td fills remaining space */
+    .tp-cl-table tbody td > * {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+
+    /* Status toggle should not stretch */
+    .tp-cl-col-status .tp-cl-toggle {
+        flex: 0 0 auto;
+    }
+
+    /* Stack link cell vertically: link text full width, actions below */
+    .tp-cl-table .tp-cl-link-cell {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    .tp-cl-table .tp-cl-link {
+        word-break: break-word;
+        overflow-wrap: break-word;
+    }
+
+    /* Remove desktop max-width on dest cell */
+    .tp-cl-dest-cell {
+        max-width: none;
+    }
+
+    /* Destination URL: wrap instead of truncate on mobile */
+    .tp-cl-table .tp-cl-dest {
+        white-space: normal;
+        overflow: visible;
+        text-overflow: initial;
+        word-break: break-all;
+    }
+
+    /* Clicks left-aligned */
+    .tp-cl-clicks-cell {
+        align-items: flex-start;
+    }
 
     .tp-cl-domain-row {
         display: block;
