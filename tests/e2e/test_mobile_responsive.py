@@ -155,8 +155,8 @@ class TestModals:
         assert box["height"] >= MOBILE_VIEWPORT["height"] * 0.9, \
             f"Modal height {box['height']} is not full screen ({MOBILE_VIEWPORT['height']})"
 
-        # force=True to bypass WP admin bar intercepting pointer events
-        page.locator("#tp-cl-edit-modal-close").click(force=True)
+        # JS click to bypass WP admin bar and viewport issues on full-screen modal
+        page.evaluate('document.getElementById("tp-cl-edit-modal-close").click()')
         expect(overlay).to_be_hidden()
 
     def test_edit_modal_no_border_radius(self, mobile_client_links: Page):
@@ -236,7 +236,7 @@ class TestModals:
         align = _computed(page, "#tp-cl-edit-modal-overlay", "align-items")
         assert align == "flex-end", f"Overlay align-items is {align}, expected flex-end"
 
-        page.locator("#tp-cl-edit-modal-close").click(force=True)
+        page.evaluate('document.getElementById("tp-cl-edit-modal-close").click()')
 
 
 # ===================================================================
