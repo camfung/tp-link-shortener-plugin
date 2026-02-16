@@ -899,6 +899,42 @@
 
     .tp-cl-chart-wrapper { min-height: 180px; }
 
+    /* Touch-friendly inline action buttons (44px targets) */
+    .tp-cl-inline-btn {
+        padding: 0.5rem 0.6rem;
+        font-size: 0.85rem;
+        min-width: 44px;
+        min-height: 44px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    /* Touch-friendly pagination */
+    .tp-cl-pagination .page-link {
+        padding: 0.6rem 0.9rem;
+        min-width: 44px;
+        min-height: 44px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    /* Larger toggle switch for touch */
+    .tp-cl-toggle {
+        width: 48px;
+        height: 26px;
+    }
+
+    .tp-cl-toggle-slider::before {
+        width: 22px;
+        height: 22px;
+    }
+
+    .tp-cl-toggle input:checked + .tp-cl-toggle-slider::before {
+        transform: translateX(22px);
+    }
+
     /* Edit/Add modal → full-screen bottom sheet */
     .tp-cl-modal-overlay {
         align-items: flex-end;
@@ -938,6 +974,22 @@
 
 @media (max-width: 519.98px) {
     .tp-cl-qr-buttons { flex-direction: column; }
+}
+
+/* Phone: date picker stacks vertically */
+@media (max-width: 479.98px) {
+    .tp-cl-date-range {
+        flex-wrap: wrap;
+    }
+
+    .tp-cl-date-sep {
+        display: none;
+    }
+
+    .tp-cl-date-range .form-control {
+        width: 100%;
+        flex: 1 1 100%;
+    }
 }
 
 /* Mobile skeleton */

@@ -633,6 +633,27 @@
         gap: 1rem;
     }
 
+    /* Touch-friendly inline action buttons (44px targets) */
+    .tp-inline-btn {
+        padding: 0.5rem 0.6rem;
+        font-size: 0.9rem;
+        min-width: 44px;
+        min-height: 44px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    /* Touch-friendly pagination */
+    .tp-dashboard-pagination .page-link {
+        padding: 0.6rem 0.9rem;
+        min-width: 44px;
+        min-height: 44px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
     /* Edit/Add modal → full-screen bottom sheet */
     .tp-edit-modal-overlay {
         align-items: flex-end;
