@@ -72,26 +72,26 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FNDTN-01 | — | Pending |
-| FNDTN-02 | — | Pending |
-| FNDTN-03 | — | Pending |
-| CARD-01 | — | Pending |
-| CARD-02 | — | Pending |
-| CARD-03 | — | Pending |
-| MODAL-01 | — | Pending |
-| MODAL-02 | — | Pending |
-| MODAL-03 | — | Pending |
-| CHART-01 | — | Pending |
-| CHART-02 | — | Pending |
-| CTRL-01 | — | Pending |
-| CTRL-02 | — | Pending |
-| FORM-01 | — | Pending |
+| FNDTN-01 | Phase 1: CSS Foundation | Pending |
+| FNDTN-02 | Phase 1: CSS Foundation | Pending |
+| FNDTN-03 | Phase 1: CSS Foundation | Pending |
+| FORM-01 | Phase 2: Forms and Modals | Pending |
+| MODAL-01 | Phase 2: Forms and Modals | Pending |
+| MODAL-02 | Phase 2: Forms and Modals | Pending |
+| MODAL-03 | Phase 2: Forms and Modals | Pending |
+| CARD-01 | Phase 3: Table Cards and Controls | Pending |
+| CARD-02 | Phase 3: Table Cards and Controls | Pending |
+| CARD-03 | Phase 3: Table Cards and Controls | Pending |
+| CTRL-01 | Phase 3: Table Cards and Controls | Pending |
+| CTRL-02 | Phase 3: Table Cards and Controls | Pending |
+| CHART-01 | Phase 4: Chart Collapse | Pending |
+| CHART-02 | Phase 4: Chart Collapse | Pending |
 
 **Coverage:**
 - v1 requirements: 14 total
-- Mapped to phases: 0
-- Unmapped: 14 ⚠️
+- Mapped to phases: 14
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-15*
-*Last updated: 2026-02-15 after initial definition*
+*Last updated: 2026-02-15 after roadmap creation*
