@@ -198,13 +198,13 @@
 
         // Chart mobile toggle
         $chartToggle.on('click', function() {
-            var expanded = $chartWrapper.hasClass('tp-cl-chart-expanded');
-            if (expanded) {
-                $chartWrapper.removeClass('tp-cl-chart-expanded');
+            var isVisible = $chartWrapper.is(':visible');
+            if (isVisible) {
+                $chartWrapper.hide();
                 $chartMobile.removeClass('tp-cl-chart-expanded');
                 $('#tp-cl-chart-toggle-text').text(tpClientLinks.strings.showChart || 'Show Chart');
             } else {
-                $chartWrapper.addClass('tp-cl-chart-expanded');
+                $chartWrapper.show();
                 $chartMobile.addClass('tp-cl-chart-expanded');
                 $('#tp-cl-chart-toggle-text').text(tpClientLinks.strings.hideChart || 'Hide Chart');
                 // Resize chart to prevent Chart.js loop

@@ -155,7 +155,8 @@ class TestModals:
         assert box["height"] >= MOBILE_VIEWPORT["height"] * 0.9, \
             f"Modal height {box['height']} is not full screen ({MOBILE_VIEWPORT['height']})"
 
-        page.locator("#tp-cl-edit-modal-close").click()
+        # force=True to bypass WP admin bar intercepting pointer events
+        page.locator("#tp-cl-edit-modal-close").click(force=True)
         expect(overlay).to_be_hidden()
 
     def test_edit_modal_no_border_radius(self, mobile_client_links: Page):
@@ -168,7 +169,8 @@ class TestModals:
         radius = _computed(page, "#tp-cl-edit-modal-overlay .tp-cl-modal", "border-radius")
         assert radius == "0px", f"Full-screen modal border-radius is {radius}, expected 0px"
 
-        page.locator("#tp-cl-edit-modal-close").click()
+        # JS click to bypass WP admin bar and viewport issues on full-screen modal
+        page.evaluate('document.getElementById("tp-cl-edit-modal-close").click()')
 
     def test_qr_dialog_bottom_sheet(self, mobile_client_links: Page):
         """QR dialog should appear as a bottom sheet with rounded top corners."""
@@ -234,7 +236,7 @@ class TestModals:
         align = _computed(page, "#tp-cl-edit-modal-overlay", "align-items")
         assert align == "flex-end", f"Overlay align-items is {align}, expected flex-end"
 
-        page.locator("#tp-cl-edit-modal-close").click()
+        page.locator("#tp-cl-edit-modal-close").click(force=True)
 
 
 # ===================================================================

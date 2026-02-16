@@ -996,6 +996,7 @@
     .tp-cl-toggle {
         width: 48px;
         height: 26px;
+        flex-shrink: 0;
     }
 
     .tp-cl-toggle-slider::before {
