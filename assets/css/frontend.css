@@ -998,6 +998,11 @@ form .tp-plain-input:focus,
     }
 }
 
+@keyframes tp-slideUpMobile {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+}
+
 @media (max-width: 767.98px) {
     .tp-card {
         border-radius: 1rem;
@@ -1017,5 +1022,55 @@ form .tp-plain-input:focus,
 
     .tp-input-visual {
         flex-direction: row;
+    }
+
+    /* QR dialog → bottom sheet */
+    .tp-qr-dialog-overlay {
+        align-items: flex-end;
+    }
+
+    .tp-qr-dialog {
+        width: 100%;
+        max-width: 100%;
+        min-width: auto;
+        border-radius: 1rem 1rem 0 0;
+        max-height: 85vh;
+        max-height: 85dvh;
+        overflow-y: auto;
+        animation: tp-slideUpMobile 0.3s ease;
+    }
+
+    .tp-qr-and-preview-container {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Phone form sizing — full-width inputs with touch targets */
+@media (max-width: 479.98px) {
+    .tp-link-shortener-wrapper {
+        padding: 0.75rem;
+    }
+
+    .tp-card {
+        padding: 1rem 0.75rem;
+    }
+
+    .tp-input-visual {
+        border-width: 2px;
+    }
+
+    .tp-icon-btn {
+        min-width: 44px;
+        padding: 0.75rem;
+    }
+
+    .tp-submit-btn {
+        min-width: 44px;
+        padding: 0.75rem;
+    }
+
+    .tp-snackbar {
+        min-width: auto;
+        width: calc(100% - 2rem);
     }
 }
