@@ -531,22 +531,8 @@
             // Get form data
             const destination = this.$destinationInput.val().trim();
             const customKey = this.$customKeyInput.val().trim();
-            let uidFromStorage = null;
-
             TPDebug.log('submit', 'Form data:', { destination, customKey });
             TPDebug.log('submit', 'User logged in:', tpAjax.isLoggedIn);
-
-            try {
-                const storedUid = window.localStorage.getItem('tpUid');
-                if (storedUid && storedUid.trim() !== '') {
-                    uidFromStorage = storedUid;
-                }
-                TPDebug.log('storage', 'UID from storage:', uidFromStorage);
-            } catch (storageError) {
-                // Unable to access localStorage (likely disabled or restricted)
-                TPDebug.warn('storage', 'localStorage not available:', storageError);
-                uidFromStorage = null;
-            }
 
             // Validate URL format
             if (!this.validateUrl(destination)) {
@@ -590,11 +576,6 @@
                 destination: destination,
                 custom_key: customKey
             };
-
-            if (uidFromStorage !== null) {
-                data.uid = uidFromStorage;
-                TPDebug.log('submit', 'Added UID to request data:', uidFromStorage);
-            }
 
             if (fingerprint !== null) {
                 data.fingerprint = fingerprint;

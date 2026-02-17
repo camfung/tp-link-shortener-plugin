@@ -183,25 +183,11 @@ class TP_API_Handler {
         // Get POST data
         $destination = isset($_POST['destination']) ? sanitize_url($_POST['destination']) : '';
         $custom_key = isset($_POST['custom_key']) ? sanitize_text_field($_POST['custom_key']) : '';
-        $uid = isset($_POST['uid']) ? intval($_POST['uid']) : 0;
+        $uid = TP_Link_Shortener::get_user_id();
         $fingerprint = isset($_POST['fingerprint']) ? sanitize_text_field($_POST['fingerprint']) : null;
 
         $this->log_to_file('Initial POST data - destination: ' . $destination . ', custom_key: ' . $custom_key . ', uid: ' . $uid . ', fingerprint: ' . ($fingerprint ?: 'null'));
         error_log('TP Link Shortener: Initial POST data - destination: ' . $destination . ', custom_key: ' . $custom_key . ', uid: ' . $uid . ', fingerprint: ' . ($fingerprint ?: 'null'));
-
-        // If user is not logged in, set uid to -1
-        if (!is_user_logged_in()) {
-            $this->log_to_file('User not logged in, setting uid to -1');
-            error_log('TP Link Shortener: User not logged in, setting uid to -1');
-            $uid = -1;
-        } elseif ($uid <= 0) {
-            $uid = TP_Link_Shortener::get_user_id();
-            $this->log_to_file('User logged in, using configured uid: ' . $uid);
-            error_log('TP Link Shortener: User logged in, using configured uid: ' . $uid);
-        } else {
-            $this->log_to_file('Using provided uid: ' . $uid);
-            error_log('TP Link Shortener: Using provided uid: ' . $uid);
-        }
 
         // Validate destination
         if (empty($destination) || !filter_var($destination, FILTER_VALIDATE_URL)) {
@@ -522,11 +508,7 @@ class TP_API_Handler {
         // Get POST data
         $key = isset($_POST['key']) ? sanitize_text_field($_POST['key']) : '';
         $destination = isset($_POST['destination']) ? sanitize_url($_POST['destination']) : '';
-        $uid = isset($_POST['uid']) ? intval($_POST['uid']) : 0;
-
-        if ($uid <= 0) {
-            $uid = TP_Link_Shortener::get_user_id();
-        }
+        $uid = TP_Link_Shortener::get_user_id();
 
         error_log('TP Link Shortener: Validating key: ' . $key . ', destination: ' . $destination . ', uid: ' . $uid);
 
