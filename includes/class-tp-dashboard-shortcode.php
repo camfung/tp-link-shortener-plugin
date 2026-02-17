@@ -125,6 +125,7 @@ class TP_Dashboard_Shortcode {
             'nonce' => wp_create_nonce('tp_link_shortener_nonce'),
             'domain' => TP_Link_Shortener::get_domain(),
             'isLoggedIn' => is_user_logged_in(),
+            'userId' => get_current_user_id(),
             'strings' => array(
                 'loading' => __('Loading...', 'tp-link-shortener'),
                 'noResults' => __('No links found.', 'tp-link-shortener'),

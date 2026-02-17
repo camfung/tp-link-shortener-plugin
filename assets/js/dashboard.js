@@ -6,6 +6,8 @@
 (function($) {
     'use strict';
 
+    console.log('WP User ID:', tpDashboard.userId);
+
     // Dashboard state
     const state = {
         currentPage: 1,
