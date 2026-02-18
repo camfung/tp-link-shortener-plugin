@@ -244,55 +244,13 @@ describe('Rate Limit Error Handling', () => {
       expect(uid).toBe(-1);
     });
 
-    it('should retrieve uid from localStorage if available', () => {
-      localStorage.setItem('tpUid', '123');
-
-      const storedUid = localStorage.getItem('tpUid');
-      expect(storedUid).toBe('123');
-    });
-
-    it('should handle localStorage not available', () => {
-      let uidFromStorage = null;
-
-      try {
-        const storedUid = localStorage.getItem('tpUid');
-        if (storedUid && storedUid.trim() !== '') {
-          uidFromStorage = storedUid;
-        }
-      } catch (storageError) {
-        uidFromStorage = null;
-      }
-
-      expect(uidFromStorage).toBeNull();
-    });
   });
 
   describe('Integration with Form Submission', () => {
-    it('should prepare correct data structure for AJAX request', () => {
+    it('should prepare correct data structure for AJAX request without uid', () => {
       const destination = 'https://example.com';
       const customKey = 'test';
       const nonce = 'test_nonce';
-      const uid = -1;
-
-      const data = {
-        action: 'tp_create_link',
-        nonce: nonce,
-        destination: destination,
-        custom_key: customKey,
-        uid: uid
-      };
-
-      expect(data.action).toBe('tp_create_link');
-      expect(data.destination).toBe(destination);
-      expect(data.custom_key).toBe(customKey);
-      expect(data.uid).toBe(-1);
-    });
-
-    it('should not include uid if not available in storage', () => {
-      const destination = 'https://example.com';
-      const customKey = 'test';
-      const nonce = 'test_nonce';
-      let uidFromStorage = null;
 
       const data = {
         action: 'tp_create_link',
@@ -301,10 +259,9 @@ describe('Rate Limit Error Handling', () => {
         custom_key: customKey
       };
 
-      if (uidFromStorage !== null) {
-        data.uid = uidFromStorage;
-      }
-
+      expect(data.action).toBe('tp_create_link');
+      expect(data.destination).toBe(destination);
+      expect(data.custom_key).toBe(customKey);
       expect(data.uid).toBeUndefined();
     });
   });

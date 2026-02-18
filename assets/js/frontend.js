@@ -762,25 +762,6 @@
                     shortUrl: shortUrl
                 };
 
-                // Get the UID that was used
-                let uid = null;
-                try {
-                    uid = window.localStorage.getItem('tpUid');
-                } catch (error) {
-                    // Ignore
-                }
-
-                // Disabled: using IP-based detection only, not localStorage
-                // if (window.TPStorageService && window.TPStorageService.isAvailable()) {
-                //     window.TPStorageService.saveShortcodeData({
-                //         shortcode: key,
-                //         destination: destination,
-                //         expiresInHours: 24,
-                //         uid: uid
-                //     });
-                //     console.log('TP Link Shortener: Shortcode data saved to localStorage');
-                // }
-
                 // Display result
                 this.$shortUrlOutput.attr('href', shortUrl).text(shortUrl);
                 this.showResult();

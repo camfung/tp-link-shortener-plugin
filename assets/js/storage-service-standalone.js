@@ -13,8 +13,7 @@
       DESTINATION: 'tp_destination',
       EXPIRATION: 'tp_expiration',
       SESSION_ID: 'tp_session_id',
-      CREATED_AT: 'tp_created_at',
-      UID: 'tp_uid'
+      CREATED_AT: 'tp_created_at'
     },
 
     /**
@@ -32,7 +31,6 @@
         var shortcode = data.shortcode;
         var destination = data.destination;
         var expiresInHours = data.expiresInHours || 24;
-        var uid = data.uid;
 
         if (!shortcode || !destination) {
           throw new Error('Shortcode and destination are required');
@@ -55,11 +53,6 @@
         localStorage.setItem(this.KEYS.SESSION_ID, sessionId);
         localStorage.setItem(this.KEYS.CREATED_AT, now.toString());
 
-        // Store UID if provided
-        if (uid) {
-          localStorage.setItem(this.KEYS.UID, uid.toString());
-        }
-
         return true;
       } catch (error) {
         console.error('Failed to save shortcode data:', error);
@@ -77,7 +70,6 @@
         var expiration = localStorage.getItem(this.KEYS.EXPIRATION);
         var sessionId = localStorage.getItem(this.KEYS.SESSION_ID);
         var createdAt = localStorage.getItem(this.KEYS.CREATED_AT);
-        var uid = localStorage.getItem(this.KEYS.UID);
 
         // Return null if essential data is missing
         if (!shortcode || !destination || !expiration) {
@@ -90,7 +82,6 @@
           expiration: parseInt(expiration, 10),
           sessionId: sessionId,
           createdAt: createdAt ? parseInt(createdAt, 10) : null,
-          uid: uid,
           isExpired: this.isExpired()
         };
       } catch (error) {
@@ -177,7 +168,7 @@
         localStorage.removeItem(this.KEYS.DESTINATION);
         localStorage.removeItem(this.KEYS.EXPIRATION);
         localStorage.removeItem(this.KEYS.CREATED_AT);
-        // Note: Keep session ID and UID for tracking purposes
+        // Note: Keep session ID for tracking purposes
         return true;
       } catch (error) {
         console.error('Failed to clear shortcode data:', error);
