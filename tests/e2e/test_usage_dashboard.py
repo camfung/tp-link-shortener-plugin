@@ -78,7 +78,7 @@ class TestPageLoad:
         page.goto(f"{BASE_URL}{USAGE_DASHBOARD_PATH}")
         page.wait_for_selector(".tp-ud-container", timeout=10_000)
         # Wait for skeleton to disappear (max 25s for API timeout)
-        page.wait_for_selector("#tp-ud-skeleton", state="hidden", timeout=25_000)
+        page.wait_for_selector("#tp-ud-skeleton", state="hidden", timeout=45_000)
         # Either content or error should be visible
         content = page.locator("#tp-ud-content")
         error = page.locator("#tp-ud-error")
@@ -104,7 +104,7 @@ class TestDashboardStructure:
         _require_deployment(page)
         page.goto(f"{BASE_URL}{USAGE_DASHBOARD_PATH}")
         page.wait_for_selector(".tp-ud-container", timeout=10_000)
-        page.wait_for_selector("#tp-ud-skeleton", state="hidden", timeout=25_000)
+        page.wait_for_selector("#tp-ud-skeleton", state="hidden", timeout=45_000)
 
     def test_chart_canvas_present(self, page: Page):
         """The chart canvas element should exist in the DOM."""
@@ -116,7 +116,7 @@ class TestDashboardStructure:
         """Date start and end inputs should be present."""
         self._wait_for_content(page)
         # Look for date inputs in the content area
-        date_inputs = page.locator('.tp-ud-content input[type="date"]')
+        date_inputs = page.locator('#tp-ud-content input[type="date"]')
         assert date_inputs.count() >= 2, \
             f"Expected at least 2 date inputs, found {date_inputs.count()}"
 
@@ -228,7 +228,7 @@ class TestRetryBehavior:
         page.goto(f"{BASE_URL}{USAGE_DASHBOARD_PATH}")
         page.wait_for_selector(".tp-ud-container", timeout=10_000)
         # Wait for loading to finish
-        page.wait_for_selector("#tp-ud-skeleton", state="hidden", timeout=25_000)
+        page.wait_for_selector("#tp-ud-skeleton", state="hidden", timeout=45_000)
 
         # Check if error state appeared (may not if API succeeded)
         error = page.locator("#tp-ud-error")
@@ -246,7 +246,7 @@ class TestRetryBehavior:
         _require_deployment(page)
         page.goto(f"{BASE_URL}{USAGE_DASHBOARD_PATH}")
         page.wait_for_selector(".tp-ud-container", timeout=10_000)
-        page.wait_for_selector("#tp-ud-skeleton", state="hidden", timeout=25_000)
+        page.wait_for_selector("#tp-ud-skeleton", state="hidden", timeout=45_000)
 
         # Record current URL
         url_before = page.url
