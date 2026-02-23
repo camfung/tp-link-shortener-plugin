@@ -38,6 +38,11 @@ class TP_Link_Shortener {
     private $client_links_shortcode;
 
     /**
+     * Usage dashboard shortcode handler
+     */
+    private $usage_dashboard_shortcode;
+
+    /**
      * Admin settings
      */
     private $admin;
@@ -67,6 +72,7 @@ class TP_Link_Shortener {
         $this->shortcode = new TP_Shortcode($this->assets);
         $this->dashboard_shortcode = new TP_Dashboard_Shortcode();
         $this->client_links_shortcode = new TP_Client_Links_Shortcode();
+        $this->usage_dashboard_shortcode = new TP_Usage_Dashboard_Shortcode();
         $this->admin = new TP_Admin_Settings();
 
         // Register hooks

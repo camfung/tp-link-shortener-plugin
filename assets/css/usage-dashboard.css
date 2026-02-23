@@ -1,0 +1,165 @@
+/**
+ * Usage Dashboard Styles
+ * Scoped with tp-ud- prefix to avoid conflicts.
+ */
+
+/* ========================================
+   Container
+   ======================================== */
+
+.tp-ud-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+/* ========================================
+   Login Wrapper
+   ======================================== */
+
+.tp-ud-login-wrapper {
+    max-width: 400px;
+    margin: 40px auto;
+    padding: 30px;
+}
+
+/* ========================================
+   Skeleton Loading Animation
+   ======================================== */
+
+@keyframes tp-ud-pulse {
+    0%, 100% {
+        opacity: 0.6;
+    }
+    50% {
+        opacity: 1.0;
+    }
+}
+
+.tp-ud-skeleton-chart {
+    background: #e0e0e0;
+    border-radius: 8px;
+    height: 250px;
+    margin-bottom: 20px;
+    animation: tp-ud-pulse 1.5s ease-in-out infinite;
+}
+
+.tp-ud-skeleton-stats {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.tp-ud-skeleton-stat-block {
+    background: #e0e0e0;
+    border-radius: 6px;
+    width: 120px;
+    height: 60px;
+    animation: tp-ud-pulse 1.5s ease-in-out infinite;
+}
+
+.tp-ud-skeleton-rows {
+    margin-top: 16px;
+}
+
+.tp-ud-skeleton-row {
+    background: #e0e0e0;
+    border-radius: 4px;
+    height: 20px;
+    margin-bottom: 12px;
+    animation: tp-ud-pulse 1.5s ease-in-out infinite;
+}
+
+/* ========================================
+   Error State
+   ======================================== */
+
+.tp-ud-error {
+    text-align: center;
+    padding: 60px 20px;
+    color: #6c757d;
+}
+
+.tp-ud-error i {
+    color: #dc3545;
+}
+
+.tp-ud-error p {
+    margin: 10px 0 20px;
+    font-size: 1.1rem;
+}
+
+/* ========================================
+   Content State
+   ======================================== */
+
+.tp-ud-content {
+    padding-top: 10px;
+}
+
+/* Date Range Header */
+.tp-ud-date-header {
+    margin-bottom: 20px;
+}
+
+.tp-ud-date-range {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.tp-ud-date-label {
+    color: #6c757d;
+    font-size: 0.9rem;
+}
+
+.tp-ud-date-sep {
+    color: #6c757d;
+    padding: 0 4px;
+}
+
+/* Chart Wrapper */
+.tp-ud-chart-wrapper {
+    position: relative;
+    width: 100%;
+    margin-bottom: 24px;
+}
+
+/* Summary Stats Strip */
+#tp-ud-summary-strip {
+    margin-bottom: 20px;
+}
+
+/* Table Container */
+#tp-ud-table-container {
+    margin-top: 20px;
+}
+
+/* ========================================
+   Responsive
+   ======================================== */
+
+@media (max-width: 576px) {
+    .tp-ud-container {
+        padding: 12px;
+    }
+
+    .tp-ud-skeleton-stats {
+        flex-wrap: wrap;
+    }
+
+    .tp-ud-skeleton-stat-block {
+        flex: 1 1 calc(50% - 8px);
+        min-width: 100px;
+    }
+
+    .tp-ud-date-range {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .tp-ud-date-sep {
+        display: none;
+    }
+}

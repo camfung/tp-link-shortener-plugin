@@ -36,6 +36,7 @@ require_once TP_LINK_SHORTENER_PLUGIN_DIR . 'includes/class-tp-api-handler.php';
 require_once TP_LINK_SHORTENER_PLUGIN_DIR . 'includes/class-tp-shortcode.php';
 require_once TP_LINK_SHORTENER_PLUGIN_DIR . 'includes/class-tp-dashboard-shortcode.php';
 require_once TP_LINK_SHORTENER_PLUGIN_DIR . 'includes/class-tp-client-links-shortcode.php';
+require_once TP_LINK_SHORTENER_PLUGIN_DIR . 'includes/class-tp-usage-dashboard-shortcode.php';
 require_once TP_LINK_SHORTENER_PLUGIN_DIR . 'includes/class-tp-admin-settings.php';
 require_once TP_LINK_SHORTENER_PLUGIN_DIR . 'includes/class-tp-assets.php';
 
