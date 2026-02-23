@@ -10,22 +10,23 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 ## Current Position
 
 Phase: 5 of 8 (Shortcode Foundation and API Proxy)
-Plan: 1 of 3 in current phase (Plan 01 complete)
+Plan: 2 of 3 in current phase (Plan 02 complete)
 Status: Executing
-Last activity: 2026-02-23 -- Plan 05-01 completed
+Last activity: 2026-02-23 -- Plan 05-02 completed
 
-Progress: [###░░░░░░░] 33%
+Progress: [######░░░░] 66%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 1
-- Average duration: 2min
-- Total execution time: 0.04 hours
+- Total plans completed: 2
+- Average duration: 3min
+- Total execution time: 0.1 hours
 
 | Phase | Plan | Duration | Tasks | Files |
 |-------|------|----------|-------|-------|
 | 05    | 01   | 2min     | 1     | 7     |
+| 05    | 02   | 4min     | 2     | 5     |
 
 *Updated after each plan completion*
 
@@ -44,6 +45,9 @@ Progress: [###░░░░░░░] 33%
 - [Phase 5]: Proxy validates/reshapes API response; generic errors for users, detailed for admins
 - [Phase 5 Plan 01]: Created stub JS file instead of leaving missing file to avoid dev console warnings
 - [Phase 5 Plan 01]: Unit tests verify file structure via string assertions; full integration deferred to E2E
+- [Phase 5 Plan 02]: 15-second API client timeout for getUserActivitySummary (matching Lambda timeout)
+- [Phase 5 Plan 02]: 20-second JS timeout (15s server + network overhead)
+- [Phase 5 Plan 02]: Validation contract replicated in unit tests to verify without WordPress
 
 ### Pending Todos
 
@@ -52,11 +56,11 @@ None yet.
 ### Blockers/Concerns
 
 - API only returns `totalHits`, `hitCost`, `balance` -- no clicks vs QR scans breakdown
-- API response envelope shape (`{ days: [...] }` key name) must be verified against live API during Phase 5
+- ~~API response envelope shape verified: API returns `{ source: [...] }`, proxy reshapes to `{ days: [...] }`~~ RESOLVED in 05-02
 - Timezone behavior of date parameters not documented in API reference -- verify empirically in Phase 5
 
 ## Session Continuity
 
 Last session: 2026-02-23
-Stopped at: Completed 05-01-PLAN.md
-Resume file: .planning/phases/05-shortcode-foundation-and-api-proxy/05-01-SUMMARY.md
+Stopped at: Completed 05-02-PLAN.md
+Resume file: .planning/phases/05-shortcode-foundation-and-api-proxy/05-02-SUMMARY.md
