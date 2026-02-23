@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 Phase: 5 of 8 (Shortcode Foundation and API Proxy)
 Plan: 0 of 0 in current phase (plans not yet created)
 Status: Ready to plan
-Last activity: 2026-02-22 -- Roadmap created for v2.0 Usage Dashboard milestone (phases 5-8)
+Last activity: 2026-02-22 -- Phase 5 context gathered
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -35,6 +35,9 @@ Progress: [░░░░░░░░░░] 0%
 - [Milestone]: Skip Other Services and second table for v2.0
 - [Roadmap]: 4 phases (5-8) derived from 22 requirements; research build order (PHP->Template->API->JS->CSS) adopted
 - [Roadmap]: DOC-01 merged into Phase 8 with date filtering -- both are finalization work after core is built
+- [Phase 5]: No caching for v1.0 -- every request hits API fresh; caching deferred
+- [Phase 5]: Inline wp_login_form() for unauthenticated users, any role can access
+- [Phase 5]: Proxy validates/reshapes API response; generic errors for users, detailed for admins
 
 ### Pending Todos
 
@@ -49,5 +52,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-22
-Stopped at: Roadmap created, ready to plan Phase 5
-Resume file: None
+Stopped at: Phase 5 context gathered
+Resume file: .planning/phases/05-shortcode-foundation-and-api-proxy/05-CONTEXT.md
