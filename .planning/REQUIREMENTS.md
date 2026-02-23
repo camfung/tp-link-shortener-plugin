@@ -71,34 +71,34 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PAGE-01 | TBD | Pending |
-| PAGE-02 | TBD | Pending |
-| PAGE-03 | TBD | Pending |
-| DATA-01 | TBD | Pending |
-| DATA-02 | TBD | Pending |
-| DATA-03 | TBD | Pending |
-| DATA-04 | TBD | Pending |
-| DATA-05 | TBD | Pending |
-| DATA-06 | TBD | Pending |
-| DATA-07 | TBD | Pending |
-| TABLE-01 | TBD | Pending |
-| TABLE-02 | TBD | Pending |
-| TABLE-03 | TBD | Pending |
-| TABLE-04 | TBD | Pending |
-| TABLE-05 | TBD | Pending |
-| CHART-01 | TBD | Pending |
-| CHART-02 | TBD | Pending |
-| CHART-03 | TBD | Pending |
-| CHART-04 | TBD | Pending |
-| CHART-05 | TBD | Pending |
-| STATS-01 | TBD | Pending |
-| DOC-01 | TBD | Pending |
+| PAGE-01 | Phase 5 | Pending |
+| PAGE-02 | Phase 5 | Pending |
+| PAGE-03 | Phase 5 | Pending |
+| DATA-01 | Phase 5 | Pending |
+| DATA-02 | Phase 5 | Pending |
+| DATA-03 | Phase 5 | Pending |
+| DATA-04 | Phase 6 | Pending |
+| DATA-05 | Phase 8 | Pending |
+| DATA-06 | Phase 8 | Pending |
+| DATA-07 | Phase 6 | Pending |
+| TABLE-01 | Phase 6 | Pending |
+| TABLE-02 | Phase 6 | Pending |
+| TABLE-03 | Phase 6 | Pending |
+| TABLE-04 | Phase 6 | Pending |
+| TABLE-05 | Phase 8 | Pending |
+| CHART-01 | Phase 7 | Pending |
+| CHART-02 | Phase 7 | Pending |
+| CHART-03 | Phase 7 | Pending |
+| CHART-04 | Phase 7 | Pending |
+| CHART-05 | Phase 7 | Pending |
+| STATS-01 | Phase 6 | Pending |
+| DOC-01 | Phase 8 | Pending |
 
 **Coverage:**
 - v2.0 requirements: 22 total
-- Mapped to phases: 0 (pending roadmap)
-- Unmapped: 22
+- Mapped to phases: 22
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-22*
-*Last updated: 2026-02-22 after milestone v2.0 initialization*
+*Last updated: 2026-02-22 after roadmap creation (phases 5-8)*

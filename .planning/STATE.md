@@ -4,15 +4,15 @@
 
 See: .planning/PROJECT.md (updated 2026-02-22)
 
-**Core value:** Users can track their link usage costs and account balance at a glance — daily stats with a chart and detailed table.
-**Current focus:** Milestone v2.0 — Usage Dashboard
+**Core value:** Users can track their link usage costs and account balance at a glance -- daily stats with a chart and detailed table.
+**Current focus:** Phase 5 - Shortcode Foundation and API Proxy
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-02-22 — Milestone v2.0 started
+Phase: 5 of 8 (Shortcode Foundation and API Proxy)
+Plan: 0 of 0 in current phase (plans not yet created)
+Status: Ready to plan
+Last activity: 2026-02-22 -- Roadmap created for v2.0 Usage Dashboard milestone (phases 5-8)
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -31,8 +31,10 @@ Progress: [░░░░░░░░░░] 0%
 
 - [Milestone]: v1.0 Mobile Responsive paused (phases 1-4 never started), pivoting to v2.0 Usage Dashboard
 - [Milestone]: Usage dashboard is a separate page/shortcode from link management dashboard
-- [Milestone]: Mock clicks/QR scans split — API only returns totalHits
+- [Milestone]: Mock clicks/QR scans split -- API only returns totalHits
 - [Milestone]: Skip Other Services and second table for v2.0
+- [Roadmap]: 4 phases (5-8) derived from 22 requirements; research build order (PHP->Template->API->JS->CSS) adopted
+- [Roadmap]: DOC-01 merged into Phase 8 with date filtering -- both are finalization work after core is built
 
 ### Pending Todos
 
@@ -40,11 +42,12 @@ None yet.
 
 ### Blockers/Concerns
 
-- API only returns `totalHits`, `hitCost`, `balance` — no clicks vs QR scans breakdown
-- Need to produce API requirements doc specifying what backend needs to provide
+- API only returns `totalHits`, `hitCost`, `balance` -- no clicks vs QR scans breakdown
+- API response envelope shape (`{ days: [...] }` key name) must be verified against live API during Phase 5
+- Timezone behavior of date parameters not documented in API reference -- verify empirically in Phase 5
 
 ## Session Continuity
 
 Last session: 2026-02-22
-Stopped at: Milestone v2.0 started, defining requirements
+Stopped at: Roadmap created, ready to plan Phase 5
 Resume file: None
