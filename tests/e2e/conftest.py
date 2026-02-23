@@ -34,6 +34,7 @@ if _env_path.exists():
 BASE_URL = os.getenv("TP_BASE_URL", "https://trafficportal.dev")
 LOGIN_URL = os.getenv("TP_LOGIN_URL", f"{BASE_URL}/login/")
 CLIENT_LINKS_PATH = os.getenv("TP_CLIENT_LINKS_PATH", "/camerons-test-page/")
+USAGE_DASHBOARD_PATH = os.getenv("TP_USAGE_DASHBOARD_PATH", "/usage-dashboard/")
 TEST_USER = os.getenv("TP_TEST_USER", "")
 TEST_PASS = os.getenv("TP_TEST_PASS", "")
 
@@ -78,4 +79,13 @@ def client_links_page(page: Page):
     page.goto(f"{BASE_URL}{CLIENT_LINKS_PATH}")
     # Wait for the container to appear
     page.wait_for_selector(".tp-cl-container", timeout=10_000)
+    return page
+
+
+@pytest.fixture()
+def usage_dashboard_page(page: Page):
+    """Navigate to the Usage Dashboard page and wait for initial render."""
+    page.goto(f"{BASE_URL}{USAGE_DASHBOARD_PATH}")
+    # Wait for either skeleton (loading) or content to appear
+    page.wait_for_selector(".tp-ud-container", timeout=10_000)
     return page
