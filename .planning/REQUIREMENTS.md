@@ -1,97 +1,104 @@
-# Requirements: Traffic Portal — Mobile Responsive Update
+# Requirements: Traffic Portal v2.0 — Usage Dashboard
 
-**Defined:** 2026-02-15
-**Core Value:** Users can fully manage their short links from a phone — create, edit, toggle, view analytics, and scan QR codes — without needing a desktop.
+**Defined:** 2026-02-22
+**Core Value:** Users can track their link usage costs and account balance at a glance — daily stats with a chart and detailed table.
 
-## v1 Requirements
+## v2.0 Requirements
 
-Requirements for mobile responsive update. Each maps to roadmap phases.
+### Shortcode & Page
 
-### CSS Foundation
+- [ ] **PAGE-01**: User sees a standalone billing dashboard when visiting a page with `[tp_usage_dashboard]`
+- [ ] **PAGE-02**: Unauthenticated user sees a login prompt instead of the dashboard
+- [ ] **PAGE-03**: Dashboard shows a loading skeleton while data is being fetched
 
-- [ ] **FNDTN-01**: Standardize breakpoints across all 3 CSS files (consistent 768px, add 480px phone breakpoint)
-- [ ] **FNDTN-02**: Audit and remove/reduce `!important` declarations that block responsive overrides
-- [ ] **FNDTN-03**: Convert hover-dependent actions to always-visible on touch devices using `@media (hover: hover)`
+### Data & API
 
-### Table & Card Layout
+- [ ] **DATA-01**: Dashboard fetches daily activity data from the external `user-activity-summary` API via WordPress AJAX proxy
+- [ ] **DATA-02**: User ID is always determined server-side — never accepted from client-side request parameters
+- [ ] **DATA-03**: API responses are cached via WordPress transients (5-minute TTL) to avoid redundant external calls
+- [ ] **DATA-04**: Date range filter defaults to last 30 days on first load
+- [ ] **DATA-05**: User can select custom start and end dates to filter the data
+- [ ] **DATA-06**: Preset date buttons (7d, 30d, 90d) allow quick date range selection
+- [ ] **DATA-07**: Clicks and QR scans are split from totalHits using a deterministic mock ratio, clearly labeled as estimated
 
-- [ ] **CARD-01**: Refine existing table-to-card layout for phone screens (320px-480px) with stacked labels
-- [ ] **CARD-02**: Make action buttons (copy, QR, edit, history) always visible on mobile cards
-- [ ] **CARD-03**: Increase status toggle touch targets to minimum 44px on mobile
+### Stats Table
 
-### Modals & Dialogs
-
-- [ ] **MODAL-01**: Make modals full-screen on mobile devices
-- [ ] **MODAL-02**: Fix iOS Safari viewport bug using `dvh` units for modal sizing
-- [ ] **MODAL-03**: Add bottom-sheet slide-up animation for mobile modals
+- [ ] **TABLE-01**: Daily stats table displays columns: date, clicks, QR scans, total hits, cost, balance
+- [ ] **TABLE-02**: All currency values display with exactly 2 decimal places and dollar sign formatting
+- [ ] **TABLE-03**: Running balance is calculated without floating-point drift (rounded after each step)
+- [ ] **TABLE-04**: When no data exists for the selected range, a clear "No usage data" message is shown with the date range displayed
+- [ ] **TABLE-05**: Date range filter end date cannot exceed today
 
 ### Chart
 
-- [ ] **CHART-01**: Collapse performance chart by default on mobile with expand/collapse toggle
-- [ ] **CHART-02**: Show summary stats bar (total clicks, QR scans) replacing chart space on mobile
+- [ ] **CHART-01**: Area chart displays daily clicks and QR scans as two stacked series (yellow/green matching TP-59 design)
+- [ ] **CHART-02**: Chart has data point markers on each day
+- [ ] **CHART-03**: Chart properly destroys and recreates when date range changes (no "Canvas already in use" errors)
+- [ ] **CHART-04**: Chart container uses proper CSS (position: relative, min-width: 0) to prevent flex resize loops
+- [ ] **CHART-05**: Mock data split is visually labeled as "estimated" via chart legend or disclaimer
 
-### Controls & Inputs
+### Summary Stats
 
-- [ ] **CTRL-01**: Make pagination touch-friendly with 44px minimum tap targets
-- [ ] **CTRL-02**: Optimize date picker inputs for phone screens
+- [ ] **STATS-01**: Summary strip above the table shows total hits, total cost, and current balance for the selected period
 
-### Form
+### API Requirements Doc
 
-- [ ] **FORM-01**: Make link creation/edit form responsive for mobile (form is embedded in modals, must work first)
+- [ ] **DOC-01**: API requirements document specifies needed backend changes for real clicks/QR split, other services, and wallet transactions
 
-## v2 Requirements
+## Future Requirements
 
-### Controls & Inputs
+### Other Services & Wallet
+- **WALLET-01**: Other Services column showing one-time charges (domain renewals, wallet top-ups)
+- **WALLET-02**: Wallet top-up integration with balance
 
-- **CTRL-03**: Stacked filter bar — filters stack vertically on mobile instead of horizontal row
-- **CTRL-04**: Filter drawer — slide-in panel for advanced filtering on mobile
-
-### Table & Card Layout
-
-- **CARD-04**: Swipe actions on mobile cards (swipe to copy, edit, delete)
-- **CARD-05**: Expandable card details with tap-to-expand animation
-
-### Accessibility
-
-- **A11Y-01**: Add ARIA roles/labels for table-to-card conversion for screen readers
-- **A11Y-02**: Add prefers-reduced-motion media query for animations
+### Extended Analytics
+- **EXT-01**: Second table for domains, tpKeys, semaphores info
+- **EXT-02**: CSV/export functionality for usage data
+- **EXT-03**: Real clicks/QR split from by-source API (replacing mock)
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| Native mobile app | Web responsive only — no app development |
-| Desktop UI redesign | Only mobile adaptations; desktop layout unchanged |
-| New features | Purely mobile responsiveness, no new capabilities |
-| Performance optimization | Focus is layout/interaction, not speed |
-| WordPress theme compatibility testing | Scoped to plugin styles only |
+| Link management features | Separate dashboard handles this (tp_client_links) |
+| Real-time data refresh | Daily granularity data doesn't benefit from live updates |
+| Per-link breakdown in this dashboard | Belongs in the link management dashboard |
+| Sortable table columns | Daily chronological data has one natural sort order |
+| Table pagination | 30-90 rows is manageable without pagination |
+| Mobile responsiveness | Separate milestone (v1.0) handles this |
 
 ## Traceability
 
-Which phases cover which requirements. Updated during roadmap creation.
-
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FNDTN-01 | Phase 1: CSS Foundation | Pending |
-| FNDTN-02 | Phase 1: CSS Foundation | Pending |
-| FNDTN-03 | Phase 1: CSS Foundation | Pending |
-| FORM-01 | Phase 2: Forms and Modals | Pending |
-| MODAL-01 | Phase 2: Forms and Modals | Pending |
-| MODAL-02 | Phase 2: Forms and Modals | Pending |
-| MODAL-03 | Phase 2: Forms and Modals | Pending |
-| CARD-01 | Phase 3: Table Cards and Controls | Pending |
-| CARD-02 | Phase 3: Table Cards and Controls | Pending |
-| CARD-03 | Phase 3: Table Cards and Controls | Pending |
-| CTRL-01 | Phase 3: Table Cards and Controls | Pending |
-| CTRL-02 | Phase 3: Table Cards and Controls | Pending |
-| CHART-01 | Phase 4: Chart Collapse | Pending |
-| CHART-02 | Phase 4: Chart Collapse | Pending |
+| PAGE-01 | TBD | Pending |
+| PAGE-02 | TBD | Pending |
+| PAGE-03 | TBD | Pending |
+| DATA-01 | TBD | Pending |
+| DATA-02 | TBD | Pending |
+| DATA-03 | TBD | Pending |
+| DATA-04 | TBD | Pending |
+| DATA-05 | TBD | Pending |
+| DATA-06 | TBD | Pending |
+| DATA-07 | TBD | Pending |
+| TABLE-01 | TBD | Pending |
+| TABLE-02 | TBD | Pending |
+| TABLE-03 | TBD | Pending |
+| TABLE-04 | TBD | Pending |
+| TABLE-05 | TBD | Pending |
+| CHART-01 | TBD | Pending |
+| CHART-02 | TBD | Pending |
+| CHART-03 | TBD | Pending |
+| CHART-04 | TBD | Pending |
+| CHART-05 | TBD | Pending |
+| STATS-01 | TBD | Pending |
+| DOC-01 | TBD | Pending |
 
 **Coverage:**
-- v1 requirements: 14 total
-- Mapped to phases: 14
-- Unmapped: 0
+- v2.0 requirements: 22 total
+- Mapped to phases: 0 (pending roadmap)
+- Unmapped: 22
 
 ---
-*Requirements defined: 2026-02-15*
-*Last updated: 2026-02-15 after roadmap creation*
+*Requirements defined: 2026-02-22*
+*Last updated: 2026-02-22 after milestone v2.0 initialization*
