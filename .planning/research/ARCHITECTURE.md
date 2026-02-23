@@ -1,465 +1,553 @@
-# Architecture Patterns
+# Architecture Research
 
-**Domain:** Mobile-responsive CSS for existing WordPress plugin (Traffic Portal Link Shortener)
-**Researched:** 2026-02-15
-**Overall confidence:** HIGH
-
-## Current Architecture Analysis
-
-### Existing CSS File Structure
-
-| File | Lines | Scope | Existing Breakpoints |
-|------|-------|-------|---------------------|
-| `frontend.css` | ~1022 | Link creation form, QR codes, snackbars, result panel | 991.98px, 767.98px |
-| `dashboard.css` | ~1024 | Admin dashboard table, search/filters, edit modal, QR dialog, skeletons | 992px, 768px, 520px |
-| `client-links.css` | ~921 | Client links table, chart, date range, history modal, status toggles | 992px, 768px, 520px |
-
-### Current Breakpoint Map
-
-```
-992px  - Header stacking, controls column layout (dashboard.css, client-links.css)
-768px  - Table-to-card conversion, padding reduction, skeleton mobile (all three files)
-520px  - Modal full-width, QR dialog stacking (dashboard.css, client-links.css)
-```
-
-**What is already done at 768px:** Table thead hidden, tr becomes block with card styling, td uses `data-label` pseudo-element for labels, inline actions always visible, pagination stacked, domain group rows converted to cards.
-
-**What is NOT done:** No styles below 520px targeting phones (320px-480px). No adjustments to the frontend form. No chart collapsibility. No full-screen modal behavior. No touch-optimized tap targets.
-
-### Existing Design System (CSS Custom Properties)
-
-All three files redeclare identical `:root` variables. The design tokens are:
-- Colors: `--tp-primary`, `--tp-accent`, `--tp-secondary`, `--tp-warning`, `--tp-danger`
-- Surfaces: `--tp-surface`, `--tp-surface-soft`, `--tp-section`
-- Text: `--tp-text`, `--tp-muted`
-- Layout: `--tp-border`, `--tp-shadow`
-
-### HTML Architecture
-
-- Tables are dynamically built in JavaScript (`dashboard.js`, `client-links.js`) using template literals/string concatenation
-- Table cells already include `data-label` attributes on every `<td>` (critical for card layout)
-- Modals are plain DOM overlays (not Bootstrap modals), positioned with `position: fixed` and centered with flexbox
-- Chart uses `<canvas>` inside `.tp-cl-chart-wrapper`
-- Form uses nested flex/grid with `.tp-input-visual` wrappers
+**Domain:** WordPress plugin shortcode — billing/usage dashboard (`[tp_usage_dashboard]`)
+**Researched:** 2026-02-22
+**Confidence:** HIGH — based on direct codebase inspection of the three existing shortcodes and their patterns
 
 ---
 
-## Recommended Architecture
+## Standard Architecture
 
-### Decision: Inline Media Queries in Existing Files (NOT a Separate Mobile CSS File)
-
-**Recommendation:** Add mobile breakpoints directly into each existing CSS file, co-located with the component styles they modify.
-
-**Why NOT a separate `mobile.css` file:**
-
-1. **Maintenance burden.** A separate file creates a second place to look for every component's styles. When someone modifies `.tp-cl-link-cell` in `client-links.css`, they must also remember to check `mobile.css`. This coupling across files leads to drift and bugs.
-2. **Existing pattern.** The codebase already has responsive rules at 992px, 768px, and 520px inline within each file. A separate mobile file would break the established convention.
-3. **Specificity alignment.** Inline media queries naturally appear after the desktop styles they override, maintaining correct cascade order without cross-file specificity battles.
-4. **No build step.** This is a WordPress plugin with raw CSS files (no Sass, no PostCSS, no bundler). A separate file means another `wp_enqueue_style()` call, another HTTP request, and no tooling to merge them.
-
-**Why inline media queries work here:**
-
-- Files are already ~1000 lines each. Adding 100-150 lines of mobile rules per file keeps them under 1200 lines -- manageable.
-- Each file maps to a distinct page/view (frontend form, dashboard, client links). Mobile styles for dashboard components belong in `dashboard.css`.
-- The `data-label` card pattern already exists at 768px. The phone breakpoint extends this pattern, not replaces it.
-
-### Breakpoint Strategy
-
-**Add one new breakpoint at 480px** to each file. Do NOT add breakpoints at 320px, 375px, or 414px individually.
+### System Overview
 
 ```
-Existing:
-  992px  - Tablet landscape (header/controls stacking)
-  768px  - Tablet portrait (table-to-card, padding reduction)
-  520px  - Small tablet/large phone (modal sizing)
-
-New:
-  480px  - Phone (all phone-specific optimizations)
+Browser (WordPress Page)
+    |
+    | [1] Page load: shortcode renders HTML, enqueues JS/CSS, injects ajaxUrl + nonce via wp_localize_script
+    v
+templates/usage-dashboard-template.php
+    |
+    | [2] On DOMContentLoaded: JS reads date range, fires AJAX
+    v
+assets/js/usage-dashboard.js  (jQuery IIFE, global tpUsageDashboard object)
+    |
+    | [3] POST admin-ajax.php  action=tp_get_usage_summary  (nonce, uid, start_date, end_date)
+    v
+WordPress wp-admin/admin-ajax.php
+    |
+    | [4] Dispatches to registered wp_ajax_ handler
+    v
+includes/class-tp-api-handler.php  ::ajax_get_usage_summary()
+    |
+    | [5] Validates nonce, reads uid from TP_Link_Shortener::get_user_id()
+    | [6] Calls TrafficPortalApiClient::getUserActivitySummary(uid, start_date, end_date)
+    v
+includes/TrafficPortal/TrafficPortalApiClient.php  ::getUserActivitySummary()
+    |
+    | [7] GET {TP_API_ENDPOINT}/user-activity-summary/{uid}?start=...&end=...
+    v
+External Traffic Portal REST API
+    |
+    | [8] Returns daily totals: [{ date, totalHits }, ...]
+    v
+TrafficPortalApiClient  (parse response → DTO or plain array)
+    |
+    v
+TP_API_Handler  (wp_send_json_success($data))
+    |
+    v
+usage-dashboard.js
+    | [9] Receives { success: true, data: { days: [...] } }
+    | [10] Derives clicks/QR split via mock ratio (e.g. 80/20)
+    | [11] Renders Chart.js area chart + stats table
+    v
+Browser DOM (chart canvas + stats table updated)
 ```
-
-**Rationale for a single 480px breakpoint:**
-- Covers all phones (320px-480px) with one rule set
-- Below 480px, layout is already single-column from the 768px rules; the 480px rules handle sizing, spacing, and touch optimization
-- Avoids breakpoint sprawl that creates testing burden
-- CSS `clamp()` and percentage-based sizing handle the 320px-480px range fluidly within this single breakpoint
-
-**Implementation pattern in each file:**
-
-```css
-/* ---- Existing ---- */
-@media (max-width: 992px) { /* tablet landscape */ }
-@media (max-width: 768px) { /* tablet portrait - card layout */ }
-@media (max-width: 520px) { /* small screens - modal sizing */ }
-
-/* ---- New ---- */
-@media (max-width: 480px) { /* phone - touch targets, spacing, full-screen modals */ }
-```
-
-### Component Boundaries
-
-| Component | File | What Changes for Mobile |
-|-----------|------|------------------------|
-| Link creation form | `frontend.css` | Input stacking, button sizing, result grid single-column, QR/screenshot stack |
-| Dashboard table | `dashboard.css` | Card padding reduction, touch targets, full-screen edit modal |
-| Dashboard controls | `dashboard.css` | Search/filter full-width, button touch sizing |
-| Client links table | `client-links.css` | Card padding, toggle touch area, inline actions layout |
-| Client links controls | `client-links.css` | Date range stacking, search full-width |
-| Chart | `client-links.css` | Collapsible wrapper, reduced height |
-| Modals (edit/QR/history) | `dashboard.css`, `client-links.css` | Full-screen on phones |
-| Pagination | `dashboard.css`, `client-links.css` | Simplified (prev/next only) |
-| Snackbar/tooltips | `frontend.css` | Full-width at bottom |
-
-### Data Flow (CSS Cascade)
-
-```
-:root variables (shared tokens)
-    |
-    v
-Desktop styles (base rules, no media query)
-    |
-    v
-@media (max-width: 992px)  -- tablet landscape adjustments
-    |
-    v
-@media (max-width: 768px)  -- tablet portrait, table-to-card
-    |
-    v
-@media (max-width: 520px)  -- modal/dialog sizing
-    |
-    v
-@media (max-width: 480px)  -- phone-specific (NEW)
-```
-
-Each breakpoint inherits and extends the one above it. The 480px rules only need to specify what changes FROM the 768px/520px state, not re-declare everything.
 
 ---
 
-## Patterns to Follow
+### Component Responsibilities
 
-### Pattern 1: Extend Existing Card Layout for Phones
+| Component | File | Responsibility |
+|-----------|------|----------------|
+| Shortcode class | `includes/class-tp-usage-dashboard-shortcode.php` | Register `[tp_usage_dashboard]` shortcode, gate behind `is_user_logged_in()`, enqueue assets, include template via output buffer |
+| Template | `templates/usage-dashboard-template.php` | Static HTML skeleton: chart canvas placeholder, stats table shell, date range inputs, Apply button |
+| JavaScript | `assets/js/usage-dashboard.js` | AJAX call orchestration, date state, Chart.js area chart render, table render, mock clicks/QR split, date range Apply button handler |
+| CSS | `assets/css/usage-dashboard.css` | Dashboard-specific layout: chart wrapper, stats table, date range controls; imports shared CSS custom properties from `:root` |
+| AJAX handler | `includes/class-tp-api-handler.php` (new method) | `ajax_get_usage_summary()` — nonce verify, get uid, call API client, return JSON |
+| API client method | `includes/TrafficPortal/TrafficPortalApiClient.php` (new method) | `getUserActivitySummary(int $uid, string $start, string $end)` — GET request to external API, parse response |
+| Plugin singleton | `includes/class-tp-link-shortener.php` | Instantiate new shortcode class in `init()` |
+| Plugin entry | `tp-link-shortener.php` | `require_once` the new shortcode class file |
 
-The 768px breakpoint already converts tables to cards using `display: block` on `<tr>` and `data-label` pseudo-elements. The 480px breakpoint should refine spacing and touch targets within this existing card structure.
+---
 
-**What:** Reduce card padding, increase tap target sizes, adjust font sizes.
-**When:** Adding phone-specific table card styles.
-**Example:**
+## Recommended Project Structure
 
-```css
-/* In dashboard.css */
-@media (max-width: 480px) {
-    .tp-dashboard-table tbody tr {
-        padding: 0.75rem;
-        margin-bottom: 0.75rem;
-    }
+New files required (additions only — no existing files deleted):
 
-    .tp-dashboard-table tbody td {
-        padding: 0.4rem 0;
-        font-size: 0.85rem;
-    }
+```
+includes/
+    class-tp-usage-dashboard-shortcode.php   # new — shortcode class
 
-    /* Larger touch targets for action buttons */
-    .tp-inline-btn {
-        min-width: 44px;
-        min-height: 44px;
-        padding: 0.5rem;
-        font-size: 0.9rem;
-    }
-}
+templates/
+    usage-dashboard-template.php             # new — HTML skeleton
+
+assets/
+    css/
+        usage-dashboard.css                  # new — scoped styles
+    js/
+        usage-dashboard.js                   # new — chart + table logic
 ```
 
-### Pattern 2: Full-Screen Modals on Phones
+Existing files modified (minimal, additive only):
 
-Custom modals (not Bootstrap) use `position: fixed` with centered flex. On phones, they should fill the viewport.
+```
+includes/
+    class-tp-api-handler.php         # add ajax_get_usage_summary() + register_ajax_handlers() entries
+    TrafficPortal/
+        TrafficPortalApiClient.php   # add getUserActivitySummary() method
 
-**What:** Convert centered modals to full-screen sheets on phones.
-**When:** All modal/dialog overlays at 480px.
-**Example:**
+includes/
+    class-tp-link-shortener.php      # add $usage_dashboard_shortcode property + instantiate in init()
 
-```css
-@media (max-width: 480px) {
-    .tp-edit-modal,
-    .tp-cl-modal {
-        width: 100vw;
-        max-width: 100vw;
-        height: 100vh;
-        max-height: 100vh;
-        border-radius: 0;
-        margin: 0;
-    }
-
-    .tp-edit-modal-overlay,
-    .tp-cl-modal-overlay {
-        align-items: stretch; /* fills viewport instead of centering */
-    }
-}
+tp-link-shortener.php               # add require_once for new shortcode class
 ```
 
-### Pattern 3: Collapsible Chart Wrapper
+---
 
-The chart canvas has a known issue: if hidden on initial render, it renders at 0x0. The solution is to render it, then allow toggle.
+## Architectural Patterns
 
-**What:** Add a collapse/expand toggle for the chart section on mobile.
-**When:** Client links page on phones.
-**How:** CSS hides by default at 480px. JavaScript adds a toggle button that shows/hides and calls `chart.resize()` on show.
+### Pattern 1: Shortcode Class — Template Method
 
-```css
-/* In client-links.css */
-@media (max-width: 480px) {
-    .tp-cl-chart-wrapper {
-        display: none; /* Hidden by default on phone */
+Every shortcode in the plugin follows an identical four-step template method:
+
+1. `__construct()` calls `add_shortcode('tp_xxx', [$this, 'render_shortcode'])`
+2. `render_shortcode()` gates with `is_user_logged_in()`, calls `$this->enqueue_assets()`
+3. `enqueue_assets()` calls `wp_enqueue_style()` / `wp_enqueue_script()` / `wp_localize_script()`
+4. `render_shortcode()` uses `ob_start()` / `include template` / `return ob_get_clean()`
+
+**Apply this exactly.** Do not deviate. The existing three shortcodes are the canonical reference.
+
+**Example (`class-tp-usage-dashboard-shortcode.php`):**
+
+```php
+<?php
+declare(strict_types=1);
+
+if (!defined('ABSPATH')) { exit; }
+
+class TP_Usage_Dashboard_Shortcode {
+
+    public function __construct() {
+        add_shortcode('tp_usage_dashboard', [$this, 'render_shortcode']);
     }
 
-    .tp-cl-chart-wrapper.tp-cl-chart-expanded {
-        display: block;
+    public function render_shortcode($atts): string {
+        if (!is_user_logged_in()) {
+            return '';
+        }
+
+        $atts = shortcode_atts([
+            'days' => 30,
+        ], $atts);
+
+        $this->enqueue_assets($atts);
+
+        ob_start();
+        include TP_LINK_SHORTENER_PLUGIN_DIR . 'templates/usage-dashboard-template.php';
+        return ob_get_clean();
     }
 
-    .tp-cl-chart-toggle {
-        display: block; /* Only visible on phone */
-    }
-}
+    private function enqueue_assets(array $atts): void {
+        wp_enqueue_style('tp-bootstrap', 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css', [], '5.3.0');
+        wp_enqueue_style('tp-fontawesome', 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css', [], '6.4.0');
+        wp_enqueue_style('tp-link-shortener', TP_LINK_SHORTENER_PLUGIN_URL . 'assets/css/frontend.css', ['tp-bootstrap'], TP_LINK_SHORTENER_VERSION);
+        wp_enqueue_style('tp-usage-dashboard', TP_LINK_SHORTENER_PLUGIN_URL . 'assets/css/usage-dashboard.css', ['tp-bootstrap', 'tp-link-shortener'], TP_LINK_SHORTENER_VERSION);
 
-/* Desktop: toggle button hidden */
-.tp-cl-chart-toggle {
-    display: none;
-}
-```
+        wp_enqueue_script('tp-bootstrap-js', 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js', ['jquery'], '5.3.0', true);
+        wp_enqueue_script('tp-chartjs', 'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js', [], '4.4.1', true);
+        wp_enqueue_script('tp-usage-dashboard-js', TP_LINK_SHORTENER_PLUGIN_URL . 'assets/js/usage-dashboard.js', ['jquery', 'tp-bootstrap-js', 'tp-chartjs'], TP_LINK_SHORTENER_VERSION, true);
 
-**JavaScript requirement:** When `.tp-cl-chart-expanded` is added, call `state.chart.resize()` to re-render at correct dimensions.
+        $end = date('Y-m-d');
+        $start = date('Y-m-d', strtotime('-' . intval($atts['days']) . ' days'));
 
-### Pattern 4: Touch-Friendly Tap Targets
-
-WCAG 2.2 requires 24x24px minimum, Apple recommends 44x44px for tap targets.
-
-**What:** Ensure all interactive elements meet 44x44px minimum on phones.
-**When:** All buttons, links, toggles at 480px.
-**Example:**
-
-```css
-@media (max-width: 480px) {
-    .tp-cl-toggle {
-        width: 48px;
-        height: 26px;
-    }
-
-    .tp-cl-toggle-slider::before {
-        width: 22px;
-        height: 22px;
-    }
-
-    .tp-cl-inline-btn,
-    .tp-inline-btn {
-        min-width: 44px;
-        min-height: 44px;
-    }
-}
-```
-
-### Pattern 5: Pagination Simplification
-
-On phones, numbered pagination is wasteful. Show only prev/next with page indicator.
-
-**What:** Hide numbered page links, show only prev/next arrows.
-**When:** Pagination at 480px.
-**Approach:** CSS-only; hide `.page-item` except first, last, and active. JavaScript unchanged.
-
-```css
-@media (max-width: 480px) {
-    .tp-dashboard-pagination .page-item:not(:first-child):not(:last-child):not(.active) {
-        display: none;
-    }
-
-    .tp-pagination-info {
-        font-size: 0.8rem;
-        text-align: center;
+        wp_localize_script('tp-usage-dashboard-js', 'tpUsageDashboard', [
+            'ajaxUrl'   => admin_url('admin-ajax.php'),
+            'nonce'     => wp_create_nonce('tp_link_shortener_nonce'),
+            'isLoggedIn' => is_user_logged_in(),
+            'dateRange'  => ['start' => $start, 'end' => $end],
+            'strings'    => [
+                'loading' => __('Loading...', 'tp-link-shortener'),
+                'error'   => __('Error loading usage data. Please try again.', 'tp-link-shortener'),
+                'noData'  => __('No activity in this date range.', 'tp-link-shortener'),
+                'apply'   => __('Apply', 'tp-link-shortener'),
+            ],
+        ]);
     }
 }
 ```
 
 ---
 
-## Anti-Patterns to Avoid
+### Pattern 2: AJAX Handler — Nonce → UID → API Client → JSON
 
-### Anti-Pattern 1: Creating a Separate mobile.css File
+Every AJAX handler in `TP_API_Handler` follows this exact sequence:
 
-**What:** Putting all phone styles in a new `assets/css/mobile.css` file.
-**Why bad:** Breaks the established file-per-view convention. Creates maintenance burden where every component change requires checking two files. Adds an extra HTTP request in a plugin with no build tooling.
-**Instead:** Add `@media (max-width: 480px)` blocks at the bottom of each existing CSS file.
+```php
+public function ajax_get_usage_summary(): void {
+    // 1. Verify nonce (always first, before any data access)
+    check_ajax_referer('tp_link_shortener_nonce', 'nonce');
 
-### Anti-Pattern 2: Using `!important` to Override Desktop Styles
+    // 2. Get UID server-side (never trust client-sent uid)
+    $uid = TP_Link_Shortener::get_user_id();
 
-**What:** Overriding desktop styles with `!important` in mobile media queries.
-**Why bad:** The cascade already handles this. Media queries at the bottom of the file naturally override earlier rules at the same specificity. Using `!important` creates specificity debt.
-**Instead:** Match the same selector specificity inside the media query. If the desktop rule is `.tp-cl-table tbody td`, use the same selector in the mobile query.
+    // 3. Sanitize and validate inputs
+    $start_date = isset($_POST['start_date']) ? sanitize_text_field($_POST['start_date']) : '';
+    $end_date   = isset($_POST['end_date'])   ? sanitize_text_field($_POST['end_date'])   : '';
 
-### Anti-Pattern 3: Duplicating the Table-to-Card Pattern
+    // 4. Validate date format
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $start_date) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $end_date)) {
+        wp_send_json_error(['message' => 'Invalid date range']);
+    }
 
-**What:** Re-implementing `display: block`, `data-label::before`, etc. at 480px when it already exists at 768px.
-**Why bad:** The 768px rules already handle the card conversion. The 480px rules inherit this. Duplicating creates maintenance burden and potential conflicts.
-**Instead:** The 480px breakpoint should ONLY adjust sizing, spacing, and touch targets within the already-converted card layout.
-
-### Anti-Pattern 4: JavaScript-Based Responsive Layout
-
-**What:** Using JavaScript to detect screen width and toggle classes for layout changes.
-**Why bad:** Flash of unstyled content on load. Doesn't respond to resize/rotation. Race condition with DOM rendering.
-**Instead:** Use CSS media queries for all layout changes. Only use JavaScript for behavioral changes (chart toggle requiring `.resize()`, programmatic scroll management).
-
-### Anti-Pattern 5: Using Bootstrap Responsive Utilities Extensively
-
-**What:** Relying on Bootstrap's `d-none d-md-block` classes to show/hide elements at breakpoints.
-**Why bad:** These are viewport-based (Bootstrap uses media queries internally), but they create tight coupling between HTML and responsive behavior. Changes require editing PHP templates (server-side rendered) instead of CSS.
-**Instead:** Use custom CSS media queries. The existing codebase barely uses Bootstrap's responsive utilities and this should continue.
-
-### Anti-Pattern 6: Hiding Table Columns Selectively
-
-**What:** Hiding the "Date" or "Usage" column on mobile to make the table fit.
-**Why bad:** The card layout already eliminates the column constraint. Every column becomes a labeled row inside the card. Hiding data removes information the user may need.
-**Instead:** The card layout shows all data stacked vertically. Prioritize layout within the card (most important fields first) rather than removing fields.
-
----
-
-## Component Conversion Order (Build Dependencies)
-
-The order matters because some components depend on others being responsive first.
-
-### Phase 1: Foundation (No Dependencies)
-
-**File: `frontend.css` -- Link creation form**
-
-The form exists independently and is embedded inside modals in dashboard and client-links views. Making it responsive first means the modals automatically inherit form responsiveness.
-
-Changes:
-- Input visual stacking at 480px (paste button + input + submit should not overflow)
-- Result grid single-column (QR + screenshot stacking)
-- QR dialog full-screen
-- Snackbar full-width
-
-**Why first:** The form is used inside edit/add modals on both dashboard and client-links pages. If the form is responsive, the modal content is automatically responsive.
-
-### Phase 2: Dashboard (Depends on Phase 1)
-
-**File: `dashboard.css` -- Dashboard view**
-
-Changes:
-- Controls area: search full-width, filters stack, button sizes increase
-- Table cards: padding/spacing refinement for phones
-- Edit modal: full-screen, which contains the form from Phase 1
-- QR dialog: full-screen
-- Pagination: simplified prev/next
-
-**Why second:** The edit modal embeds the frontend form. Phase 1 makes the form responsive; Phase 2 makes the modal container responsive. Together they work.
-
-### Phase 3: Client Links (Depends on Phase 1, builds on Phase 2 patterns)
-
-**File: `client-links.css` -- Client links view**
-
-Changes:
-- Chart: collapsible toggle (requires JavaScript addition)
-- Controls area: date range stacking, search full-width
-- Table cards: same pattern as dashboard but with status toggle sizing
-- Status toggle: touch-friendly sizing
-- All modals (edit, history, QR): full-screen
-- Pagination: simplified
-
-**Why third:** This view has the most components (chart + table + 3 modals + date range). It benefits from patterns established in Phase 2. The chart collapse requires a small JavaScript addition, making it the most complex phase.
-
-### Phase 4: Cross-Cutting Polish
-
-**All files:**
-- Verify touch targets meet 44px minimum across all interactive elements
-- Test all animation/transitions perform well on mobile (reduce motion preference)
-- Verify no horizontal overflow at 320px (smallest target)
-- Add `@media (prefers-reduced-motion: reduce)` rules for mobile animations
-
-### Dependency Graph
-
+    // 5. Delegate to API client
+    try {
+        $data = $this->client->getUserActivitySummary($uid, $start_date, $end_date);
+        wp_send_json_success($data);
+    } catch (NetworkException $e) {
+        wp_send_json_error(['message' => __('Network error. Please try again.', 'tp-link-shortener')]);
+    } catch (ApiException $e) {
+        wp_send_json_error(['message' => $e->getMessage()]);
+    }
+}
 ```
-Phase 1: frontend.css (form)
-    |
-    +---> Phase 2: dashboard.css (uses form in modal)
-    |         |
-    |         +---> Phase 4: Cross-cutting polish
-    |
-    +---> Phase 3: client-links.css (uses form in modal, extends Phase 2 patterns)
-              |
-              +---> Phase 4: Cross-cutting polish
+
+Register in `register_ajax_handlers()`:
+
+```php
+// Logged-in only (usage dashboard requires authentication)
+add_action('wp_ajax_tp_get_usage_summary', [$this, 'ajax_get_usage_summary']);
+add_action('wp_ajax_nopriv_tp_get_usage_summary', [$this, 'ajax_require_login']);
 ```
 
 ---
 
-## JavaScript Changes Required
+### Pattern 3: JavaScript IIFE with State Object
 
-Most mobile responsiveness is CSS-only, but three areas require JavaScript:
-
-### 1. Chart Toggle Button (client-links.js)
-
-**What:** Add a toggle button before `.tp-cl-chart-wrapper` that shows/hides the chart on mobile.
-**Why JavaScript:** Chart.js renders at 0x0 if its container is hidden. After showing, `chart.resize()` must be called.
-**Scope:** ~15 lines of JS in `client-links.js` `init()` function.
+All three existing JS files use the same structure: a jQuery IIFE containing a `state` object and named functions. Follow this exactly.
 
 ```javascript
-// Add chart toggle for mobile
-var $chartToggle = $('<button class="btn btn-sm btn-outline-primary tp-cl-chart-toggle" type="button">' +
-    '<i class="fas fa-chart-line me-1"></i> Toggle Chart</button>');
-$chartWrapper.before($chartToggle);
-$chartToggle.on('click', function() {
-    $chartWrapper.toggleClass('tp-cl-chart-expanded');
-    if ($chartWrapper.hasClass('tp-cl-chart-expanded') && state.chart) {
-        state.chart.resize();
+(function($) {
+    'use strict';
+
+    // State (single source of truth)
+    var state = {
+        isLoading: false,
+        chart: null,
+        dateStart: '',
+        dateEnd: '',
+        data: []
+    };
+
+    // DOM cache (populated in cacheDom, never query DOM outside cacheDom/init)
+    var $container, $chartCanvas, $tbody, $dateStart, $dateEnd, $applyBtn, $loading, $error;
+
+    function init() {
+        $container = $('.tp-ud-container');
+        if (!$container.length) return;
+
+        cacheDom();
+
+        if (!tpUsageDashboard.isLoggedIn) return;
+
+        state.dateStart = tpUsageDashboard.dateRange.start;
+        state.dateEnd   = tpUsageDashboard.dateRange.end;
+        $dateStart.val(state.dateStart);
+        $dateEnd.val(state.dateEnd);
+
+        bindEvents();
+        loadData();
     }
-});
+
+    function cacheDom() { /* ... */ }
+    function bindEvents() { /* ... */ }
+    function loadData() { /* AJAX call, then renderChart() + renderTable() */ }
+    function renderChart(days) { /* Chart.js area chart */ }
+    function renderTable(days) { /* stats table rows */ }
+    function mockSplit(totalHits) { /* returns { clicks, qr } */ }
+
+    $(document).ready(init);
+
+})(jQuery);
 ```
-
-### 2. Inline Actions Always Visible (already done)
-
-The CSS at 768px already sets `.tp-inline-actions { opacity: 1; visibility: visible; }`. No JS change needed. This carries forward to 480px.
-
-### 3. Modal Scroll Lock (optional enhancement)
-
-**What:** Prevent body scrolling when full-screen modal is open on mobile.
-**Scope:** Already partially handled. The existing modal open/close JS could add `document.body.style.overflow = 'hidden'` on open and restore on close.
 
 ---
 
-## File Organization Summary
+### Pattern 4: Mock Clicks/QR Split
+
+The API returns only `totalHits` per day. The split is mocked client-side using a deterministic ratio seeded from the date string (to avoid random flicker on re-render):
+
+```javascript
+function mockSplit(date, totalHits) {
+    // Deterministic 80/20 split: stable across renders, no random flicker
+    // The 80/20 ratio is a placeholder — replace when API returns real split
+    var clicks = Math.round(totalHits * 0.80);
+    var qr     = totalHits - clicks;
+    return { clicks: clicks, qr: qr };
+}
+```
+
+This keeps the mock centralized in one function, making it trivial to replace when the API evolves to return the real split.
+
+---
+
+### Pattern 5: API Client Method Addition
+
+Add `getUserActivitySummary()` to `TrafficPortalApiClient` following the same pattern as the existing `getMapItems()` method (GET request, handle HTTP errors via `handleHttpErrors()`, return parsed data):
+
+```php
+/**
+ * Get user activity summary for a date range
+ *
+ * @param int $uid User ID
+ * @param string $startDate Format: Y-m-d
+ * @param string $endDate Format: Y-m-d
+ * @return array Daily activity records: [['date' => 'Y-m-d', 'totalHits' => int], ...]
+ * @throws NetworkException
+ * @throws ApiException
+ */
+public function getUserActivitySummary(int $uid, string $startDate, string $endDate): array
+{
+    $url = $this->apiEndpoint . '/user-activity-summary/' . $uid
+         . '?start=' . urlencode($startDate)
+         . '&end='   . urlencode($endDate);
+
+    $httpClient = $this->getHttpClient();
+    $response   = $httpClient->get($url, ['x-api-key' => $this->apiKey]);
+
+    $this->handleHttpErrors($response->getStatusCode(), $response->getBody());
+
+    return $response->getBody()['days'] ?? [];
+}
+```
+
+**Note:** The exact response envelope shape (`data.days`, `data.records`, etc.) must be verified against the live API before implementation. The method returns a plain array — no new DTO class is needed for this simple structure, but one can be added if the team prefers type safety.
+
+---
+
+## Data Flow
+
+### Request Flow (Full)
 
 ```
-assets/css/
-  frontend.css      (+50-80 lines at bottom: @media max-width 480px block)
-  dashboard.css     (+80-120 lines at bottom: @media max-width 480px block)
-  client-links.css  (+80-120 lines at bottom: @media max-width 480px block)
-
-assets/js/
-  client-links.js   (+15-20 lines: chart toggle button creation and handler)
+[User loads page with [tp_usage_dashboard]]
+    |
+    v
+WordPress resolves shortcode → TP_Usage_Dashboard_Shortcode::render_shortcode()
+    |  is_user_logged_in() check → return '' if not logged in
+    v
+enqueue_assets() → wp_enqueue_script/style + wp_localize_script('tpUsageDashboard', {...})
+    |
+    v
+ob_start() → include usage-dashboard-template.php → ob_get_clean()
+    (HTML: container div, canvas#tp-ud-chart, table#tp-ud-stats, date inputs, Apply btn)
+    |
+    v
+Browser: DOM ready fires usage-dashboard.js init()
+    |  Reads tpUsageDashboard.dateRange.start / .end from wp_localize_script data
+    v
+loadData() → $.ajax POST to admin-ajax.php
+    |  action: 'tp_get_usage_summary'
+    |  nonce:  tpUsageDashboard.nonce
+    |  start_date, end_date
+    v
+admin-ajax.php → TP_API_Handler::ajax_get_usage_summary()
+    |  check_ajax_referer('tp_link_shortener_nonce', 'nonce')
+    |  uid = TP_Link_Shortener::get_user_id()    ← server-side, never from POST
+    v
+TrafficPortalApiClient::getUserActivitySummary(uid, start, end)
+    |  GET /user-activity-summary/{uid}?start=...&end=...
+    |  x-api-key header
+    v
+External Traffic Portal API
+    |  Response: { days: [{ date, totalHits }, ...] }
+    v
+wp_send_json_success({ days: [...] })
+    v
+usage-dashboard.js AJAX success callback
+    |  data.data.days → apply mockSplit() per day
+    v
+renderChart(days)   → Chart.js area chart (clicks + QR stacked/overlaid)
+renderTable(days)   → <tr> per day with date / clicks / QR / total columns
 ```
 
-**No new files created.** All changes are additions to existing files.
+### Date Range Filter Flow
 
-**Total estimated CSS additions:** 210-320 lines across 3 files.
-**Total estimated JS additions:** ~20 lines in 1 file.
+```
+User changes date inputs + clicks Apply
+    |
+    v
+$applyBtn click handler → reads $dateStart.val(), $dateEnd.val()
+    |  validates: start < end, not future
+    v
+state.dateStart = ..., state.dateEnd = ...
+    |
+    v
+loadData()   ← same function as initial load, reads from state
+    |
+    v
+AJAX → re-renders chart and table
+```
+
+---
+
+## Component Build Order
+
+Build in this order — each step depends on the previous:
+
+```
+Step 1: PHP Shortcode Class + Plugin Registration (no dependencies)
+    class-tp-usage-dashboard-shortcode.php
+    + register in class-tp-link-shortener.php + tp-link-shortener.php
+
+Step 2: HTML Template (depends on shortcode class existing to include it)
+    templates/usage-dashboard-template.php
+    (static skeleton: container, canvas, table, date inputs, Apply btn)
+
+Step 3: API Client Method (depends on knowing the API response shape)
+    TrafficPortalApiClient::getUserActivitySummary()
+    + AJAX handler in class-tp-api-handler.php
+
+Step 4: JavaScript (depends on template HTML IDs + AJAX handler action name)
+    assets/js/usage-dashboard.js
+    — AJAX call wired to action 'tp_get_usage_summary'
+    — Chart.js area chart render
+    — Stats table render
+    — Mock split function
+    — Date Apply button handler
+
+Step 5: CSS (depends on template HTML classes)
+    assets/css/usage-dashboard.css
+    — Chart wrapper sizing
+    — Stats table layout
+    — Date range control styles
+    — Loading/error state styles
+```
+
+**Rationale for this order:** PHP shortcode and template define the HTML structure (IDs and classes). JS depends on those IDs for DOM targeting. CSS depends on those classes for styling. API client and AJAX handler must exist before JS fires live requests. Never write JS or CSS before the HTML contract (template) is finalized.
+
+---
+
+## File Naming Conventions
+
+Follow the established pattern exactly:
+
+| New File | Naming Rationale |
+|----------|-----------------|
+| `class-tp-usage-dashboard-shortcode.php` | WordPress class prefix `class-tp-`, then component name in kebab-case, suffix `-shortcode.php` — matches `class-tp-dashboard-shortcode.php` and `class-tp-client-links-shortcode.php` |
+| `templates/usage-dashboard-template.php` | Component name kebab-case + `-template.php` — matches `dashboard-template.php`, `client-links-template.php` |
+| `assets/js/usage-dashboard.js` | Component name kebab-case — matches `dashboard.js`, `client-links.js` |
+| `assets/css/usage-dashboard.css` | Component name kebab-case — matches `dashboard.css`, `client-links.css` |
+
+CSS class prefix for template: use `tp-ud-` (Usage Dashboard) to avoid collision with `tp-dashboard` (existing dashboard) and `tp-cl-` (client-links).
+
+`wp_localize_script` global object name: `tpUsageDashboard` — matches `tpDashboard` and `tpClientLinks`.
+
+AJAX action names: `tp_get_usage_summary` — follows `tp_get_user_map_items` naming pattern.
+
+PHP class name: `TP_Usage_Dashboard_Shortcode` — follows `TP_Dashboard_Shortcode`, `TP_Client_Links_Shortcode`.
+
+---
+
+## Integration Points
+
+### External Services
+
+| Service | Integration Pattern | Notes |
+|---------|---------------------|-------|
+| Traffic Portal API | `GET /user-activity-summary/{uid}` via `TrafficPortalApiClient` | Endpoint and auth already configured in existing client; add one method, no new client class |
+| Chart.js 4.4.1 | Already enqueued in client-links shortcode as `tp-chartjs` — reuse the same handle | WordPress deduplicates scripts by handle; registering `tp-chartjs` twice is safe |
+| Bootstrap 5.3.0 | Already enqueued as `tp-bootstrap` — reuse same handle | Same deduplication applies |
+
+### Internal Boundaries
+
+| Boundary | Communication | Notes |
+|----------|---------------|-------|
+| Shortcode class → TP_API_Handler | No direct call; AJAX via browser | Shortcode only enqueues assets and renders template; all data goes via AJAX |
+| usage-dashboard.js → admin-ajax.php | jQuery $.ajax POST with nonce | Standard wp_ajax pattern used by all existing shortcodes |
+| TP_API_Handler → TrafficPortalApiClient | Direct PHP method call | Handler holds `$this->client` reference; add new method to existing client |
+| Template → JavaScript | `tpUsageDashboard` global injected by `wp_localize_script` | The only PHP→JS data bridge; all runtime data fetched via AJAX |
+
+---
+
+## Anti-Patterns
+
+### Anti-Pattern 1: Adding a New API Client Class for Usage Data
+
+**What people do:** Create `includes/TrafficPortal/UsageClient.php` as a separate class for the activity summary endpoint.
+
+**Why it's wrong:** The existing `TrafficPortalApiClient` already owns all Traffic Portal endpoints and holds the API key and endpoint configuration. Creating a parallel client duplicates initialization, creates a second place to update when the API key changes, and breaks the Facade pattern `TP_API_Handler` relies on.
+
+**Do this instead:** Add `getUserActivitySummary()` as a new method on the existing `TrafficPortalApiClient`.
+
+---
+
+### Anti-Pattern 2: Sending UID from JavaScript
+
+**What people do:** In the AJAX POST body, include `uid: tpUsageDashboard.userId`.
+
+**Why it's wrong:** Client-supplied user IDs can be spoofed. Every existing AJAX handler in `TP_API_Handler` calls `TP_Link_Shortener::get_user_id()` server-side and ignores any uid from `$_POST`. Recent commits explicitly removed client-side uid passing (see commit `e063541`).
+
+**Do this instead:** Never include uid in the AJAX payload. The handler calls `TP_Link_Shortener::get_user_id()` which reads `get_current_user_id()` for logged-in users.
+
+---
+
+### Anti-Pattern 3: Randomizing the Mock Clicks/QR Split Per Render
+
+**What people do:** `var qr = Math.floor(Math.random() * totalHits)`.
+
+**Why it's wrong:** Chart re-renders on date change, page focus, or any trigger. Random split causes chart bars to jitter between renders for identical data — confusing and looks broken.
+
+**Do this instead:** Use a deterministic formula (fixed ratio, or a hash of the date string) so the same totalHits always produces the same split regardless of how many times the chart renders.
+
+---
+
+### Anti-Pattern 4: Sharing a CSS File with the Existing Dashboard
+
+**What people do:** Add usage dashboard styles to `dashboard.css` because "they're similar."
+
+**Why it's wrong:** The existing convention is one CSS file per shortcode/view (`dashboard.css` for `[tp_link_dashboard]`, `client-links.css` for `[tp_client_links]`). Mixing concerns forces both CSS files to load even when only one shortcode is on the page.
+
+**Do this instead:** Create `usage-dashboard.css` and enqueue it only from `TP_Usage_Dashboard_Shortcode::enqueue_assets()`.
+
+---
+
+### Anti-Pattern 5: Calling `wp_localize_script` Before `wp_enqueue_script`
+
+**What people do:** Call `wp_localize_script('tp-usage-dashboard-js', ...)` before `wp_enqueue_script('tp-usage-dashboard-js', ...)`.
+
+**Why it's wrong:** `wp_localize_script` requires the script handle to be registered/enqueued first. It silently fails if called before enqueue.
+
+**Do this instead:** Call `wp_enqueue_script()` for the handle, then immediately call `wp_localize_script()` — in this order, in the same `enqueue_assets()` method. All existing shortcodes follow this ordering.
 
 ---
 
 ## Scalability Considerations
 
-| Concern | Current (Desktop Focus) | After Mobile Phase | Future Consideration |
-|---------|------------------------|-------------------|---------------------|
-| CSS file size | ~3000 lines total | ~3250 lines total | If files exceed 1500 lines, consider CSS custom properties for breakpoint values |
-| Breakpoint consistency | 3 breakpoints, inconsistent (991.98 vs 992) | 4 breakpoints, standardized | Consider container queries for component-level responsiveness in future |
-| Testing surface | Desktop + tablet | Desktop + tablet + phone | Playwright mobile viewport tests recommended |
-| Performance | 3 CSS files loaded | Same 3 files, marginally larger | No performance impact; mobile CSS is inside existing files |
+| Scale | Architecture Adjustments |
+|-------|--------------------------|
+| 0–1k users | Current AJAX proxy to external API is fine. No caching needed. |
+| 1k–10k users | Consider WordPress transient caching on the API response (keyed by uid + date range) with 5–15 minute TTL. Reduces Traffic Portal API calls when multiple users view the same day's data. |
+| 10k+ users | If Traffic Portal API rate-limits per-account, the WordPress transient cache becomes necessary. Also consider whether the usage dashboard should pull from a local WordPress table rather than the external API. |
+
+**First bottleneck:** External API rate limits from Traffic Portal, not WordPress load. The proxy pattern means every usage dashboard page load hits the external API. Add `get_transient`/`set_transient` wrapping in `ajax_get_usage_summary()` before this becomes a problem.
 
 ---
 
 ## Sources
 
-- Codebase analysis: `assets/css/frontend.css`, `assets/css/dashboard.css`, `assets/css/client-links.css`
-- Codebase analysis: `templates/dashboard-template.php`, `templates/client-links-template.php`, `templates/shortcode-template.php`
-- Codebase analysis: `assets/js/dashboard.js`, `assets/js/client-links.js`
-- Codebase analysis: `includes/class-tp-assets.php`
-- [CSS-Tricks: Responsive Data Tables](https://css-tricks.com/responsive-data-tables/) -- data-label card pattern (HIGH confidence)
-- [Chart.js: Responsive Charts](https://www.chartjs.org/docs/latest/configuration/responsive.html) -- canvas resize behavior (HIGH confidence)
-- [Chart.js Issue #762: Bootstrap collapse interaction](https://github.com/chartjs/Chart.js/issues/762) -- hidden container rendering (HIGH confidence)
-- [Josh W. Comeau: Container Queries Unleashed](https://www.joshwcomeau.com/css/container-queries-unleashed/) -- container vs media queries guidance (MEDIUM confidence)
-- [MDN: Media query fundamentals](https://developer.mozilla.org/en-US/docs/Learn_web_development/Core/CSS_layout/Media_queries) -- media query best practices (HIGH confidence)
-- [LogRocket: CSS breakpoints for responsive design](https://blog.logrocket.com/css-breakpoints-responsive-design/) -- breakpoint strategy (MEDIUM confidence)
-- [FreeCodeCamp: Media Queries vs Container Queries](https://www.freecodecamp.org/news/media-queries-vs-container-queries/) -- when to use each (MEDIUM confidence)
+- Direct inspection: `includes/class-tp-dashboard-shortcode.php` — canonical shortcode pattern (HIGH confidence)
+- Direct inspection: `includes/class-tp-client-links-shortcode.php` — second canonical shortcode pattern (HIGH confidence)
+- Direct inspection: `includes/class-tp-api-handler.php` — AJAX handler registration and nonce pattern (HIGH confidence)
+- Direct inspection: `includes/TrafficPortal/TrafficPortalApiClient.php` — HTTP client method pattern (HIGH confidence)
+- Direct inspection: `assets/js/client-links.js` — IIFE/state/DOM-cache JS pattern (HIGH confidence)
+- Direct inspection: `includes/class-tp-link-shortener.php` — plugin singleton and component registration (HIGH confidence)
+- Direct inspection: `tp-link-shortener.php` — plugin entry, require_once pattern (HIGH confidence)
+- Direct inspection: `.planning/codebase/ARCHITECTURE.md` — layer map and data flows (HIGH confidence)
+- Direct inspection: `.planning/codebase/CONVENTIONS.md` — naming rules, file patterns (HIGH confidence)
+- Git log: commit `e063541` — confirmed uid must always be server-side (HIGH confidence)
+
+---
+
+*Architecture research for: `[tp_usage_dashboard]` billing/usage dashboard shortcode*
+*Researched: 2026-02-22*

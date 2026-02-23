@@ -1,234 +1,227 @@
 # Project Research Summary
 
-**Project:** Mobile-Responsive Dashboard Conversion
-**Domain:** WordPress Plugin UI Enhancement
-**Researched:** 2026-02-15
+**Project:** tp-link-shortener-plugin — v2.0 Usage Dashboard (`[tp_usage_dashboard]`)
+**Domain:** WordPress plugin billing/usage analytics shortcode
+**Researched:** 2026-02-22
 **Confidence:** HIGH
 
 ## Executive Summary
 
-This project is a mobile-responsive retrofit of an existing WordPress link shortener plugin dashboard, not a greenfield mobile app or framework migration. The existing codebase already has a strong foundation for responsiveness: Bootstrap 5.3.0, Chart.js 4.4.1 with responsive configuration, and table-to-card conversion patterns at 768px using the `data-label` pseudo-element approach. However, the current implementation targets tablets (768px+) and misses phone-sized devices (320px-480px), has hover-dependent interactions that break on touch devices, and lacks touch-optimized tap targets.
+This feature adds a `[tp_usage_dashboard]` shortcode to the existing WordPress link shortener plugin. The dashboard gives users a daily view of their link activity, costs, and running account balance — a metered-credit billing dashboard analogous to GoHighLevel SaaS Wallet or AWS Cost Dashboard. Research is grounded almost entirely in direct codebase inspection and an authoritative API reference, which gives unusually high confidence: an established four-file pattern (shortcode class, template, JS, CSS) already exists in two sibling shortcodes, and the full technology stack (Chart.js 4.4.1, Bootstrap 5.3.0, jQuery, native date inputs) is already loaded on every shortcode page.
 
-The recommended approach is CSS refinement and extension of existing patterns, NOT a framework migration or library additions. The work involves: (1) adding a 480px breakpoint to all three CSS files with phone-specific spacing, touch targets, and full-screen modals, (2) wrapping hover-reveal patterns in `@media (hover: hover)` to fix touch device visibility, (3) making the performance chart collapsible on mobile to save vertical space, and (4) standardizing breakpoints across files to fix edge-case bugs. Total estimated scope is 210-320 lines of CSS and ~20 lines of JavaScript.
+The recommended approach is zero new library dependencies. Every technology needed for the area chart, date filter, AJAX data flow, and stats table is already present in the plugin. The implementation is additive: four new files plus small additions to three existing files. The key architectural decision is to route data through WordPress admin-ajax.php (not call the external API directly from JS), matching the security posture of the existing shortcodes where the user ID is always derived server-side and never accepted from the client.
 
-The key risks are specificity wars from `!important` proliferation (17 instances already exist), iOS Safari viewport/keyboard issues with modals, Chart.js resize loops in flex containers, and accessibility regression from table-to-card conversion breaking screen reader semantics. These are all well-documented pitfalls with proven solutions: specificity audit before adding responsive rules, `dvh` viewport units instead of `vh`, explicit container dimensions with `min-width: 0` for Chart.js, and ARIA role preservation on table elements.
+The primary implementation risk is Chart.js-specific: a documented infinite resize loop in flex containers, silent failure when a date adapter is missing (use category scale instead to avoid this entirely), and memory leaks from not destroying chart instances before re-render. A secondary risk is financial display precision: floating-point drift in the running balance column. Both categories must be addressed in the same phase as chart and table rendering — retrofitting them is significantly harder than building correctly from the start.
+
+---
 
 ## Key Findings
 
 ### Recommended Stack
 
-The existing stack is sufficient with zero new libraries needed. The work is purely CSS-only techniques applied to existing files plus minimal JavaScript additions for chart collapse behavior.
+The stack is locked by the existing plugin. Zero new libraries are required. Chart.js 4.4.1 (already loaded via `tp-chartjs` handle) supports area charts natively with `type: 'line'` and `fill: 'origin'` — no additional plugin needed. Bootstrap 5.3.0 covers all layout needs (stats cards, table, responsive grid). jQuery provides AJAX and DOM manipulation. `wp_localize_script` passes PHP context (default date range, nonce, user ID) to JS — identical to how `tpClientLinks` works in the existing client-links shortcode.
 
-**Core technologies (no changes):**
-- **Bootstrap 5.3.0**: Already loaded via CDN; utility classes underutilized but available for responsive hiding/showing
-- **Chart.js 4.4.1**: Already has `responsive: true`; needs mobile-specific configuration (smaller fonts, rotated labels, collapsible wrapper)
-- **Custom CSS Variables**: Design tokens already defined (`--tp-primary`, `--tp-surface`, etc.); extend with mobile-specific tokens at 480px breakpoint
-- **jQuery**: Already used for DOM manipulation and AJAX; no mobile-specific changes needed beyond chart toggle logic
+New files are three (JS, CSS, template) plus one PHP shortcode class, matching the exact pattern of `class-tp-client-links-shortcode.php`. CSS uses the `tp-ud-*` prefix to avoid collisions. JS is a plain IIFE using `var` + jQuery — no ES modules, no build step.
 
-**CSS patterns to implement:**
-- Extended media queries at 480px for phone-specific optimizations (currently only 992px, 768px, 520px exist)
-- `clamp()` for fluid spacing without breakpoint jumps
-- Touch target sizing (44px minimum per WCAG 2.5.8)
-- Full-screen modal behavior using `100vw/100vh` at 480px (current modals use `90vw` centered)
-- Horizontal scroll with `scroll-snap-type` for filter bars that overflow on narrow screens
+**Core technologies:**
+- Chart.js 4.4.1: area chart (`type: 'line'`, `fill: 'origin'`) for time-series daily activity — already loaded, reuse `tp-chartjs` handle
+- Bootstrap 5.3.0: stats cards, table, grid layout — already loaded, reuse `tp-bootstrap` handle
+- jQuery (WP-bundled): AJAX to admin-ajax.php, DOM updates — consistent with all other shortcodes
+- Native `<input type="date">`: date range filter — already the codebase pattern in client-links, no flatpickr needed
+- `wp_localize_script`: PHP-to-JS config bridge — identical pattern to `tpClientLinks` global object
+- WordPress transients: caching AJAX proxy responses — prevents every page load from hitting the external API live
+
+**What NOT to add:** flatpickr (49 KB for functionality already covered by two native date inputs), Moment.js/Day.js (API date strings need no parsing), DataTables.js (30 rows max needs no library), any Chart.js date adapter (use `type: 'category'` scale with pre-formatted strings instead), or any build tool.
 
 ### Expected Features
 
-**Must have (table stakes):**
-- **Card layout for link rows** — Already partially implemented at 768px; needs refinement for 320px-480px phones with tighter spacing and better field hierarchy
-- **Touch-friendly action buttons (44x44px minimum)** — Current buttons are ~28px; must increase on mobile to prevent mis-taps
-- **Always-visible actions (no hover)** — Current buttons hidden until hover; mobile users can't see them. Fix: wrap hover rules in `@media (hover: hover)`
-- **Full-screen modals on mobile** — Current modals use `max-width: 90vw` which feels cramped on phones; need `100vw/100vh` with slide-up animation
-- **Stacked filter controls** — Already stacks at 992px; needs verification at 320px to prevent overflow
-- **Readable pagination** — Current numbered pagination (1-26) overflows on phones; simplify to prev/next with page indicator
+The `GET /user-activity-summary/{uid}` endpoint returns `[{ date, totalHits, hitCost, balance }]` per day. This hard API constraint shapes what is buildable for v2.0 without additional backend work.
 
-**Should have (competitive):**
-- **Chart collapsed by default on mobile** — Performance chart takes 220px+ vertical space; should be hidden with toggle to expand
-- **Summary stats bar** — Display "127 links / 482 clicks / 31 QR scans" as compact strip above card list when chart is collapsed
-- **Bottom sheet modals** — Slide up from bottom instead of centered; feels more native on iOS/Android
-- **Simplified pagination** — CSS-only hiding of numbered page links, showing only prev/next arrows
+**Must have (table stakes — v2.0):**
+- Auth gate — private billing data; show login prompt for unauthenticated users
+- Date range filter (last 30 days default) — universal dashboard expectation; two `<input type="date">` + Apply button
+- Summary stats strip — three cards: Total Hits, Total Cost (period), Current Balance
+- Area chart — daily time series, Chart.js, yellow=clicks, green=QR (or totalHits single series if split data unavailable)
+- Daily stats table — Date, Clicks, QR Scans, Total Hits, Cost, Balance; sorted newest-first
+- Running balance column — API already returns cumulative `balance`; color-code green/amber/red
+- Cost formatted as currency — `$0.50` not `-0.5`; non-negotiable for any billing UI
+- Loading skeleton, empty state, error state — all reuse existing plugin patterns
 
-**Defer (v2+):**
-- **Swipe actions on cards** — High complexity; requires touch event handling (touchstart/touchmove/touchend)
-- **Infinite scroll** — Medium complexity; requires refactoring loadData() to append rather than replace
-- **Haptic feedback on copy** — Trivial (one line: `navigator.vibrate(50)`) but low priority
-- **Collapsible domain groups** — Accordion-style grouping; nice-to-have, not essential
+**Should have (competitive — v2.x after validation):**
+- Preset date buttons (7d/30d/90d) — low effort, reduces friction significantly for return users
+- Hover chart tooltips — Chart.js tooltip config, patterns already in codebase
+- Period totals row in table — sum columns, eliminate user mental math
+- Clicks vs QR split (two-series chart) — requires `/by-source` parallel API call or clearly labeled mock
+
+**Defer (v3.0+):**
+- Wallet top-up/payment flow — requires Stripe/WooCommerce; completely out of scope
+- CSV/PDF export — out of scope per PROJECT.md; defer until users explicitly request it
+- Per-link cost breakdown — belongs in `[tp_client_links]`, not this billing dashboard
+- Real-time auto-refresh — daily data granularity makes polling pointless
+
+**Hard API constraint:** `totalHits` does not split clicks vs QR at the summary level. Two options: (a) show a single area labeled "Total Hits", or (b) call `/by-source` in parallel and subtract QR hits. If mocking the split with a static ratio, a user-facing disclaimer is mandatory — never present fabricated percentages as real data.
 
 ### Architecture Approach
 
-The mobile conversion follows an **inline media query pattern** — add responsive rules directly into each existing CSS file (`frontend.css`, `dashboard.css`, `client-links.css`) rather than creating a separate `mobile.css` file. This maintains the established file-per-view convention, avoids cross-file specificity conflicts, and requires no build step changes.
+The architecture is dictated by the existing codebase pattern. A new `TP_Usage_Dashboard_Shortcode` class follows the identical four-step template method used by `TP_Dashboard_Shortcode` and `TP_Client_Links_Shortcode`: constructor registers the shortcode, `render_shortcode()` gates on `is_user_logged_in()`, `enqueue_assets()` enqueues scripts/styles and calls `wp_localize_script`, and the template is included via output buffer. Data flows from the browser through WordPress admin-ajax.php to a new method on the existing `TrafficPortalApiClient`, then back as `wp_send_json_success`.
+
+The mandated build order (PHP shortcode → HTML template → API client/AJAX handler → JS → CSS) is not negotiable: JS cannot be written without knowing the HTML IDs, and the API method cannot be tested without the AJAX handler. This is the same dependency chain used to build both existing shortcodes.
 
 **Major components:**
-1. **Foundation layer (CSS architecture)** — Standardize breakpoints across all three files to Bootstrap 5's `.98` convention (currently inconsistent: 991.98px vs 992px), audit and remove unnecessary `!important` declarations (17 exist), establish mobile-specific CSS custom properties at `:root` within 480px media query
-2. **Table-to-card refinement** — Extend existing 768px card pattern with 480px spacing/sizing optimizations; the conversion logic already exists (hide `<thead>`, `display: block` on `<tr>`, `data-label` pseudo-elements)
-3. **Modal system** — Convert custom modals (NOT Bootstrap modals) to full-screen at 480px using `100vw/100vh`, account for WordPress admin bar offset (32px desktop, 46px mobile), use `dvh` units instead of `vh` for iOS Safari viewport issues
-4. **Chart collapse mechanism** — CSS hides chart by default at 480px, JavaScript toggle button adds `.tp-cl-chart-expanded` class and calls `chart.resize()` on expand (~15 lines of JS)
+1. `class-tp-usage-dashboard-shortcode.php` — shortcode registration, asset enqueue, template include, auth gate
+2. `templates/usage-dashboard-template.php` — static HTML skeleton (canvas, table, date inputs, Apply button)
+3. `assets/js/usage-dashboard.js` — IIFE with state object, `loadData()`, `renderChart()`, `renderTable()`, `mockSplit()`
+4. `assets/css/usage-dashboard.css` — `.tp-ud-*` scoped styles, chart wrapper constraints
+5. `TP_API_Handler::ajax_get_usage_summary()` — nonce check, server-side UID, delegate to API client, return JSON
+6. `TrafficPortalApiClient::getUserActivitySummary()` — GET request to external API, parse response
+
+**Critical security boundary:** The UID must always be determined server-side via `TP_Link_Shortener::get_user_id()`. Never accept `uid` from `$_POST`. This pattern is already enforced across all existing AJAX handlers (confirmed in commit `e063541`).
 
 ### Critical Pitfalls
 
-1. **Hover-dependent interactions invisible on touch devices** — Current code uses `opacity: 0` on `.tp-cl-inline-actions` until `:hover`. On mobile, users literally cannot see copy/QR/history buttons. Fix: wrap hover rules in `@media (hover: hover)` so actions are always visible by default, only hidden on pointer devices. Already partially fixed at 768px but inconsistently applied.
+1. **Chart.js infinite resize loop in flex containers** — Add `min-width: 0` to the flex parent and `position: relative; height: 280px; overflow: hidden` (explicit height, not min-height) to the chart wrapper. Must be in CSS before any chart JS is written; detecting it requires resizing the browser window multiple times.
 
-2. **CSS specificity wars from `!important` proliferation** — 17 instances already exist (especially on domain rows, borders, form inputs). Adding responsive overrides will fail silently if desktop rules use `!important`. Fix: audit and remove `!important` BEFORE writing any responsive CSS; never add new `!important` in media queries.
+2. **Missing date adapter causes silent blank chart** — Avoid `type: 'time'` scale entirely. Use `type: 'category'` scale with pre-formatted `YYYY-MM-DD` label strings from the API. This eliminates the adapter requirement without any functionality loss; the chart renders date labels correctly with no extra script.
 
-3. **Modals broken by iOS Safari viewport and virtual keyboard** — `max-height: 90vh` includes space behind address bar, cutting off modal bottom. Virtual keyboard overlays without resizing viewport, hiding form inputs. Fix: use `dvh` units instead of `vh`, add viewport meta with `interactive-widget=resizes-content`, test on real iOS device.
+3. **Chart instance not destroyed before re-render** — Keep `var chart = null` in module scope. Always call `chart.destroy(); chart = null;` before `new Chart()`. The date range filter triggers re-render on every Apply click — this bug surfaces on the first filter change.
 
-4. **Chart.js canvas infinite resize loop** — Chart in flex container with `responsive: true` can trigger resize loop (canvas grows → container grows → Chart.js detects size change → repeats). Fix: chart wrapper needs `position: relative` with explicit height on mobile OR `min-width: 0; overflow: hidden` on flex child.
+4. **Floating-point drift in running balance column** — Use `Math.round((runningBalance + cost) * 10000) / 10000` after each accumulation step. Display with `toFixed(2)`. Testing with round numbers ($1.00/day) hides this bug; test with values like $0.001 per hit across 30+ rows.
 
-5. **WordPress admin bar collides with fixed-position modals** — Admin bar has `z-index: 99999` and is `position: fixed` at top (32px desktop, 46px mobile). Current modals use `inset: 0` which overlaps admin bar. Fix: use `.admin-bar` body class to offset modal overlay `top: 32px` (or `top: 46px` at mobile breakpoint).
+5. **Mocked click/QR split presented as real data** — Add a visible user-facing disclaimer if using the 80/20 mock ratio. Alternatively, show a single total-hits area labeled "Total Hits (QR breakdown coming soon)". A constant 20% QR line across all 30 days regardless of actual campaigns is the warning sign.
+
+---
 
 ## Implications for Roadmap
 
-Based on research, suggested phase structure:
+Based on research, the implementation has clear sequential dependencies dictated by the existing architecture pattern. The build order (PHP → Template → API → JS → CSS) is the same order used to build both sibling shortcodes and must be followed. Pitfalls 1 through 4 must all be addressed in the same phase as chart and table rendering — they cannot be deferred to a polish phase without significant rework risk.
 
-### Phase 1: Foundation and CSS Architecture
-**Rationale:** Before adding any responsive rules, the codebase needs architectural cleanup. Breakpoint inconsistency (991.98px vs 992px) between `frontend.css` and other files causes edge-case bugs where the table converts to cards but the embedded form doesn't reflow. Specificity audit is essential because 17 `!important` instances exist, and adding mobile overrides will fail silently without fixing desktop specificity first.
+### Phase 1: Foundation — Shortcode, Template, and API Proxy
 
-**Delivers:**
-- Standardized breakpoints across all three CSS files (Bootstrap 5's `.98` convention)
-- `!important` audit with removal where possible
-- Mobile CSS custom properties (`:root` within 480px media query)
-- WordPress admin bar awareness (`.admin-bar` offset rules for modals)
-- Hover-to-touch conversion (`@media (hover: hover)` wrappers)
+**Rationale:** The PHP shortcode class and HTML template define the entire HTML contract. All downstream work (JS, CSS, AJAX) depends on the element IDs and classes established here. The AJAX handler and API client method must exist before any JS can make a real data call. This phase has direct codebase templates to copy from and zero external dependencies.
 
-**Addresses:** Critical Pitfall #2 (specificity wars), Critical Pitfall #5 (admin bar collision), Critical Pitfall #1 (hover dependencies)
+**Delivers:** A page showing `[tp_usage_dashboard]` renders the static HTML skeleton (chart canvas placeholder, table structure, date inputs, Apply button). The AJAX endpoint `admin-ajax.php?action=tp_get_usage_summary` returns real data from the Traffic Portal API. Auth gate blocks unauthenticated access. WordPress transient cache wraps the API call.
 
-**Avoids:** Building on shaky foundation; prevents having to refactor responsive rules later
+**Features addressed:** Auth gate (P1), HTML skeleton for loading/empty/error states, date range filter inputs (static, wired via `wp_localize_script` default).
 
-### Phase 2: Component Conversion (Frontend Form)
-**Rationale:** The link creation form (`frontend.css`) is embedded inside modals on both dashboard and client-links pages. Making it responsive FIRST means the modals automatically inherit form responsiveness. This is the dependency anchor for Phase 3 and Phase 4.
+**Pitfalls to prevent:** Server-side UID enforcement (never from `$_POST`), nonce + `is_user_logged_in()` double-check on AJAX handler, WordPress transient caching to prevent hammering the external API.
 
-**Delivers:**
-- Input stacking and full-width at 480px
-- QR/screenshot result grid single-column
-- Submit button touch target sizing (44px minimum)
-- Snackbar/tooltip full-width repositioning
+**Research flag:** None — direct codebase templates exist in two sibling shortcodes; copy, rename, adapt.
 
-**Uses:** Mobile CSS custom properties from Phase 1, standardized 480px breakpoint
+---
 
-**Implements:** Foundation component that other phases depend on
+### Phase 2: Data Layer and Stats Table
 
-**Addresses:** Table stakes features (touch targets, full-width inputs), Critical Pitfall #3 (modal viewport/keyboard issues since form is in modal)
+**Rationale:** Before rendering a chart, establish the data pipeline and validate it with the simpler stats table. The table has no Chart.js complexity and will immediately confirm that the API response shape is correct, cost values are properly formatted, and the running balance calculation is accurate. The floating-point pitfall must be addressed here, not discovered after the chart is built.
 
-### Phase 3: Dashboard Responsive Conversion
-**Rationale:** Dashboard view has fewer components than client-links (no chart, no date range picker) but uses all the same patterns (table-to-card, modals, pagination). Building this second establishes the responsive patterns that client-links will extend.
+**Delivers:** A fully working stats table (Date, Clicks, QR Scans, Total Hits, Cost, Balance) with real API data, currency formatting, balance color-coding (green/amber/red), and the summary stats strip (three cards: Total Hits, Total Cost, Current Balance). The date range Apply button reloads the table.
 
-**Delivers:**
-- Table card padding/spacing refinement for phones (extends existing 768px pattern)
-- Edit modal full-screen at 480px using `dvh` units
-- QR dialog full-screen
-- Controls area search/filter full-width stacking
-- Pagination simplified to prev/next
-- Touch target enlargement on inline action buttons
+**Features addressed:** Summary stats strip (P1), daily stats table (P1), cost as currency (P1), running balance column (P1), balance color coding (P1), loading skeleton wired to real state transitions, empty state, error state.
 
-**Uses:** Foundation from Phase 1, form from Phase 2 (embedded in edit modal)
+**Pitfalls to prevent:** Floating-point balance drift (round after each accumulation step), date range timezone behavior verification (pass `YYYY-MM-DD` strings directly — confirm API interprets them as expected), table HTML built as single string and injected once (not 30 separate `.append()` calls causing 30 DOM reflows).
 
-**Implements:** Table-to-card refinement pattern, full-screen modal pattern
+**Research flag:** None — straightforward JS table rendering and currency formatting. API shape is known from API_REFERENCE.md.
 
-**Addresses:** Table stakes features (card layout, modal usability, readable pagination), Critical Pitfall #3 (modal viewport issues), Critical Pitfall #7 (screen reader accessibility with ARIA roles)
+---
 
-### Phase 4: Client Links Responsive Conversion
-**Rationale:** This is the most complex view with the most components (chart + table + 3 modals + date range + status toggles). It benefits from patterns established in Phase 3. The chart collapse requires JavaScript addition, making it the highest-complexity phase.
+### Phase 3: Chart Rendering
 
-**Delivers:**
-- Chart collapsible wrapper with toggle button (CSS + ~15 lines JS)
-- Summary stats bar (replaces chart as default view on mobile)
-- Date range picker stacking
-- Status toggle touch-friendly sizing (48x26px minimum)
-- All 3 modals (edit, history, QR) full-screen
-- Same table card refinement pattern as dashboard
-- Pagination simplification
+**Rationale:** The area chart is the most complex UI component and contains the majority of the technical pitfalls. Building it after the data layer is validated means chart bugs are isolated to Chart.js behavior, not mixed with data shape issues. All three Chart.js pitfalls (flex resize loop, missing adapter, chart not destroyed) must be addressed in this phase — they are interconnected and cannot be split.
 
-**Uses:** All patterns from Phase 3, chart toggle JS addition
+**Delivers:** A working area chart showing daily activity with correct date labels on the X-axis. Yellow line = regular hits, green line = QR hits (mocked 80/20 with visible disclaimer, OR single total-hits series with clear label). Chart re-renders correctly on date range change without memory leaks or canvas errors. X-axis uses `type: 'category'` scale (no date adapter required). CSS chart wrapper uses `position: relative; height: 280px; overflow: hidden` and flex parent has `min-width: 0`.
 
-**Implements:** Collapsible chart component, extends modal/table/pagination patterns
+**Features addressed:** Area chart (P1), color scheme matching design mockup (`#f5a623` yellow, `#22b573` green), clicks vs QR series (with mocked split disclaimer).
 
-**Addresses:** Should-have features (chart collapse, summary stats), Critical Pitfall #4 (Chart.js resize loop with explicit container dimensions and collapse mechanism)
+**Pitfalls to prevent:** Flex container resize loop (CSS-first fix, established before chart JS), chart not destroyed before re-render (module-scoped chart variable with `.destroy()`), category scale used instead of time scale (eliminates adapter dependency entirely). Mocked split must have visible disclaimer in UI and `// TODO` comment in code.
 
-### Phase 5: Cross-Cutting Polish
-**Rationale:** After all three files are responsive, verify consistency across the entire plugin and handle edge cases that span multiple views.
+**Research flag:** Needs explicit QA during implementation. Run the "Looks Done But Isn't" checklist from PITFALLS.md: resize browser window 10 times (chart height must stay constant), change date range 5 times in a row (no canvas errors, no double-stacked datasets), inspect balance column with non-round input values.
 
-**Delivers:**
-- Touch target audit across all interactive elements (44px verification)
-- Horizontal overflow check at 320px (smallest target device)
-- Loading skeleton mobile rendering (matches card layout, not table rows)
-- Empty state mobile verification
-- `@media (prefers-reduced-motion)` rules for animations
-- Orientation change testing (portrait ↔ landscape)
+---
 
-**Addresses:** UX pitfalls (touch targets, overflow), accessibility (reduced motion preference), edge cases (empty states, skeletons)
+### Phase 4: Polish and v2.x Features
+
+**Rationale:** Once the core v2.0 functionality is deployed and verified working, add the low-complexity enhancements that reduce friction for return users. These features have zero dependencies on each other and none block the v2.0 launch.
+
+**Delivers:** Preset date buttons (7d/30d/90d) with active state, hover chart tooltips configured via `tooltip.callbacks` to show date + clicks + QR + cost, period totals row in table footer. If the `/by-source` endpoint proves reliable with real user data, upgrade the mocked split to a real two-series chart.
+
+**Features addressed:** Preset date buttons (P2), hover tooltips (P2), period totals row (P2), refined QR/click split (P2 conditional on by-source data quality).
+
+**Research flag:** None — all standard patterns. By-source integration is a single data-source swap in `mockSplit()`.
+
+---
 
 ### Phase Ordering Rationale
 
-- **Phase 1 must come first** because breakpoint inconsistency and specificity issues will cause Phase 2-4 work to fail or require rework
-- **Phase 2 before 3/4** because the form is embedded in modals on both views; making it responsive first prevents duplication
-- **Phase 3 before 4** because dashboard has simpler component set; establishing patterns here reduces risk in the more complex client-links view
-- **Phase 4 last** because chart collapse is the highest-complexity feature and should only be attempted after all other responsive patterns are proven
-- **Phase 5 last** because cross-cutting concerns can only be verified after all views are converted
-
-This ordering minimizes rework and follows the natural dependency graph: Foundation → Shared Component → Simple View → Complex View → Polish.
+- PHP shortcode and template must come first because they define the HTML contract (IDs, classes) that JS and CSS depend on — this is the mandatory build order established by both existing sibling shortcodes.
+- Data layer (table) before chart because: (a) it validates API shape with simpler rendering code, (b) floating-point pitfall is easier to catch and test in a table, (c) chart debugging is cleaner when the data layer is proven.
+- Chart phase is isolated because it contains the majority of technical pitfalls; isolating it prevents chart bugs from being attributed to data issues.
+- Polish features go last because they are entirely additive to already-working functionality.
 
 ### Research Flags
 
-**Phases likely needing deeper research during planning:**
-- **Phase 4 (Chart collapse):** Chart.js responsive behavior in flex containers with collapse/expand has known edge cases (GitHub issues #5805, #9001). May need focused research on canvas resize timing and container dimension handling.
+Phases needing attention during implementation:
+- **Phase 3 (Chart Rendering):** Chart.js flex container behavior and instance lifecycle require explicit verification against the PITFALLS.md "Looks Done But Isn't" checklist. The category-scale vs time-scale choice must be confirmed to handle zero-click days correctly (appear as `0`, not gaps in the line).
 
-**Phases with standard patterns (skip research-phase):**
-- **Phase 1 (Foundation):** Breakpoint standardization and specificity audit are standard CSS refactoring; no research needed
-- **Phase 2 (Form):** Form input stacking is well-documented responsive pattern; Bootstrap utilities already provide this
-- **Phase 3 (Dashboard):** Table-to-card pattern already exists at 768px; extending to 480px is refinement, not new research
-- **Phase 5 (Polish):** Touch target sizing and accessibility audit have clear standards (WCAG 2.5.5, 2.5.8)
+Phases with standard patterns (no additional research needed):
+- **Phase 1 (Foundation):** Direct codebase templates exist in `class-tp-client-links-shortcode.php` and `class-tp-api-handler.php`. Copy, rename, adapt.
+- **Phase 2 (Data Layer):** Standard JS table rendering and currency formatting. API shape is fully documented in API_REFERENCE.md.
+- **Phase 4 (Polish):** All enhancements are additive to already-proven functionality; Chart.js tooltip config pattern exists in the codebase.
+
+---
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | Existing stack is complete; zero new libraries needed. All techniques (media queries, clamp(), CSS custom properties) have 95%+ browser support. |
-| Features | HIGH | Table stakes features derived from competitor analysis (Bitly, Rebrandly mobile apps) and existing codebase patterns. MVP recommendation is backed by UX research (NN/g bottom sheets article). |
-| Architecture | HIGH | Inline media query approach is proven in existing codebase (992px, 768px, 520px already exist). Component conversion order follows natural dependency graph. File structure unchanged. |
-| Pitfalls | HIGH | All 7 critical pitfalls are documented with sources (CSS-Tricks, Chart.js GitHub issues, WordPress Codex). Hover-to-touch, specificity wars, iOS viewport issues, and Chart.js resize loops are common retrofit pitfalls with established solutions. |
+| Stack | HIGH | Based on direct codebase inspection — existing handles, versions, and IIFE patterns are known with certainty. No new library additions, eliminating version conflict risk entirely. |
+| Features | HIGH | API_REFERENCE.md is authoritative and determines exactly what is buildable. Competitor analysis (GoHighLevel, Bitly, AWS) confirms expected UX patterns. The `totalHits`-only constraint is a hard API fact, not an assumption. |
+| Architecture | HIGH | Based on direct inspection of two canonical sibling shortcodes and the codebase ARCHITECTURE.md and CONVENTIONS.md. The four-step template method pattern is well-established and consistent across the plugin. |
+| Pitfalls | HIGH | Chart.js pitfalls verified against official GitHub issues (#5805, #9001) and official docs. Financial float precision from multiple authoritative sources (Modern Treasury, Honeybadger). WordPress security from official developer docs and Patchstack. |
 
 **Overall confidence:** HIGH
 
 ### Gaps to Address
 
-The research is comprehensive for the core responsive conversion, but these gaps emerged:
+- **API response envelope shape:** The `getUserActivitySummary()` method assumes the response body is `{ days: [...] }`. The exact key name must be verified against the live API before the PHP method is finalized. This is a one-line fix but cannot be assumed from the reference doc alone.
 
-- **Date range picker mobile UX:** Current implementation uses two `<input type="date">` side-by-side with an "Apply" button. At 320px-480px, this is cramped. Research suggests either stacking vertically OR replacing with a single "Period" dropdown (7d, 30d, 90d, custom). The best approach depends on user behavior (how often do users need custom ranges vs. presets?). **Recommendation:** Implement vertical stacking in Phase 4; if user feedback indicates friction, add preset dropdown in a future iteration.
+- **Timezone behavior of date parameters:** API_REFERENCE.md does not specify whether `start_date`/`end_date` parameters are interpreted as UTC or local time. Must be verified empirically by fetching known-date data and comparing row counts with actual activity. The PITFALLS.md checklist item ("fetch today's data and verify the row count matches actual activity for local calendar day") is the verification step.
 
-- **Loading skeleton mobile state:** The existing skeleton uses table rows, not cards. At 768px when the table converts to cards, the skeleton should also render as card shapes. This isn't covered in `FEATURES.md` or `ARCHITECTURE.md` because it's an edge case. **Recommendation:** Address in Phase 5 (polish) by adding 480px media query for `.tp-skeleton-row` to match card layout.
+- **`/by-source` data reliability:** The decision to use a mocked 80/20 click/QR split vs. a real `/by-source` API call depends on whether existing users have QR links tagged with `?qr=1`. This cannot be known from research — requires checking real data in the environment. Safe default: single-series total hits with clear label, upgraded to two-series if by-source proves consistently populated.
 
-- **WordPress theme compatibility:** The research assumes the plugin loads in a standard WordPress admin context. Custom themes may override Bootstrap or inject conflicting CSS. **Recommendation:** Add `.tp-cl-container` scoping to all media queries to prevent theme bleed; verify in Phase 5 with popular admin themes (Astra, GeneratePress).
+- **WordPress transient key strategy:** Cache key `tp_usage_{uid}_{start}_{end}` is assumed. The actual `$uid` value format and max transient key length (172 characters in WordPress) must be verified when implementing the PHP AJAX handler.
 
-- **Performance budget for mobile devices:** No research was done on 3G network performance or low-end Android devices. Chart.js is 200KB+ minified. **Recommendation:** If analytics show significant 3G traffic, consider lazy-loading Chart.js only when user taps "Show Chart" toggle (implemented in Phase 4).
+---
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- Existing codebase analysis: `assets/css/dashboard.css`, `assets/css/client-links.css`, `assets/css/frontend.css`, `assets/js/client-links.js`, `assets/js/dashboard.js`, `templates/client-links-template.php`, `templates/dashboard-template.php`
-- [Bootstrap 5.3 Documentation](https://getbootstrap.com/docs/5.3/) — Display utilities, breakpoints, responsive classes
-- [Chart.js Responsive Configuration](https://www.chartjs.org/docs/latest/configuration/responsive.html) — Official docs
-- [Chart.js GitHub Issue #5805: Responsive canvas grows indefinitely](https://github.com/chartjs/Chart.js/issues/5805)
-- [Chart.js GitHub Issue #9001: Resizing in flex containers](https://github.com/chartjs/Chart.js/issues/9001)
-- [WCAG 2.5.8 Target Size (Minimum)](https://www.w3.org/WAI/WCAG21/Understanding/target-size.html)
-- [MDN: CSS clamp()](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Values/clamp)
-- [MDN: Media query fundamentals](https://developer.mozilla.org/en-US/docs/Learn_web_development/Core/CSS_layout/Media_queries)
+
+- `includes/class-tp-client-links-shortcode.php` (codebase) — canonical shortcode pattern, enqueue order, `wp_localize_script` config
+- `includes/class-tp-api-handler.php` (codebase) — AJAX handler nonce/uid/JSON pattern, `register_ajax_handlers()` structure
+- `includes/TrafficPortal/TrafficPortalApiClient.php` (codebase) — HTTP client method structure, `handleHttpErrors()` pattern
+- `assets/js/client-links.js` (codebase) — IIFE/state/DOM-cache JS pattern, Chart.js bar chart reference config
+- `API_REFERENCE.md` (codebase) — authoritative API shape (`/user-activity-summary/{uid}`, response fields: `date`, `totalHits`, `hitCost`, `balance`)
+- `.planning/codebase/ARCHITECTURE.md` (codebase) — layer map and data flows
+- `.planning/codebase/CONVENTIONS.md` (codebase) — naming rules, file patterns, CSS prefix conventions
+- Chart.js official docs (chartjs.org) — `fill: 'origin'`, area chart config, responsive config, `.destroy()` API
+- Chart.js GitHub issues #5805 and #9001 — flex container infinite resize loop (known bug, documented CSS fix)
+- WordPress Developer Docs — nonces, transients, `wp_localize_script`, `wp_ajax_` action pattern
+- Patchstack Academy — broken access control patterns in WordPress plugins
+- Git log commit `e063541` — confirmed uid must always be server-side (removed all client-side uid passing)
 
 ### Secondary (MEDIUM confidence)
-- [CSS-Tricks: Responsive Data Tables](https://css-tricks.com/responsive-data-tables/) — `data-label` pattern reference
-- [CSS-Tricks: Solving Sticky Hover States with @media (hover: hover)](https://css-tricks.com/solving-sticky-hover-states-with-media-hover-hover/)
-- [CSS-Tricks: The Trick to Viewport Units on Mobile](https://css-tricks.com/the-trick-to-viewport-units-on-mobile/)
-- [Ahmad Shadeed: New Viewport Units (svh, lvh, dvh)](https://ishadeed.com/article/new-viewport-units/)
-- [NN/g: Bottom Sheets - Definition and UX Guidelines](https://www.nngroup.com/articles/bottom-sheet/)
-- [WordPress Admin Bar Breakpoints - Spigot Design](https://spigotdesign.com/wordpress-admin-bar-break-points/)
-- [Bitly Mobile App](https://apps.apple.com/us/app/bitly-link-shortener/525106063) — Primary source for competitor patterns
-- [Rebrandly Mobile App](https://play.google.com/store/apps/details?id=com.rebrandlynative) — Primary source for competitor patterns
-- [User-Friendly Mobile Data Tables (Medium/Bootcamp)](https://medium.com/design-bootcamp/designing-user-friendly-data-tables-for-mobile-devices-c470c82403ad)
-- [Intuitive Mobile Dashboard UI (Toptal)](https://www.toptal.com/designers/dashboard-design/mobile-dashboard-ui)
 
-### Tertiary (LOW confidence, needs validation)
-- [Smashing Magazine: Accessible Tap Target Sizes](https://www.smashingmagazine.com/2023/04/accessible-tap-target-sizes-rage-taps-clicks/)
-- [LogRocket: CSS breakpoints for responsive design](https://blog.logrocket.com/css-breakpoints-responsive-design/)
+- GoHighLevel SaaS Wallet documentation — billing/balance dashboard UX patterns (running balance, color-coding, date presets)
+- Bitly Analytics documentation — clicks + scans time-series chart, 7d/14d/30d date preset patterns
+- AWS Cost Dashboard (search results) — daily breakdown table, date range filter, period cost summary pattern
+- Modern Treasury / Honeybadger — floating-point currency precision in JavaScript
+- flatpickr.js.org — file size confirmation (~49 KB JS); native inputs are superior on mobile per their own docs
+
+### Tertiary (LOW confidence)
+
+- SaaS billing dashboard UX patterns (general web search 2025/2026) — summary stats strip position, chart-first layout
+- colorwhistle.com SaaS Credits System Guide 2026 — wallet/credit balance UX expectations
 
 ---
-*Research completed: 2026-02-15*
+
+*Research completed: 2026-02-22*
 *Ready for roadmap: yes*
