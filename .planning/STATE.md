@@ -65,6 +65,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-23
-Stopped at: Completed 05-03-PLAN.md (Phase 5 complete)
-Resume file: .planning/phases/05-shortcode-foundation-and-api-proxy/05-03-SUMMARY.md
+Last session: 2026-02-22
+Stopped at: Phase 6 context gathered
+Resume file: .planning/phases/06-stats-table-and-summary-strip/06-CONTEXT.md
