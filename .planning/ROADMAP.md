@@ -60,11 +60,11 @@ Plans:
   3. When no usage data exists for the selected range, a clear "No usage data" message appears showing the date range queried
   4. Summary stats cards above the table show total hits, total cost, and current balance for the displayed period
   5. On first load, the dashboard shows the last 30 days of data without the user needing to select any dates
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 06-01: TBD
-- [ ] 06-02: TBD
+- [ ] 06-01-PLAN.md — Template and CSS (table HTML structure, summary card placeholders, pagination, gradient headers, responsive mobile card layout, shimmer skeletons)
+- [ ] 06-02-PLAN.md — JavaScript rendering (data processing, table rendering, client-side sorting, pagination, summary cards, empty state handling)
 
 ### Phase 7: Chart Rendering
 **Goal**: Users see an area chart visualizing their daily clicks and QR scans over time, matching the TP-59 design, with stable rendering across date range changes
@@ -109,6 +109,6 @@ Phases execute in numeric order: 5 -> 6 -> 7 -> 8
 | 3. Table Cards and Controls | v1.0 | 0/0 | Paused | - |
 | 4. Chart Collapse | v1.0 | 0/0 | Paused | - |
 | 5. Shortcode Foundation and API Proxy | v2.0 | 0/2 | Planning | - |
-| 6. Stats Table and Summary Strip | v2.0 | 0/0 | Not started | - |
+| 6. Stats Table and Summary Strip | v2.0 | 0/2 | Planning | - |
 | 7. Chart Rendering | v2.0 | 0/0 | Not started | - |
 | 8. Date Filtering and API Doc | v2.0 | 0/0 | Not started | - |
