@@ -43,11 +43,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. An unauthenticated visitor sees a login prompt instead of the dashboard content
   3. The browser can call `admin-ajax.php?action=tp_get_usage_summary` and receive real API data as JSON -- the user ID is never accepted from client-side parameters
   4. Repeated page loads within 5 minutes return cached data (WordPress transient) without hitting the external API again
-**Plans**: 2 plans
+**Plans**: 3 plans
 
 Plans:
-- [ ] 05-01-PLAN.md — Shortcode class, template skeleton, CSS, and plugin wiring
-- [ ] 05-02-PLAN.md — API client method, AJAX proxy handler, and JavaScript data fetching
+- [ ] 05-01-PLAN.md — Page Foundation (shortcode, template, CSS, plugin wiring, unit tests)
+- [ ] 05-02-PLAN.md — Data Pipeline (API client, AJAX handler, JS, unit/integration tests)
+- [ ] 05-03-PLAN.md — E2E Validation (Playwright/Python tests for all Phase 5 success criteria)
 
 ### Phase 6: Stats Table and Summary Strip
 **Goal**: Users see their daily usage data in a formatted table with accurate currency values and running balance, plus summary stats cards, all loaded with the default 30-day date range
