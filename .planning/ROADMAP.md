@@ -28,7 +28,7 @@
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [ ] **Phase 5: Shortcode Foundation and API Proxy** - Register the shortcode, render the page skeleton, gate on authentication, and wire the AJAX proxy to the external API with caching
-- [ ] **Phase 6: Stats Table and Summary Strip** - Render the daily stats table with currency formatting, balance precision, mock click/QR split, and summary stats cards using default 30-day data
+- [x] **Phase 6: Stats Table and Summary Strip** - Render the daily stats table with currency formatting, balance precision, mock click/QR split, and summary stats cards using default 30-day data (completed 2026-02-23)
 - [ ] **Phase 7: Chart Rendering** - Display the area chart with two series (clicks/QR), data point markers, proper canvas lifecycle, and flex container stability
 - [ ] **Phase 8: Date Filtering and API Doc** - Add interactive date range selection with presets and validation, and document the backend API changes needed for real data
 
@@ -109,6 +109,6 @@ Phases execute in numeric order: 5 -> 6 -> 7 -> 8
 | 3. Table Cards and Controls | v1.0 | 0/0 | Paused | - |
 | 4. Chart Collapse | v1.0 | 0/0 | Paused | - |
 | 5. Shortcode Foundation and API Proxy | v2.0 | 0/2 | Planning | - |
-| 6. Stats Table and Summary Strip | v2.0 | 0/2 | Planning | - |
+| 6. Stats Table and Summary Strip | v2.0 | Complete    | 2026-02-23 | - |
 | 7. Chart Rendering | v2.0 | 0/0 | Not started | - |
 | 8. Date Filtering and API Doc | v2.0 | 0/0 | Not started | - |
