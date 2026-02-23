@@ -5,29 +5,30 @@
 See: .planning/PROJECT.md (updated 2026-02-22)
 
 **Core value:** Users can track their link usage costs and account balance at a glance -- daily stats with a chart and detailed table.
-**Current focus:** Phase 5 - Shortcode Foundation and API Proxy
+**Current focus:** Phase 6 - Stats Table and Summary Strip
 
 ## Current Position
 
-Phase: 5 of 8 (Shortcode Foundation and API Proxy)
-Plan: 3 of 3 in current phase (Plan 03 complete -- Phase 5 DONE)
-Status: Phase Complete
-Last activity: 2026-02-23 -- Plan 05-03 completed
+Phase: 6 of 8 (Stats Table and Summary Strip)
+Plan: 1 of 2 in current phase (Plan 01 complete)
+Status: In Progress
+Last activity: 2026-02-23 -- Plan 06-01 completed
 
-Progress: [##########] 100%
+Progress: [#####-----] 50%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3
-- Average duration: 6min
-- Total execution time: 0.3 hours
+- Total plans completed: 4
+- Average duration: 5min
+- Total execution time: 0.4 hours
 
 | Phase | Plan | Duration | Tasks | Files |
 |-------|------|----------|-------|-------|
 | 05    | 01   | 2min     | 1     | 7     |
 | 05    | 02   | 4min     | 2     | 5     |
 | 05    | 03   | 12min    | 3     | 3     |
+| 06    | 01   | 3min     | 2     | 2     |
 
 *Updated after each plan completion*
 
@@ -51,6 +52,9 @@ Progress: [##########] 100%
 - [Phase 5 Plan 02]: Validation contract replicated in unit tests to verify without WordPress
 - [Phase 5 Plan 03]: E2E tests target tp-ud- implementation (not old uad-); auto-skip when not deployed
 - [Phase 5 Plan 03]: Deployment detection pattern: probe DOM for .tp-ud-container and AJAX for 401 vs 400
+- [Phase 6 Plan 01]: Skeleton chart upgraded from pulse to shimmer for consistency with table skeleton
+- [Phase 6 Plan 01]: Summary strip skeleton uses same layout class as real content for matching dimensions
+- [Phase 6 Plan 01]: Skeleton table wrapped in separate div to style independently from real table
 
 ### Pending Todos
 
@@ -65,6 +69,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-22
-Stopped at: Phase 6 context gathered
-Resume file: .planning/phases/06-stats-table-and-summary-strip/06-CONTEXT.md
+Last session: 2026-02-23
+Stopped at: Completed 06-01-PLAN.md
+Resume file: .planning/phases/06-stats-table-and-summary-strip/06-01-SUMMARY.md
