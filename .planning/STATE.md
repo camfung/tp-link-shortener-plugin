@@ -10,23 +10,24 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 ## Current Position
 
 Phase: 5 of 8 (Shortcode Foundation and API Proxy)
-Plan: 2 of 3 in current phase (Plan 02 complete)
-Status: Executing
-Last activity: 2026-02-23 -- Plan 05-02 completed
+Plan: 3 of 3 in current phase (Plan 03 complete -- Phase 5 DONE)
+Status: Phase Complete
+Last activity: 2026-02-23 -- Plan 05-03 completed
 
-Progress: [######░░░░] 66%
+Progress: [##########] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 2
-- Average duration: 3min
-- Total execution time: 0.1 hours
+- Total plans completed: 3
+- Average duration: 6min
+- Total execution time: 0.3 hours
 
 | Phase | Plan | Duration | Tasks | Files |
 |-------|------|----------|-------|-------|
 | 05    | 01   | 2min     | 1     | 7     |
 | 05    | 02   | 4min     | 2     | 5     |
+| 05    | 03   | 12min    | 3     | 3     |
 
 *Updated after each plan completion*
 
@@ -48,6 +49,8 @@ Progress: [######░░░░] 66%
 - [Phase 5 Plan 02]: 15-second API client timeout for getUserActivitySummary (matching Lambda timeout)
 - [Phase 5 Plan 02]: 20-second JS timeout (15s server + network overhead)
 - [Phase 5 Plan 02]: Validation contract replicated in unit tests to verify without WordPress
+- [Phase 5 Plan 03]: E2E tests target tp-ud- implementation (not old uad-); auto-skip when not deployed
+- [Phase 5 Plan 03]: Deployment detection pattern: probe DOM for .tp-ud-container and AJAX for 401 vs 400
 
 ### Pending Todos
 
@@ -58,9 +61,10 @@ None yet.
 - API only returns `totalHits`, `hitCost`, `balance` -- no clicks vs QR scans breakdown
 - ~~API response envelope shape verified: API returns `{ source: [...] }`, proxy reshapes to `{ days: [...] }`~~ RESOLVED in 05-02
 - Timezone behavior of date parameters not documented in API reference -- verify empirically in Phase 5
+- Phase 5 code not deployed to dev site -- E2E tests auto-skip until feature/client-links branch is deployed
 
 ## Session Continuity
 
 Last session: 2026-02-23
-Stopped at: Completed 05-02-PLAN.md
-Resume file: .planning/phases/05-shortcode-foundation-and-api-proxy/05-02-SUMMARY.md
+Stopped at: Completed 05-03-PLAN.md (Phase 5 complete)
+Resume file: .planning/phases/05-shortcode-foundation-and-api-proxy/05-03-SUMMARY.md
