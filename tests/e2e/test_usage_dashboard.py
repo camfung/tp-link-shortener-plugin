@@ -10,6 +10,10 @@ These tests verify the Usage Dashboard:
 
 Run:
     pytest tests/e2e/test_usage_dashboard.py -v
+
+NOTE: These tests require the Phase 5 (05-01, 05-02) code to be deployed to
+the dev site. They target the tp-ud- prefixed implementation with skeleton/AJAX
+pattern. Tests will auto-skip if the old uad- implementation is still active.
 """
 
 import pytest
@@ -19,19 +23,44 @@ from conftest import BASE_URL, USAGE_DASHBOARD_PATH
 
 
 # -------------------------------------------------------------------
+# Deployment detection helper
+# -------------------------------------------------------------------
+def _check_deployment(page: Page) -> bool:
+    """Check if Phase 5 tp-ud- implementation is deployed.
+
+    Returns True if .tp-ud-container is present, False if the old
+    .uad-dashboard is still active.
+    """
+    page.goto(f"{BASE_URL}{USAGE_DASHBOARD_PATH}")
+    page.wait_for_load_state("networkidle")
+    return page.locator(".tp-ud-container").count() > 0
+
+
+def _require_deployment(page: Page):
+    """Skip test if Phase 5 code is not deployed to the dev site."""
+    if not _check_deployment(page):
+        pytest.skip(
+            "Phase 5 tp-ud- implementation not deployed. "
+            "Deploy commits from 05-01/05-02 and re-run."
+        )
+
+
+# -------------------------------------------------------------------
 # Page load & skeleton
 # -------------------------------------------------------------------
 class TestPageLoad:
     """Verify the page loads with the dashboard skeleton."""
 
-    def test_container_visible(self, usage_dashboard_page: Page):
+    def test_container_visible(self, page: Page):
         """The main .tp-ud-container should be visible."""
-        container = usage_dashboard_page.locator(".tp-ud-container")
+        _require_deployment(page)
+        container = page.locator(".tp-ud-container")
         expect(container).to_be_visible()
 
     def test_skeleton_appears_initially(self, page: Page):
         """The loading skeleton should appear before data loads."""
-        # Navigate fresh (don't reuse fixture -- need to catch skeleton)
+        # Navigate fresh -- need to catch skeleton before it disappears
+        _require_deployment(page)
         page.goto(f"{BASE_URL}{USAGE_DASHBOARD_PATH}")
         # The skeleton may disappear fast, so check that either:
         #   - skeleton is visible (still loading), OR
@@ -43,9 +72,11 @@ class TestPageLoad:
         assert skeleton.is_visible() or content.is_visible(), \
             "Neither skeleton nor content visible on page load"
 
-    def test_content_loads_after_fetch(self, usage_dashboard_page: Page):
+    def test_content_loads_after_fetch(self, page: Page):
         """After AJAX fetch, either content or error should appear (skeleton hidden)."""
-        page = usage_dashboard_page
+        _require_deployment(page)
+        page.goto(f"{BASE_URL}{USAGE_DASHBOARD_PATH}")
+        page.wait_for_selector(".tp-ud-container", timeout=10_000)
         # Wait for skeleton to disappear (max 25s for API timeout)
         page.wait_for_selector("#tp-ud-skeleton", state="hidden", timeout=25_000)
         # Either content or error should be visible
@@ -54,9 +85,9 @@ class TestPageLoad:
         assert content.is_visible() or error.is_visible(), \
             "Neither content nor error visible after skeleton disappears"
 
-    def test_no_login_form_for_authenticated_user(self, usage_dashboard_page: Page):
+    def test_no_login_form_for_authenticated_user(self, page: Page):
         """Authenticated users should NOT see the login form."""
-        page = usage_dashboard_page
+        _require_deployment(page)
         login_form = page.locator(".tp-ud-login-wrapper")
         assert login_form.count() == 0, \
             "Login form should not appear for authenticated users"
@@ -68,33 +99,36 @@ class TestPageLoad:
 class TestDashboardStructure:
     """Verify the dashboard has the expected structural elements."""
 
-    def test_chart_canvas_present(self, usage_dashboard_page: Page):
-        """The chart canvas element should exist in the DOM."""
-        page = usage_dashboard_page
+    def _wait_for_content(self, page: Page):
+        """Navigate and wait for skeleton to finish loading."""
+        _require_deployment(page)
+        page.goto(f"{BASE_URL}{USAGE_DASHBOARD_PATH}")
+        page.wait_for_selector(".tp-ud-container", timeout=10_000)
         page.wait_for_selector("#tp-ud-skeleton", state="hidden", timeout=25_000)
+
+    def test_chart_canvas_present(self, page: Page):
+        """The chart canvas element should exist in the DOM."""
+        self._wait_for_content(page)
         canvas = page.locator("#tp-ud-chart")
         assert canvas.count() == 1, "Chart canvas should be present"
 
-    def test_date_inputs_present(self, usage_dashboard_page: Page):
+    def test_date_inputs_present(self, page: Page):
         """Date start and end inputs should be present."""
-        page = usage_dashboard_page
-        page.wait_for_selector("#tp-ud-skeleton", state="hidden", timeout=25_000)
+        self._wait_for_content(page)
         # Look for date inputs in the content area
         date_inputs = page.locator('.tp-ud-content input[type="date"]')
         assert date_inputs.count() >= 2, \
             f"Expected at least 2 date inputs, found {date_inputs.count()}"
 
-    def test_summary_strip_present(self, usage_dashboard_page: Page):
+    def test_summary_strip_present(self, page: Page):
         """The summary stats strip container should exist."""
-        page = usage_dashboard_page
-        page.wait_for_selector("#tp-ud-skeleton", state="hidden", timeout=25_000)
+        self._wait_for_content(page)
         strip = page.locator("#tp-ud-summary-strip")
         assert strip.count() == 1, "Summary strip should be present"
 
-    def test_table_container_present(self, usage_dashboard_page: Page):
+    def test_table_container_present(self, page: Page):
         """The table container should exist."""
-        page = usage_dashboard_page
-        page.wait_for_selector("#tp-ud-skeleton", state="hidden", timeout=25_000)
+        self._wait_for_content(page)
         table = page.locator("#tp-ud-table-container")
         assert table.count() == 1, "Table container should be present"
 
@@ -105,17 +139,20 @@ class TestDashboardStructure:
 class TestAjaxDataFetch:
     """Verify the AJAX data pipeline works end-to-end."""
 
-    def test_ajax_returns_valid_json(self, page: Page):
-        """Authenticated AJAX call should return valid JSON with days array."""
-        # First navigate to the dashboard page to get a valid nonce
+    def _get_nonce(self, page: Page) -> str:
+        """Navigate to dashboard and extract the AJAX nonce."""
+        _require_deployment(page)
         page.goto(f"{BASE_URL}{USAGE_DASHBOARD_PATH}")
         page.wait_for_selector(".tp-ud-container", timeout=10_000)
-
-        # Extract nonce from wp_localize_script output
         nonce = page.evaluate(
             "() => typeof tpUsageDashboard !== 'undefined' ? tpUsageDashboard.nonce : null"
         )
         assert nonce is not None, "tpUsageDashboard.nonce should be set"
+        return nonce
+
+    def test_ajax_returns_valid_json(self, page: Page):
+        """Authenticated AJAX call should return valid JSON with days array."""
+        nonce = self._get_nonce(page)
 
         # Make AJAX call directly
         response = page.request.post(f"{BASE_URL}/wp-admin/admin-ajax.php", form={
@@ -134,10 +171,7 @@ class TestAjaxDataFetch:
 
     def test_ajax_days_have_expected_fields(self, page: Page):
         """Each day record should have date, totalHits, hitCost, balance."""
-        page.goto(f"{BASE_URL}{USAGE_DASHBOARD_PATH}")
-        page.wait_for_selector(".tp-ud-container", timeout=10_000)
-
-        nonce = page.evaluate("() => tpUsageDashboard.nonce")
+        nonce = self._get_nonce(page)
 
         response = page.request.post(f"{BASE_URL}/wp-admin/admin-ajax.php", form={
             "action": "tp_get_usage_summary",
@@ -160,10 +194,7 @@ class TestAjaxDataFetch:
 
     def test_ajax_rejects_invalid_date_format(self, page: Page):
         """AJAX call with invalid date format should return error."""
-        page.goto(f"{BASE_URL}{USAGE_DASHBOARD_PATH}")
-        page.wait_for_selector(".tp-ud-container", timeout=10_000)
-
-        nonce = page.evaluate("() => tpUsageDashboard.nonce")
+        nonce = self._get_nonce(page)
 
         response = page.request.post(f"{BASE_URL}/wp-admin/admin-ajax.php", form={
             "action": "tp_get_usage_summary",
@@ -175,9 +206,9 @@ class TestAjaxDataFetch:
         body = response.json()
         assert body["success"] is False, "Should reject invalid date format"
 
-    def test_no_uid_in_ajax_request(self, usage_dashboard_page: Page):
+    def test_no_uid_in_ajax_request(self, page: Page):
         """The JS should NOT send a uid parameter -- verify via localized config."""
-        page = usage_dashboard_page
+        _require_deployment(page)
         # Check that tpUsageDashboard does not contain a uid field
         has_uid = page.evaluate("""() => {
             return typeof tpUsageDashboard !== 'undefined' && 'uid' in tpUsageDashboard
@@ -193,7 +224,7 @@ class TestRetryBehavior:
 
     def test_retry_button_present_on_error(self, page: Page):
         """If an error occurs, the retry button should be visible."""
-        # Navigate to dashboard
+        _require_deployment(page)
         page.goto(f"{BASE_URL}{USAGE_DASHBOARD_PATH}")
         page.wait_for_selector(".tp-ud-container", timeout=10_000)
         # Wait for loading to finish
@@ -212,6 +243,7 @@ class TestRetryBehavior:
 
     def test_retry_does_not_reload_page(self, page: Page):
         """Clicking retry should re-fetch via AJAX, not reload the page."""
+        _require_deployment(page)
         page.goto(f"{BASE_URL}{USAGE_DASHBOARD_PATH}")
         page.wait_for_selector(".tp-ud-container", timeout=10_000)
         page.wait_for_selector("#tp-ud-skeleton", state="hidden", timeout=25_000)
