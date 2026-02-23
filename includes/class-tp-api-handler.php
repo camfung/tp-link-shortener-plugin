@@ -150,6 +150,10 @@ class TP_API_Handler {
         // Link change history - logged-in users only
         add_action('wp_ajax_tp_get_link_history', array($this, 'ajax_get_link_history'));
 
+        // Usage summary - logged-in users only
+        add_action('wp_ajax_tp_get_usage_summary', array($this, 'ajax_get_usage_summary'));
+        add_action('wp_ajax_nopriv_tp_get_usage_summary', array($this, 'ajax_require_login'));
+
         // Client links endpoints for non-logged-in users (return 401)
         add_action('wp_ajax_nopriv_tp_get_user_map_items', array($this, 'ajax_require_login'));
         add_action('wp_ajax_nopriv_tp_toggle_link_status', array($this, 'ajax_require_login'));
@@ -1592,6 +1596,129 @@ class TP_API_Handler {
         ), ARRAY_A);
 
         wp_send_json_success($results ?: array());
+    }
+
+    /**
+     * AJAX handler for getting usage summary data
+     * Only available to logged-in users
+     */
+    public function ajax_get_usage_summary(): void {
+        $this->log_to_file('=== GET USAGE SUMMARY REQUEST START ===');
+        $this->log_to_file('IP: ' . ($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
+        $this->log_to_file('WP User ID: ' . get_current_user_id());
+
+        // Verify nonce
+        check_ajax_referer('tp_link_shortener_nonce', 'nonce');
+        $this->log_to_file('Nonce verified OK');
+
+        // Ensure user is logged in
+        if (!is_user_logged_in()) {
+            $this->log_to_file('ERROR: User not logged in');
+            $this->log_to_file('=== GET USAGE SUMMARY REQUEST END ===');
+            wp_send_json_error(array(
+                'message' => __('You must be logged in.', 'tp-link-shortener'),
+            ), 401);
+            return;
+        }
+
+        // Get UID server-side (DATA-02: NEVER from $_POST)
+        $uid = TP_Link_Shortener::get_user_id();
+        $this->log_to_file('User ID (server-side): ' . $uid);
+
+        // Sanitize date inputs
+        $start_date = isset($_POST['start_date']) ? sanitize_text_field($_POST['start_date']) : '';
+        $end_date   = isset($_POST['end_date'])   ? sanitize_text_field($_POST['end_date'])   : '';
+
+        $this->log_to_file('Date range: ' . $start_date . ' to ' . $end_date);
+
+        // Validate date format
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $start_date) ||
+            !preg_match('/^\d{4}-\d{2}-\d{2}$/', $end_date)) {
+            $this->log_to_file('ERROR: Invalid date format');
+            $this->log_to_file('=== GET USAGE SUMMARY REQUEST END ===');
+            wp_send_json_error(array(
+                'message' => __('Invalid date format.', 'tp-link-shortener'),
+            ), 400);
+            return;
+        }
+
+        try {
+            $raw = $this->client->getUserActivitySummary($uid, $start_date, $end_date);
+
+            // Validate and reshape response
+            $validated = $this->validate_usage_summary_response($raw);
+
+            $this->log_to_file('Usage summary validated successfully: ' . count($validated['days']) . ' days');
+            $this->log_to_file('=== GET USAGE SUMMARY REQUEST END ===');
+
+            wp_send_json_success($validated);
+
+        } catch (NetworkException $e) {
+            $this->log_to_file('Network error: ' . $e->getMessage());
+            $this->log_to_file('=== GET USAGE SUMMARY REQUEST END ===');
+            $this->send_usage_proxy_error($e, 'network');
+
+        } catch (ApiException $e) {
+            $this->log_to_file('API error: ' . $e->getMessage());
+            $this->log_to_file('=== GET USAGE SUMMARY REQUEST END ===');
+            $this->send_usage_proxy_error($e, 'api');
+
+        } catch (\Exception $e) {
+            $this->log_to_file('Unexpected error: ' . $e->getMessage());
+            $this->log_to_file('=== GET USAGE SUMMARY REQUEST END ===');
+            $this->send_usage_proxy_error($e, 'unknown');
+        }
+    }
+
+    /**
+     * Validate and reshape the usage summary API response.
+     * Strips unexpected fields, checks types, normalizes format.
+     * API returns: { message, success, source: [{ date, totalHits, hitCost, balance }] }
+     * Returns: { days: [{ date, totalHits, hitCost, balance }] }
+     */
+    private function validate_usage_summary_response(array $raw): array {
+        $source = $raw['source'] ?? [];
+
+        if (!is_array($source)) {
+            $source = [];
+        }
+
+        $days = [];
+        foreach ($source as $record) {
+            // Only include records with required fields
+            if (!isset($record['date']) || !isset($record['totalHits'])) {
+                continue;
+            }
+
+            $days[] = [
+                'date'      => sanitize_text_field($record['date']),
+                'totalHits' => (int) $record['totalHits'],
+                'hitCost'   => (float) ($record['hitCost'] ?? 0),
+                'balance'   => (float) ($record['balance'] ?? 0),
+            ];
+        }
+
+        return ['days' => $days];
+    }
+
+    /**
+     * Send usage proxy error response with admin-conditional detail.
+     * Generic error for regular users, detailed error for admins.
+     */
+    private function send_usage_proxy_error(\Exception $e, string $type): void {
+        $response = array(
+            'message' => __('Unable to load usage data. Please try again.', 'tp-link-shortener'),
+        );
+
+        // Admins see the actual error type and detail
+        if (current_user_can('manage_options')) {
+            $response['error_type']   = $type;
+            $response['error_detail'] = $e->getMessage();
+        }
+
+        error_log('TP Link Shortener: Usage summary error (' . $type . '): ' . $e->getMessage());
+
+        wp_send_json_error($response);
     }
 
     /**

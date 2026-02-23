@@ -764,6 +764,85 @@ class TrafficPortalApiClient
     }
 
     /**
+     * Get user activity summary (usage data: hits, costs, balance per day)
+     *
+     * @param int $uid The user ID
+     * @param string $startDate Start date in YYYY-MM-DD format
+     * @param string $endDate End date in YYYY-MM-DD format
+     * @return array The decoded API response
+     * @throws AuthenticationException If authentication fails
+     * @throws NetworkException If network error occurs
+     * @throws ApiException For other API errors
+     */
+    public function getUserActivitySummary(int $uid, string $startDate, string $endDate): array
+    {
+        $this->log_to_file('=== GET USER ACTIVITY SUMMARY REQUEST ===');
+        $this->log_to_file('getUserActivitySummary called');
+        $this->log_to_file('UID: ' . $uid);
+        $this->log_to_file('Start Date: ' . $startDate);
+        $this->log_to_file('End Date: ' . $endDate);
+
+        $queryParams = [
+            'start_date' => $startDate,
+            'end_date'   => $endDate,
+        ];
+
+        $url = $this->apiEndpoint . '/user-activity-summary/' . $uid . '?' . http_build_query($queryParams);
+        $this->log_to_file('URL: ' . $url);
+
+        $httpClient = $this->getHttpClient();
+
+        try {
+            $response = $httpClient->request('GET', $url, [
+                'headers' => [
+                    'Content-Type' => 'application/json',
+                    'x-api-key'    => $this->apiKey,
+                ],
+                'timeout' => 15,
+            ]);
+        } catch (NetworkException $e) {
+            $this->log_to_file('Network ERROR: ' . $e->getMessage());
+            $this->log_to_file('=== GET USER ACTIVITY SUMMARY END (NETWORK ERROR) ===');
+            throw $e;
+        }
+
+        $httpCode = $response->getStatusCode();
+        $body     = $response->getBody();
+
+        $this->log_to_file('HTTP Code: ' . $httpCode);
+        $this->log_to_file('Raw response (first 500 chars): ' . substr($body, 0, 500));
+
+        // Handle empty response
+        if ($body === '') {
+            $this->log_to_file('ERROR: Empty response from API');
+            $this->log_to_file('=== GET USER ACTIVITY SUMMARY END (EMPTY RESPONSE) ===');
+            throw new NetworkException('Empty response from API');
+        }
+
+        // Decode JSON response
+        $data = json_decode($body, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            $this->log_to_file('ERROR: Invalid JSON response: ' . json_last_error_msg());
+            $this->log_to_file('=== GET USER ACTIVITY SUMMARY END (JSON ERROR) ===');
+            throw new ApiException(
+                sprintf('Invalid JSON response: %s', json_last_error_msg()),
+                $httpCode
+            );
+        }
+
+        $this->log_to_file('Decoded response: ' . json_encode($data, JSON_PRETTY_PRINT));
+
+        // Handle HTTP errors
+        $this->log_to_file('Checking for HTTP errors...');
+        $this->handleHttpErrors($httpCode, $data);
+
+        $this->log_to_file('Request completed successfully');
+        $this->log_to_file('=== GET USER ACTIVITY SUMMARY END (SUCCESS) ===');
+
+        return $data;
+    }
+
+    /**
      * Get the API endpoint
      *
      * @return string
