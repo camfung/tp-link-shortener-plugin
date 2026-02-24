@@ -113,9 +113,9 @@ class TP_Client_Links_Shortcode {
             true
         );
 
-        // Default date range: last 30 days
-        $end_date = date('Y-m-d');
-        $start_date = date('Y-m-d', strtotime('-30 days'));
+        // Default date range: last 30 days (UTC to match API)
+        $end_date = gmdate('Y-m-d');
+        $start_date = gmdate('Y-m-d', strtotime('-30 days'));
 
         wp_localize_script('tp-client-links-js', 'tpClientLinks', array(
             'ajaxUrl'    => admin_url('admin-ajax.php'),

@@ -98,10 +98,10 @@ class TP_Usage_Dashboard_Shortcode {
             true
         );
 
-        // Default date range based on days attribute
+        // Default date range based on days attribute (UTC to match API)
         $days = intval($atts['days']);
-        $end_date = date('Y-m-d');
-        $start_date = date('Y-m-d', strtotime("-{$days} days"));
+        $end_date = gmdate('Y-m-d');
+        $start_date = gmdate('Y-m-d', strtotime("-{$days} days"));
 
         wp_localize_script('tp-usage-dashboard-js', 'tpUsageDashboard', array(
             'ajaxUrl'    => admin_url('admin-ajax.php'),

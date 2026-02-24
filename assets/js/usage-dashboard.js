@@ -171,13 +171,14 @@
     }
 
     /**
-     * Format a Date object as YYYY-MM-DD using local time.
-     * Avoids toISOString() which returns UTC and can shift the date.
+     * Format a Date object as YYYY-MM-DD using UTC.
+     * The API stores data in UTC, so all date math must use UTC
+     * to avoid timezone drift for users in non-UTC timezones.
      */
     function formatDateISO(date) {
-        var y = date.getFullYear();
-        var m = String(date.getMonth() + 1).padStart(2, '0');
-        var d = String(date.getDate()).padStart(2, '0');
+        var y = date.getUTCFullYear();
+        var m = String(date.getUTCMonth() + 1).padStart(2, '0');
+        var d = String(date.getUTCDate()).padStart(2, '0');
         return y + '-' + m + '-' + d;
     }
 
@@ -188,23 +189,11 @@
     function initDateInputs() {
         var today = formatDateISO(new Date());
 
-        // If server-generated end date is ahead of browser's today (timezone drift),
-        // clamp to browser's today and recalculate start to preserve the range span.
-        if (state.dateEnd > today) {
-            var rangeDays = Math.round(
-                (new Date(state.dateEnd) - new Date(state.dateStart)) / (1000 * 60 * 60 * 24)
-            );
-            state.dateEnd = today;
-            var newStart = new Date();
-            newStart.setDate(newStart.getDate() - rangeDays);
-            state.dateStart = formatDateISO(newStart);
-        }
-
         // Populate inputs from state defaults (matches client-links.js:92-96)
         $dateStart.val(state.dateStart);
         $dateEnd.val(state.dateEnd);
 
-        // Enforce max=today on both inputs (TABLE-05 + start date protection)
+        // Enforce max=today (UTC) on both inputs
         $dateStart.attr('max', today);
         $dateEnd.attr('max', today);
 
@@ -215,7 +204,7 @@
                 var days = parseInt($(this).data('days'), 10);
                 if (!days) return; // skip Custom button
                 var presetStart = new Date();
-                presetStart.setDate(presetStart.getDate() - days);
+                presetStart.setUTCDate(presetStart.getUTCDate() - days);
                 if (formatDateISO(presetStart) === state.dateStart) {
                     $(this).addClass('active');
                 }
@@ -742,7 +731,7 @@
             var days = parseInt($(this).data('days'), 10);
             var today = new Date();
             var start = new Date();
-            start.setDate(today.getDate() - days);
+            start.setUTCDate(today.getUTCDate() - days);
 
             var endStr = formatDateISO(today);
             var startStr = formatDateISO(start);
