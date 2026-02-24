@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-22)
 
 **Core value:** Users can track their link usage costs and account balance at a glance -- daily stats with a chart and detailed table.
-**Current focus:** Phase 8 - Date Filtering and API Doc
+**Current focus:** All phases complete (5-8)
 
 ## Current Position
 
-Phase: 8 of 8 (Date Filtering and API Doc)
-Plan: 2 of 2 in current phase (08-02 complete -- PHASE COMPLETE)
-Status: Phase Complete
-Last activity: 2026-02-23 -- Plan 08-02 completed
+Phase: 8 of 8 (all phases complete)
+Plan: All plans complete across phases 5-8
+Status: All Phases Complete
+Last activity: 2026-02-23 -- Phase 7 Plan 01 completed (executed out of order after Phase 8)
 
 Progress: [##########] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 7
+- Total plans completed: 8
 - Average duration: 4min
-- Total execution time: 0.4 hours
+- Total execution time: 0.5 hours
 
 | Phase | Plan | Duration | Tasks | Files |
 |-------|------|----------|-------|-------|
@@ -30,6 +30,7 @@ Progress: [##########] 100%
 | 05    | 03   | 12min    | 3     | 3     |
 | 06    | 01   | 3min     | 2     | 2     |
 | 06    | 02   | 2min     | 1     | 1     |
+| 07    | 01   | 2min     | 2     | 2     |
 | 08    | 01   | 2min     | 2     | 3     |
 | 08    | 02   | 1min     | 1     | 1     |
 
@@ -64,6 +65,9 @@ Progress: [##########] 100%
 - [Phase 8 Plan 01]: No hard-coded active class on preset buttons -- JS sets it dynamically from state to respect shortcode days attribute
 - [Phase 8 Plan 01]: formatDateISO() uses local time (getFullYear/getMonth/getDate) instead of toISOString() to avoid UTC timezone date shift
 - [Phase 8 Plan 01]: Auto-swap inverted date ranges instead of blocking -- better UX than error message
+- [Phase 7 Plan 01]: Stacked area chart with fill: 'origin' and scales.y.stacked -- visually accurate since clicks + qr === totalHits
+- [Phase 7 Plan 01]: Category scale for X-axis avoids chartjs-adapter-date-fns dependency
+- [Phase 7 Plan 01]: No resizeDelay -- CSS min-width: 0 addresses root cause of resize loop
 - [Phase 8 Plan 02]: Recommend exploring by-source endpoint before building new backend pipeline for clicks/QR split
 - [Phase 8 Plan 02]: Other Services and Wallet Transactions marked LOW priority, deferred past v2.0
 
@@ -81,5 +85,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-23
-Stopped at: Completed 08-02-PLAN.md -- ALL PHASES COMPLETE
-Resume file: .planning/phases/08-date-filtering-and-api-doc/08-02-SUMMARY.md
+Stopped at: Completed 07-01-PLAN.md -- ALL PHASES COMPLETE
+Resume file: .planning/phases/07-chart-rendering/07-01-SUMMARY.md
