@@ -76,11 +76,10 @@ Plans:
   3. Changing the date range re-renders the chart without "Canvas already in use" errors, even after 5+ consecutive changes
   4. Resizing the browser window does not cause the chart to enter an infinite resize loop -- the chart height remains stable
   5. The chart legend or a nearby disclaimer indicates that the click/QR breakdown is estimated
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 07-01: TBD
-- [ ] 07-02: TBD
+- [ ] 07-01-PLAN.md — Chart wrapper CSS fix + renderChart() function with lifecycle management
 
 ### Phase 8: Date Filtering and API Doc
 **Goal**: Users can filter their usage data by custom date ranges or quick presets, and the API requirements for real click/QR split data are documented for the backend team
