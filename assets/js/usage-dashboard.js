@@ -590,15 +590,21 @@
     /* ---------------------------------------------------------------
      * Load data via AJAX
      * ------------------------------------------------------------- */
-    function loadData() {
+    function loadData(silent) {
         if (state.isLoading) {
             return;
         }
 
         state.isLoading = true;
-        showSkeleton();
         hideError();
-        hideContent();
+
+        if (silent) {
+            // Keep existing content visible, just dim it
+            $content.css('opacity', '.5').css('pointer-events', 'none');
+        } else {
+            showSkeleton();
+            hideContent();
+        }
 
         $.ajax({
             url: tpUsageDashboard.ajaxUrl,
@@ -613,6 +619,7 @@
             timeout: 20000,
             success: function(response) {
                 state.isLoading = false;
+                $content.css('opacity', '').css('pointer-events', '');
 
                 if (response.success && response.data && response.data.days) {
                     state.data = response.data.days;
@@ -645,6 +652,7 @@
             },
             error: function() {
                 state.isLoading = false;
+                $content.css('opacity', '').css('pointer-events', '');
                 hideSkeleton();
                 showError(tpUsageDashboard.strings.error, null);
             }
@@ -726,7 +734,7 @@
             $('.tp-ud-preset-btn').not($customToggle).removeClass('active');
 
             updateDateDisplay();
-            loadData();
+            loadData(true);
         });
 
         // Preset buttons (delegated -- skips Custom trigger)
@@ -751,7 +759,7 @@
             $customPanel.slideUp(200);
 
             updateDateDisplay();
-            loadData();
+            loadData(true);
         });
 
         // Clear preset active state when user manually edits date inputs
