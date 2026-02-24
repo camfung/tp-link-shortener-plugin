@@ -778,6 +778,7 @@ class TrafficPortalApiClient
     {
         $this->log_to_file('=== GET USER ACTIVITY SUMMARY REQUEST ===');
         $this->log_to_file('getUserActivitySummary called');
+        $this->log_to_file('API Key: ' . substr($this->apiKey, 0, 10) . '...' . substr($this->apiKey, -4));
         $this->log_to_file('UID: ' . $uid);
         $this->log_to_file('Start Date: ' . $startDate);
         $this->log_to_file('End Date: ' . $endDate);
