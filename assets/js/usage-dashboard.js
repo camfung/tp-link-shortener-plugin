@@ -33,7 +33,10 @@
         $pagination,
         $summaryStrip,
         $emptyState,
-        $emptyRange;
+        $emptyRange,
+        $dateStart,
+        $dateEnd,
+        $dateApply;
 
     /* ---------------------------------------------------------------
      * Cache DOM elements
@@ -53,6 +56,9 @@
         $summaryStrip   = $('#tp-ud-summary-strip');
         $emptyState     = $('#tp-ud-empty');
         $emptyRange     = $('#tp-ud-empty-range');
+        $dateStart      = $('#tp-ud-date-start');
+        $dateEnd        = $('#tp-ud-date-end');
+        $dateApply      = $('#tp-ud-date-apply');
     }
 
     /* ---------------------------------------------------------------
@@ -155,6 +161,46 @@
         var startFormatted = start.toLocaleDateString(undefined, opts);
         var endFormatted = end.toLocaleDateString(undefined, opts);
         return startFormatted + ' to ' + endFormatted;
+    }
+
+    /**
+     * Format a Date object as YYYY-MM-DD using local time.
+     * Avoids toISOString() which returns UTC and can shift the date.
+     */
+    function formatDateISO(date) {
+        var y = date.getFullYear();
+        var m = String(date.getMonth() + 1).padStart(2, '0');
+        var d = String(date.getDate()).padStart(2, '0');
+        return y + '-' + m + '-' + d;
+    }
+
+    /**
+     * Initialize date inputs: set values from state, enforce max=today,
+     * and highlight the matching preset button (if any).
+     */
+    function initDateInputs() {
+        var today = formatDateISO(new Date());
+
+        // Populate inputs from state defaults (matches client-links.js:92-96)
+        $dateStart.val(state.dateStart);
+        $dateEnd.val(state.dateEnd);
+
+        // Enforce max=today on both inputs (TABLE-05 + start date protection)
+        $dateStart.attr('max', today);
+        $dateEnd.attr('max', today);
+
+        // Highlight the preset button whose date range matches the current state.
+        // This respects the shortcode `days` attribute (not always 30).
+        if (state.dateEnd === today) {
+            $('.tp-ud-preset-btn').each(function() {
+                var days = parseInt($(this).data('days'), 10);
+                var presetStart = new Date();
+                presetStart.setDate(presetStart.getDate() - days);
+                if (formatDateISO(presetStart) === state.dateStart) {
+                    $(this).addClass('active');
+                }
+            });
+        }
     }
 
     /* ---------------------------------------------------------------
@@ -486,6 +532,64 @@
                 renderTable();
             }
         });
+
+        // Apply button -- reads date inputs, validates, updates state, reloads
+        // Pattern from client-links.js:241-247
+        $dateApply.on('click', function() {
+            var newStart = $dateStart.val();
+            var newEnd = $dateEnd.val();
+
+            // Reject empty dates
+            if (!newStart || !newEnd) {
+                return;
+            }
+
+            // Auto-swap if start > end (ISO date strings compare lexicographically)
+            if (newStart > newEnd) {
+                var tmp = newStart;
+                newStart = newEnd;
+                newEnd = tmp;
+                $dateStart.val(newStart);
+                $dateEnd.val(newEnd);
+            }
+
+            state.dateStart = newStart;
+            state.dateEnd = newEnd;
+            state.currentPage = 1;
+
+            // Clear preset active state on manual Apply
+            $('.tp-ud-preset-btn').removeClass('active');
+
+            loadData();
+        });
+
+        // Preset buttons (delegated for future-proofing)
+        $(document).on('click', '.tp-ud-preset-btn', function() {
+            var days = parseInt($(this).data('days'), 10);
+            var today = new Date();
+            var start = new Date();
+            start.setDate(today.getDate() - days);
+
+            var endStr = formatDateISO(today);
+            var startStr = formatDateISO(start);
+
+            $dateStart.val(startStr);
+            $dateEnd.val(endStr);
+            state.dateStart = startStr;
+            state.dateEnd = endStr;
+            state.currentPage = 1;
+
+            // Update active state
+            $('.tp-ud-preset-btn').removeClass('active');
+            $(this).addClass('active');
+
+            loadData();
+        });
+
+        // Clear preset active state when user manually edits date inputs
+        $dateStart.add($dateEnd).on('change', function() {
+            $('.tp-ud-preset-btn').removeClass('active');
+        });
     }
 
     /* ---------------------------------------------------------------
@@ -493,6 +597,7 @@
      * ------------------------------------------------------------- */
     $(document).ready(function() {
         cacheElements();
+        initDateInputs();
         bindEvents();
         loadData();
     });
