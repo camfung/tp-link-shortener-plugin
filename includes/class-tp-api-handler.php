@@ -165,7 +165,7 @@ class TP_API_Handler {
         add_action('wp_ajax_nopriv_tp_validate_url', array($this, 'ajax_validate_url'));
         add_action('wp_ajax_nopriv_tp_capture_screenshot', array($this, 'ajax_capture_screenshot'));
         add_action('wp_ajax_nopriv_tp_search_by_fingerprint', array($this, 'ajax_search_by_fingerprint'));
-        add_action('wp_ajax_nopriv_tp_update_link', array($this, 'ajax_update_link'));
+        add_action('wp_ajax_nopriv_tp_update_link', array($this, 'ajax_require_login'));
         add_action('wp_ajax_nopriv_tp_suggest_shortcode', array($this, 'ajax_suggest_shortcode'));
         add_action('wp_ajax_nopriv_tp_suggest_shortcode_fast', array($this, 'ajax_suggest_shortcode_fast'));
         add_action('wp_ajax_nopriv_tp_suggest_shortcode_smart', array($this, 'ajax_suggest_shortcode_smart'));
@@ -345,7 +345,6 @@ class TP_API_Handler {
             return array(
                 'success' => false,
                 'message' => __('Authentication failed. Please check plugin configuration.', 'tp-link-shortener'),
-                'debug_error' => $e->getMessage() // DEBUG: Remove in production
             );
 
         } catch (RateLimitException $e) {
@@ -356,7 +355,6 @@ class TP_API_Handler {
                 'message' => $e->getMessage(),
                 'error_type' => 'rate_limit',
                 'http_code' => 429,
-                'debug_error' => $e->getMessage() // DEBUG: Remove in production
             );
 
         } catch (ValidationException $e) {
@@ -366,14 +364,12 @@ class TP_API_Handler {
                 return array(
                     'success' => false,
                     'message' => __('This shortcode is already taken. Please try another.', 'tp-link-shortener'),
-                    'debug_error' => $e->getMessage() // DEBUG: Remove in production
                 );
             }
 
             return array(
                 'success' => false,
                 'message' => $e->getMessage(),
-                'debug_error' => $e->getMessage() + "test" // DEBUG: Remove in production
             );
 
         } catch (NetworkException $e) {
@@ -382,7 +378,6 @@ class TP_API_Handler {
             return array(
                 'success' => false,
                 'message' => __('Network error. Please try again later.', 'tp-link-shortener'),
-                'debug_error' => $e->getMessage() // DEBUG: Remove in production
             );
 
         } catch (ApiException $e) {
@@ -391,7 +386,6 @@ class TP_API_Handler {
             return array(
                 'success' => false,
                 'message' => __('API error. Please try again.', 'tp-link-shortener'),
-                'debug_error' => $e->getMessage() // DEBUG: Remove in production
             );
 
         } catch (Exception $e) {
@@ -401,7 +395,6 @@ class TP_API_Handler {
             return array(
                 'success' => false,
                 'message' => __('An unexpected error occurred. Please try again.', 'tp-link-shortener'),
-                'debug_error' => $e->getMessage() // DEBUG: Remove in production
             );
         }
     }
@@ -609,7 +602,6 @@ class TP_API_Handler {
             return array(
                 'success' => false,
                 'message' => __('Authentication failed.', 'tp-link-shortener'),
-                'debug_error' => $e->getMessage() // DEBUG: Remove in production
             );
 
         } catch (NetworkException $e) {
@@ -617,7 +609,6 @@ class TP_API_Handler {
             return array(
                 'success' => false,
                 'message' => __('Network error. Please try again later.', 'tp-link-shortener'),
-                'debug_error' => $e->getMessage() // DEBUG: Remove in production
             );
 
         } catch (ApiException $e) {
@@ -625,7 +616,6 @@ class TP_API_Handler {
             return array(
                 'success' => false,
                 'message' => __('API error. Please try again.', 'tp-link-shortener'),
-                'debug_error' => $e->getMessage() // DEBUG: Remove in production
             );
 
         } catch (Exception $e) {
@@ -633,7 +623,6 @@ class TP_API_Handler {
             return array(
                 'success' => false,
                 'message' => __('An unexpected error occurred.', 'tp-link-shortener'),
-                'debug_error' => $e->getMessage() // DEBUG: Remove in production
             );
         }
     }
@@ -654,6 +643,9 @@ class TP_API_Handler {
      * Implements automatic HTTP fallback for HTTPS URLs with SSL errors
      */
     public function ajax_validate_url() {
+        // Verify nonce (SECURITY: was missing before)
+        check_ajax_referer('tp_link_shortener_nonce', 'nonce');
+
         // Get the URL to validate
         $url = isset($_GET['url']) ? esc_url_raw($_GET['url']) : '';
 
@@ -681,18 +673,30 @@ class TP_API_Handler {
             return;
         }
 
+        // SECURITY: Block requests to internal/private IP ranges (SSRF protection)
+        $host = $parsed_url['host'] ?? '';
+        if (empty($host)) {
+            wp_send_json_error(array('message' => 'Invalid URL: no host'), 400);
+            return;
+        }
+
+        if ($this->is_internal_host($host)) {
+            wp_send_json_error(array('message' => 'Internal URLs are not allowed'), 403);
+            return;
+        }
+
         // Make HEAD request using WordPress HTTP API
         $response = wp_remote_head($url, array(
             'timeout' => 10,
-            'redirection' => 0, // Don't follow redirects automatically
+            'redirection' => 0,
             'sslverify' => true,
             'user-agent' => 'TP-Link-Shortener-Validator/1.0'
         ));
 
         // Check for errors - if HTTPS fails with SSL error, try HTTP fallback
         if (is_wp_error($response)) {
-            $error_message = $response->get_error_message();
             $is_https = $parsed_url['scheme'] === 'https';
+            $error_message = $response->get_error_message();
 
             // Check if this is an SSL-related error
             $is_ssl_error = strpos($error_message, 'SSL') !== false ||
@@ -701,86 +705,83 @@ class TP_API_Handler {
 
             // If HTTPS failed with SSL error, try HTTP fallback
             if ($is_https && $is_ssl_error) {
-                error_log('TP Link Shortener: HTTPS failed with SSL error, trying HTTP fallback for: ' . $url);
-
-                // Convert to HTTP
                 $http_url = preg_replace('/^https:/', 'http:', $url);
 
-                // Try HTTP request
                 $http_response = wp_remote_head($http_url, array(
                     'timeout' => 10,
                     'redirection' => 0,
                     'user-agent' => 'TP-Link-Shortener-Validator/1.0'
                 ));
 
-                // If HTTP succeeds, return success with protocol update flag
                 if (!is_wp_error($http_response)) {
                     $http_status_code = wp_remote_retrieve_response_code($http_response);
 
-                    // Only use HTTP fallback if we get a successful response (2xx or 3xx)
                     if ($http_status_code >= 200 && $http_status_code < 400) {
-                        $http_headers = wp_remote_retrieve_headers($http_response);
-
-                        // Convert headers to simple key-value array
-                        $headers_array = array();
-                        if (is_object($http_headers)) {
-                            $headers_array = $http_headers->getAll();
-                        } elseif (is_array($http_headers)) {
-                            $headers_array = $http_headers;
-                        }
-
-                        error_log('TP Link Shortener: HTTP fallback successful, returning updated URL');
-
-                        // Return response with protocol update flag
-                        header('Content-Type: application/json');
-                        echo json_encode(array(
+                        wp_send_json_success(array(
                             'ok' => true,
                             'status' => $http_status_code,
-                            'headers' => $headers_array,
                             'protocol_updated' => true,
                             'updated_url' => $http_url,
                             'original_url' => $url,
                             'reason' => 'HTTPS failed with SSL error, HTTP works'
                         ));
-                        wp_die();
+                        return;
                     }
                 }
-
-                error_log('TP Link Shortener: HTTP fallback also failed for: ' . $url);
             }
 
-            // Return original error response if no fallback worked
+            // Return generic error (don't leak internal error details)
             header('Content-Type: application/json');
             http_response_code(500);
             echo json_encode(array(
                 'ok' => false,
                 'status' => 0,
-                'headers' => array(),
-                'error' => $error_message
+                'error' => __('Unable to reach URL.', 'tp-link-shortener')
             ));
             wp_die();
         }
 
         // Get response data
         $status_code = wp_remote_retrieve_response_code($response);
-        $headers = wp_remote_retrieve_headers($response);
 
-        // Convert headers to simple key-value array
-        $headers_array = array();
-        if (is_object($headers)) {
-            $headers_array = $headers->getAll();
-        } elseif (is_array($headers)) {
-            $headers_array = $headers;
-        }
-
-        // Return response in format expected by URLValidator
+        // Return minimal response (don't leak target server headers)
         header('Content-Type: application/json');
         echo json_encode(array(
             'ok' => $status_code >= 200 && $status_code < 400,
             'status' => $status_code,
-            'headers' => $headers_array
         ));
         wp_die();
+    }
+
+    /**
+     * Check if a hostname resolves to an internal/private IP address (SSRF protection)
+     */
+    private function is_internal_host(string $host): bool {
+        // Block obvious internal hostnames
+        $blocked_hosts = array('localhost', '127.0.0.1', '0.0.0.0', '::1', '[::1]');
+        if (in_array(strtolower($host), $blocked_hosts, true)) {
+            return true;
+        }
+
+        // Resolve hostname to IP and check against private ranges
+        $ip = gethostbyname($host);
+
+        // gethostbyname returns the hostname if resolution fails — treat as blocked
+        if ($ip === $host && !filter_var($host, FILTER_VALIDATE_IP)) {
+            return true;
+        }
+
+        // Block private, reserved, and link-local IP ranges
+        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false) {
+            return true;
+        }
+
+        // Block AWS/cloud metadata endpoint (169.254.169.254)
+        if (strpos($ip, '169.254.') === 0) {
+            return true;
+        }
+
+        return false;
     }
 
     /**
@@ -869,7 +870,6 @@ class TP_API_Handler {
             return array(
                 'success' => false,
                 'message' => __('Screenshot authentication failed. Please check configuration.', 'tp-link-shortener'),
-                'debug_error' => $e->getMessage()
             );
 
         } catch (\SnapCapture\Exception\ValidationException $e) {
@@ -877,7 +877,6 @@ class TP_API_Handler {
             return array(
                 'success' => false,
                 'message' => __('Invalid URL for screenshot capture.', 'tp-link-shortener'),
-                'debug_error' => $e->getMessage()
             );
 
         } catch (\SnapCapture\Exception\NetworkException $e) {
@@ -885,7 +884,6 @@ class TP_API_Handler {
             return array(
                 'success' => false,
                 'message' => __('Network error while capturing screenshot. Please try again.', 'tp-link-shortener'),
-                'debug_error' => $e->getMessage()
             );
 
         } catch (\SnapCapture\Exception\ApiException $e) {
@@ -896,14 +894,12 @@ class TP_API_Handler {
                 return array(
                     'success' => false,
                     'message' => __('Screenshot rate limit exceeded. Please try again later.', 'tp-link-shortener'),
-                    'debug_error' => $e->getMessage()
                 );
             }
 
             return array(
                 'success' => false,
                 'message' => __('Screenshot API error. Please try again.', 'tp-link-shortener'),
-                'debug_error' => $e->getMessage()
             );
 
         } catch (Exception $e) {
@@ -911,7 +907,6 @@ class TP_API_Handler {
             return array(
                 'success' => false,
                 'message' => __('An unexpected error occurred while capturing screenshot.', 'tp-link-shortener'),
-                'debug_error' => $e->getMessage()
             );
         }
     }
@@ -993,7 +988,6 @@ class TP_API_Handler {
             error_log('TP Link Shortener Fingerprint Search Error: ' . $e->getMessage());
             wp_send_json_error(array(
                 'message' => __('Failed to search for links.', 'tp-link-shortener'),
-                'debug_error' => $e->getMessage()
             ));
         }
     }
@@ -1113,51 +1107,45 @@ class TP_API_Handler {
     }
 
     /**
-     * AJAX handler for updating link (anonymous users)
+     * AJAX handler for updating link (logged-in users only)
      */
     public function ajax_update_link() {
         try {
-            // Log incoming request for debugging
             $this->log_to_file('=== UPDATE LINK REQUEST START ===');
-            $this->log_to_file('Request received: ' . json_encode($_POST));
-            error_log('TP Update Link - Request received: ' . json_encode($_POST));
 
             // Verify nonce
             check_ajax_referer('tp_link_shortener_nonce', 'nonce');
 
+            // SECURITY: Require login (anonymous updates removed)
+            if (!is_user_logged_in()) {
+                wp_send_json_error(array(
+                    'message' => __('You must be logged in to update links.', 'tp-link-shortener'),
+                    'code'    => 'login_required',
+                ), 401);
+                return;
+            }
+
             // Get parameters
             $mid = isset($_POST['mid']) ? intval($_POST['mid']) : 0;
             $destination = isset($_POST['destination']) ? esc_url_raw($_POST['destination']) : '';
-            $domain = isset($_POST['domain']) ? sanitize_text_field($_POST['domain']) : '';
             $tpKey = isset($_POST['tpKey']) ? sanitize_text_field($_POST['tpKey']) : '';
 
-            $this->log_to_file('Parsed params: mid=' . $mid . ', destination=' . $destination . ', domain=' . $domain . ', tpKey=' . $tpKey);
-            error_log('TP Update Link - Parsed params: mid=' . $mid . ', destination=' . $destination . ', domain=' . $domain . ', tpKey=' . $tpKey);
+            // SECURITY: Force domain from server config (don't accept from client)
+            $domain = TP_Link_Shortener::get_domain();
 
-            if (empty($mid) || empty($destination) || empty($domain) || empty($tpKey)) {
-                $error_details = array(
-                    'mid_empty' => empty($mid),
-                    'destination_empty' => empty($destination),
-                    'domain_empty' => empty($domain),
-                    'tpKey_empty' => empty($tpKey),
-                    'mid_value' => $mid,
-                    'destination_value' => $destination,
-                    'domain_value' => $domain,
-                    'tpKey_value' => $tpKey
-                );
-                $this->log_to_file('Missing params: ' . json_encode($error_details));
-                error_log('TP Update Link - Missing params: ' . json_encode($error_details));
+            $this->log_to_file('Parsed params: mid=' . $mid . ', destination=' . $destination . ', tpKey=' . $tpKey);
+
+            if (empty($mid) || empty($destination) || empty($tpKey)) {
+                $this->log_to_file('Missing required params');
                 wp_send_json_error(array(
                     'message' => __('Missing required parameters.', 'tp-link-shortener'),
-                    'debug' => $error_details
                 ));
                 return;
             }
 
-            // Get user ID (-1 for anonymous)
-            $user_id = is_user_logged_in() ? get_current_user_id() : -1;
-            $this->log_to_file('User ID: ' . $user_id . ' (logged_in: ' . (is_user_logged_in() ? 'yes' : 'no') . ')');
-            error_log('TP Update Link - User ID: ' . $user_id);
+            // Get user ID
+            $user_id = get_current_user_id();
+            $this->log_to_file('User ID: ' . $user_id);
 
             // Prepare update data
             $updateData = array(
@@ -1165,25 +1153,21 @@ class TP_API_Handler {
                 'domain' => $domain,
                 'destination' => $destination,
                 'tpKey' => $tpKey,
-                'status' => $user_id === -1 ? 'intro' : 'active',
+                'status' => 'active',
                 'is_set' => 0,
                 'tags' => '',
                 'notes' => '',
                 'settings' => '{}',
             );
 
-            $this->log_to_file('Update data prepared: ' . json_encode($updateData));
-            error_log('TP Update Link - Update data prepared: ' . json_encode($updateData));
-
             // Update the record
             $this->log_to_file('Calling updateMaskedRecord with mid=' . $mid);
             $response = $this->client->updateMaskedRecord($mid, $updateData);
 
-            $this->log_to_file('API Response: ' . json_encode($response));
-            error_log('TP Update Link - API Response: ' . json_encode($response));
+            $this->log_to_file('API Response received');
 
             if ($response['success']) {
-                $this->log_to_file('SUCCESS - Link updated successfully');
+                $this->log_to_file('SUCCESS - Link updated');
                 $this->log_to_file('=== UPDATE LINK REQUEST END ===');
 
                 // Log history
@@ -1198,43 +1182,26 @@ class TP_API_Handler {
                     'data' => $response
                 ));
             } else {
-                $this->log_to_file('FAILURE - API returned success=false: ' . json_encode($response));
+                $this->log_to_file('FAILURE - API returned success=false');
                 $this->log_to_file('=== UPDATE LINK REQUEST END ===');
-                error_log('TP Update Link - API returned success=false: ' . json_encode($response));
                 wp_send_json_error(array(
                     'message' => __('Failed to update link.', 'tp-link-shortener'),
-                    'api_response' => $response,
-                    'debug' => array(
-                        'mid' => $mid,
-                        'update_data' => $updateData
-                    )
                 ));
             }
 
         } catch (ValidationException $e) {
             $this->log_to_file('EXCEPTION - ValidationException: ' . $e->getMessage());
-            $this->log_to_file('Trace: ' . $e->getTraceAsString());
             $this->log_to_file('=== UPDATE LINK REQUEST END ===');
             error_log('TP Update Link - ValidationException: ' . $e->getMessage());
-            error_log('TP Update Link - ValidationException trace: ' . $e->getTraceAsString());
             wp_send_json_error(array(
-                'message' => __('Validation error: ', 'tp-link-shortener') . $e->getMessage(),
-                'exception_type' => 'ValidationException',
-                'trace' => $e->getTraceAsString()
+                'message' => __('Validation error. Please check your input.', 'tp-link-shortener'),
             ));
         } catch (Exception $e) {
             $this->log_to_file('EXCEPTION - ' . get_class($e) . ': ' . $e->getMessage());
-            $this->log_to_file('Code: ' . $e->getCode());
-            $this->log_to_file('Trace: ' . $e->getTraceAsString());
             $this->log_to_file('=== UPDATE LINK REQUEST END ===');
             error_log('TP Link Shortener Update Error: ' . $e->getMessage());
-            error_log('TP Link Shortener Update Error Trace: ' . $e->getTraceAsString());
             wp_send_json_error(array(
-                'message' => __('Failed to update link: ', 'tp-link-shortener') . $e->getMessage(),
-                'exception_type' => get_class($e),
-                'exception_message' => $e->getMessage(),
-                'exception_code' => $e->getCode(),
-                'trace' => $e->getTraceAsString()
+                'message' => __('An unexpected error occurred. Please try again.', 'tp-link-shortener'),
             ));
         }
     }
@@ -1547,8 +1514,9 @@ class TP_API_Handler {
         } catch (Exception $e) {
             $this->log_to_file('EXCEPTION: ' . $e->getMessage());
             $this->log_to_file('=== TOGGLE LINK STATUS REQUEST END ===');
+            error_log('TP Link Shortener Toggle Status Error: ' . $e->getMessage());
             wp_send_json_error(array(
-                'message' => __('Error: ', 'tp-link-shortener') . $e->getMessage()
+                'message' => __('An unexpected error occurred. Please try again.', 'tp-link-shortener'),
             ));
         }
     }

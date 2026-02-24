@@ -223,7 +223,7 @@
             // Initialize URLValidator with current user authentication status
             this.urlValidator = new URLValidator({
                 isUserRegistered: tpAjax.isLoggedIn || false,
-                proxyUrl: tpAjax.ajaxUrl + '?action=tp_validate_url',
+                proxyUrl: tpAjax.ajaxUrl + '?action=tp_validate_url&nonce=' + encodeURIComponent(tpAjax.nonce),
                 timeout: 10000
             });
 
