@@ -16,7 +16,8 @@
         data: null,
         sort: 'date:desc',
         currentPage: 1,
-        pageSize: 10
+        pageSize: 10,
+        chart: null
     };
 
     // DOM cache
@@ -180,6 +181,18 @@
      */
     function initDateInputs() {
         var today = formatDateISO(new Date());
+
+        // If server-generated end date is ahead of browser's today (timezone drift),
+        // clamp to browser's today and recalculate start to preserve the range span.
+        if (state.dateEnd > today) {
+            var rangeDays = Math.round(
+                (new Date(state.dateEnd) - new Date(state.dateStart)) / (1000 * 60 * 60 * 24)
+            );
+            state.dateEnd = today;
+            var newStart = new Date();
+            newStart.setDate(newStart.getDate() - rangeDays);
+            state.dateStart = formatDateISO(newStart);
+        }
 
         // Populate inputs from state defaults (matches client-links.js:92-96)
         $dateStart.val(state.dateStart);
@@ -428,6 +441,126 @@
     }
 
     /**
+     * Render area chart with stacked clicks and QR scans series.
+     * Uses Chart.js type:'line' with fill:'origin' for area effect.
+     * Manages canvas lifecycle: destroy before recreate (CHART-03).
+     */
+    function renderChart(data) {
+        var ctx = document.getElementById('tp-ud-chart');
+        if (!ctx) return;
+        if (typeof Chart === 'undefined') return;
+
+        // Destroy previous instance to prevent "Canvas already in use" error
+        if (state.chart) {
+            state.chart.destroy();
+            state.chart = null;
+        }
+
+        // Empty data: leave canvas blank
+        if (!data || data.length === 0) {
+            return;
+        }
+
+        // Build arrays from data (already sorted by date from API)
+        var labels = [];
+        var clicksData = [];
+        var qrData = [];
+
+        for (var i = 0; i < data.length; i++) {
+            labels.push(data[i].date);
+            var split = splitHits(data[i].totalHits);
+            clicksData.push(split.clicks);
+            qrData.push(split.qr);
+        }
+
+        state.chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Clicks (est.)',
+                        data: clicksData,
+                        borderColor: '#f5a623',
+                        backgroundColor: 'rgba(245, 166, 35, 0.15)',
+                        fill: 'origin',
+                        tension: 0.3,
+                        pointRadius: 4,
+                        pointBackgroundColor: '#f5a623',
+                        pointBorderColor: '#f5a623',
+                        pointHoverRadius: 6,
+                        borderWidth: 2,
+                        order: 2
+                    },
+                    {
+                        label: 'QR Scans (est.)',
+                        data: qrData,
+                        borderColor: '#22b573',
+                        backgroundColor: 'rgba(34, 181, 115, 0.12)',
+                        fill: 'origin',
+                        tension: 0.3,
+                        pointRadius: 4,
+                        pointBackgroundColor: '#22b573',
+                        pointBorderColor: '#22b573',
+                        pointHoverRadius: 6,
+                        borderWidth: 2,
+                        order: 1
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false
+                },
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: {
+                            font: { family: "'Poppins', sans-serif", size: 12 },
+                            usePointStyle: true,
+                            padding: 16
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(30, 47, 80, 0.9)',
+                        titleFont: { family: "'Poppins', sans-serif", size: 13 },
+                        bodyFont: { family: "'Poppins', sans-serif", size: 12 },
+                        padding: 10,
+                        cornerRadius: 6
+                    }
+                },
+                scales: {
+                    y: {
+                        stacked: true,
+                        beginAtZero: true,
+                        ticks: {
+                            precision: 0,
+                            font: { size: 11 }
+                        },
+                        grid: {
+                            color: 'rgba(207, 226, 255, 0.4)'
+                        }
+                    },
+                    x: {
+                        ticks: {
+                            font: { size: 11 },
+                            maxRotation: 45,
+                            minRotation: 0,
+                            maxTicksLimit: 15
+                        },
+                        grid: {
+                            display: false
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    /**
      * Show empty state with queried date range.
      */
     function showEmptyState() {
@@ -471,10 +604,12 @@
                     if (state.data.length === 0) {
                         showContent();
                         showEmptyState();
+                        renderChart([]);
                     } else {
                         state.currentPage = 1;
                         showContent();
                         renderSummaryCards(state.data);
+                        renderChart(state.data);
                         renderTable();
                     }
                 } else {

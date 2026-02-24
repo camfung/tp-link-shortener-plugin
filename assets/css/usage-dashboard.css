@@ -185,8 +185,10 @@
 
 /* Chart Wrapper */
 .tp-ud-chart-wrapper {
-    position: relative;
+    position: relative;   /* Required by Chart.js for responsive sizing */
     width: 100%;
+    min-width: 0;         /* Prevents flex child infinite resize loop (Chart.js #5805, #9001) */
+    height: 280px;        /* Explicit height -- NOT min-height -- gives Chart.js a definitive constraint */
     margin-bottom: 24px;
 }
 
