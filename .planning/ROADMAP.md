@@ -91,11 +91,11 @@ Plans:
   2. Preset buttons (7d, 30d, 90d) update the date inputs and reload data with one click
   3. The end date input does not allow selecting a date beyond today
   4. An API requirements document exists specifying the backend changes needed for real clicks/QR split, other services data, and wallet transactions
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 08-01: TBD
-- [ ] 08-02: TBD
+- [ ] 08-01-PLAN.md — Date filtering (preset buttons, Apply handler, max date enforcement, validation)
+- [ ] 08-02-PLAN.md — API requirements document (backend changes for real clicks/QR split, other services, wallet)
 
 ## Progress
 
