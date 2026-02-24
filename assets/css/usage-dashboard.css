@@ -140,47 +140,183 @@
     padding-top: 10px;
 }
 
-/* Date Range Header */
+/* ========================================
+   Date Range Header -- Modern Segmented Control
+   ======================================== */
+
 .tp-ud-date-header {
     margin-bottom: 20px;
 }
 
-.tp-ud-date-range {
+.tp-ud-date-bar {
     display: flex;
     align-items: center;
-    gap: 8px;
+    justify-content: space-between;
+    gap: 12px;
     flex-wrap: wrap;
 }
 
-.tp-ud-date-label {
-    color: #6c757d;
-    font-size: 0.9rem;
-}
-
-.tp-ud-date-sep {
-    color: #6c757d;
-    padding: 0 4px;
-}
-
-/* Preset Buttons */
-.tp-ud-presets {
-    display: flex;
-    gap: 6px;
-    margin-top: 8px;
+/* Segmented pill group */
+.tp-ud-preset-group {
+    display: inline-flex;
+    align-items: center;
+    background: var(--tp-section);
+    border: 1px solid var(--tp-border);
+    border-radius: 9999px;
+    padding: 3px;
+    gap: 2px;
 }
 
 .tp-ud-preset-btn {
-    font-size: .75rem;
+    font-size: .78rem;
     font-weight: 600;
-    padding: .25rem .65rem;
-    border-radius: .375rem;
-    transition: all .2s;
+    padding: .4rem .9rem;
+    border-radius: 9999px;
+    border: none;
+    background: transparent;
+    color: var(--tp-muted);
+    cursor: pointer;
+    transition: color .2s ease, background .2s ease, box-shadow .2s ease, transform 80ms ease;
+    white-space: nowrap;
+    line-height: 1.4;
+}
+
+.tp-ud-preset-btn:hover:not(.active) {
+    color: var(--tp-primary-contrast);
+    background: rgba(60, 122, 229, .08);
+}
+
+.tp-ud-preset-btn:active {
+    transform: scale(.97);
 }
 
 .tp-ud-preset-btn.active {
     background: var(--tp-primary);
-    border-color: var(--tp-primary);
     color: #fff;
+    box-shadow: 0 2px 8px -2px rgba(60, 122, 229, .45);
+}
+
+/* Custom trigger icon spacing */
+.tp-ud-custom-trigger i {
+    margin-right: 3px;
+    font-size: .72rem;
+}
+
+/* Human-readable date display */
+.tp-ud-date-display {
+    font-size: .82rem;
+    font-weight: 500;
+    color: var(--tp-muted);
+    letter-spacing: .01em;
+}
+
+/* ========================================
+   Custom Date Panel (collapsible)
+   ======================================== */
+
+@keyframes tp-ud-fadeSlideDown {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.tp-ud-custom-panel {
+    margin-top: 10px;
+    padding: .85rem 1rem;
+    background: rgba(255, 255, 255, .85);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid var(--tp-border);
+    border-radius: .75rem;
+    box-shadow: 0 8px 24px -12px rgba(30, 79, 159, .18);
+    animation: tp-ud-fadeSlideDown .2s ease;
+}
+
+.tp-ud-custom-inputs {
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.tp-ud-input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.tp-ud-input-label {
+    font-size: .68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: var(--tp-primary-contrast);
+}
+
+.tp-ud-date-input {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    border: 2px solid var(--tp-border);
+    border-radius: .5rem;
+    padding: .45rem .65rem;
+    font-size: .82rem;
+    font-weight: 500;
+    color: var(--tp-text);
+    background: var(--tp-surface);
+    font-family: inherit;
+    min-width: 140px;
+    transition: border-color .2s ease, box-shadow .2s ease;
+}
+
+.tp-ud-date-input:hover {
+    border-color: var(--tp-secondary);
+}
+
+.tp-ud-date-input:focus {
+    outline: none;
+    border-color: var(--tp-primary);
+    box-shadow: 0 0 0 3px rgba(60, 122, 229, .15);
+}
+
+.tp-ud-date-input::-webkit-calendar-picker-indicator {
+    opacity: .5;
+    cursor: pointer;
+    filter: invert(30%) sepia(50%) saturate(600%) hue-rotate(190deg);
+    transition: opacity .2s ease;
+}
+
+.tp-ud-date-input::-webkit-calendar-picker-indicator:hover {
+    opacity: .8;
+}
+
+.tp-ud-input-sep {
+    color: var(--tp-muted);
+    font-size: .75rem;
+    padding-bottom: .4rem;
+}
+
+/* Apply button */
+.tp-ud-apply-btn {
+    background: linear-gradient(90deg, #3673e1, #2b63c8);
+    color: #fff;
+    border: none;
+    border-radius: .5rem;
+    padding: .45rem 1rem;
+    font-weight: 600;
+    font-size: .82rem;
+    cursor: pointer;
+    box-shadow: 0 4px 12px -6px rgba(54, 115, 225, .5);
+    transition: transform .15s ease, box-shadow .15s ease;
+}
+
+.tp-ud-apply-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px -6px rgba(54, 115, 225, .6);
+}
+
+.tp-ud-apply-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 6px -4px rgba(54, 115, 225, .4);
 }
 
 /* Chart Wrapper */
@@ -470,17 +606,47 @@
         min-width: 100px;
     }
 
-    .tp-ud-date-range {
+    /* Segmented control stacks full-width */
+    .tp-ud-date-bar {
         flex-direction: column;
         align-items: stretch;
     }
 
-    .tp-ud-date-sep {
+    .tp-ud-preset-group {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .tp-ud-preset-btn {
+        flex: 1;
+        text-align: center;
+        padding: .5rem .4rem;
+        font-size: .8rem;
+    }
+
+    .tp-ud-date-display {
+        text-align: center;
+        font-size: .78rem;
+    }
+
+    /* Custom panel inputs stack vertically */
+    .tp-ud-custom-inputs {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .tp-ud-input-sep {
         display: none;
     }
 
-    .tp-ud-presets {
-        justify-content: flex-start;
+    .tp-ud-date-input {
+        width: 100%;
+    }
+
+    .tp-ud-apply-btn {
+        width: 100%;
+        padding: .55rem 1rem;
+        min-height: 44px;
     }
 }
 

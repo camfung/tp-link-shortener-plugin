@@ -37,7 +37,10 @@
         $emptyRange,
         $dateStart,
         $dateEnd,
-        $dateApply;
+        $dateApply,
+        $customToggle,
+        $customPanel,
+        $dateDisplay;
 
     /* ---------------------------------------------------------------
      * Cache DOM elements
@@ -60,6 +63,9 @@
         $dateStart      = $('#tp-ud-date-start');
         $dateEnd        = $('#tp-ud-date-end');
         $dateApply      = $('#tp-ud-date-apply');
+        $customToggle   = $('#tp-ud-custom-toggle');
+        $customPanel    = $('#tp-ud-custom-panel');
+        $dateDisplay    = $('#tp-ud-date-display');
     }
 
     /* ---------------------------------------------------------------
@@ -207,6 +213,7 @@
         if (state.dateEnd === today) {
             $('.tp-ud-preset-btn').each(function() {
                 var days = parseInt($(this).data('days'), 10);
+                if (!days) return; // skip Custom button
                 var presetStart = new Date();
                 presetStart.setDate(presetStart.getDate() - days);
                 if (formatDateISO(presetStart) === state.dateStart) {
@@ -214,6 +221,16 @@
                 }
             });
         }
+
+        updateDateDisplay();
+    }
+
+    /**
+     * Update the human-readable date range display next to the preset pills.
+     */
+    function updateDateDisplay() {
+        if (!$dateDisplay || !$dateDisplay.length) return;
+        $dateDisplay.text(formatDateRange(state.dateStart, state.dateEnd));
     }
 
     /* ---------------------------------------------------------------
@@ -668,8 +685,21 @@
             }
         });
 
+        // Custom panel toggle
+        $customToggle.on('click', function() {
+            var isOpen = $customPanel.is(':visible');
+            if (isOpen) {
+                $customPanel.slideUp(200);
+                $(this).removeClass('active');
+            } else {
+                $customPanel.slideDown(200);
+                // Mark Custom as active, clear preset highlights
+                $('.tp-ud-preset-btn').not(this).removeClass('active');
+                $(this).addClass('active');
+            }
+        });
+
         // Apply button -- reads date inputs, validates, updates state, reloads
-        // Pattern from client-links.js:241-247
         $dateApply.on('click', function() {
             var newStart = $dateStart.val();
             var newEnd = $dateEnd.val();
@@ -692,14 +722,15 @@
             state.dateEnd = newEnd;
             state.currentPage = 1;
 
-            // Clear preset active state on manual Apply
-            $('.tp-ud-preset-btn').removeClass('active');
+            // Clear preset active state, keep Custom highlighted
+            $('.tp-ud-preset-btn').not($customToggle).removeClass('active');
 
+            updateDateDisplay();
             loadData();
         });
 
-        // Preset buttons (delegated for future-proofing)
-        $(document).on('click', '.tp-ud-preset-btn', function() {
+        // Preset buttons (delegated -- skips Custom trigger)
+        $(document).on('click', '.tp-ud-preset-btn[data-days]', function() {
             var days = parseInt($(this).data('days'), 10);
             var today = new Date();
             var start = new Date();
@@ -714,16 +745,18 @@
             state.dateEnd = endStr;
             state.currentPage = 1;
 
-            // Update active state
+            // Update active state and collapse custom panel
             $('.tp-ud-preset-btn').removeClass('active');
             $(this).addClass('active');
+            $customPanel.slideUp(200);
 
+            updateDateDisplay();
             loadData();
         });
 
         // Clear preset active state when user manually edits date inputs
         $dateStart.add($dateEnd).on('change', function() {
-            $('.tp-ud-preset-btn').removeClass('active');
+            $('.tp-ud-preset-btn').not($customToggle).removeClass('active');
         });
     }
 

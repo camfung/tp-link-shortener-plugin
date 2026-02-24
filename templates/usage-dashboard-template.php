@@ -74,21 +74,32 @@ if (!defined('ABSPATH')) {
 
         <!-- Date Range Header -->
         <div class="tp-ud-date-header">
-            <div class="tp-ud-date-range">
-                <label class="tp-ud-date-label" for="tp-ud-date-start">
-                    <i class="fas fa-calendar-alt"></i>
-                </label>
-                <input type="date" class="form-control form-control-sm" id="tp-ud-date-start">
-                <span class="tp-ud-date-sep">&ndash;</span>
-                <input type="date" class="form-control form-control-sm" id="tp-ud-date-end">
-                <button class="btn btn-sm btn-outline-primary" id="tp-ud-date-apply" title="<?php esc_attr_e('Apply', 'tp-link-shortener'); ?>">
-                    <i class="fas fa-check me-1"></i><?php esc_html_e('Apply', 'tp-link-shortener'); ?>
-                </button>
+            <div class="tp-ud-date-bar">
+                <div class="tp-ud-preset-group" role="group" aria-label="<?php esc_attr_e('Date range presets', 'tp-link-shortener'); ?>">
+                    <button class="tp-ud-preset-btn" data-days="7">7d</button>
+                    <button class="tp-ud-preset-btn" data-days="30">30d</button>
+                    <button class="tp-ud-preset-btn" data-days="90">90d</button>
+                    <button class="tp-ud-preset-btn tp-ud-custom-trigger" id="tp-ud-custom-toggle">
+                        <i class="fas fa-calendar-alt"></i> <?php esc_html_e('Custom', 'tp-link-shortener'); ?>
+                    </button>
+                </div>
+                <span class="tp-ud-date-display" id="tp-ud-date-display"></span>
             </div>
-            <div class="tp-ud-presets">
-                <button class="btn btn-sm btn-outline-secondary tp-ud-preset-btn" data-days="7">7d</button>
-                <button class="btn btn-sm btn-outline-secondary tp-ud-preset-btn" data-days="30">30d</button>
-                <button class="btn btn-sm btn-outline-secondary tp-ud-preset-btn" data-days="90">90d</button>
+            <div class="tp-ud-custom-panel" id="tp-ud-custom-panel" style="display: none;">
+                <div class="tp-ud-custom-inputs">
+                    <div class="tp-ud-input-group">
+                        <label class="tp-ud-input-label" for="tp-ud-date-start"><?php esc_html_e('From', 'tp-link-shortener'); ?></label>
+                        <input type="date" class="tp-ud-date-input" id="tp-ud-date-start">
+                    </div>
+                    <span class="tp-ud-input-sep"><i class="fas fa-arrow-right"></i></span>
+                    <div class="tp-ud-input-group">
+                        <label class="tp-ud-input-label" for="tp-ud-date-end"><?php esc_html_e('To', 'tp-link-shortener'); ?></label>
+                        <input type="date" class="tp-ud-date-input" id="tp-ud-date-end">
+                    </div>
+                    <button class="tp-ud-apply-btn" id="tp-ud-date-apply">
+                        <i class="fas fa-check me-1"></i><?php esc_html_e('Apply', 'tp-link-shortener'); ?>
+                    </button>
+                </div>
             </div>
         </div>
 
