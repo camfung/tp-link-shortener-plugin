@@ -5,22 +5,22 @@
 See: .planning/PROJECT.md (updated 2026-02-22)
 
 **Core value:** Users can track their link usage costs and account balance at a glance -- daily stats with a chart and detailed table.
-**Current focus:** Phase 6 - Stats Table and Summary Strip
+**Current focus:** Phase 8 - Date Filtering and API Doc
 
 ## Current Position
 
-Phase: 6 of 8 (Stats Table and Summary Strip) -- COMPLETE
-Plan: 2 of 2 in current phase (All plans complete)
-Status: Phase Complete
-Last activity: 2026-02-23 -- Plan 06-02 completed
+Phase: 8 of 8 (Date Filtering and API Doc)
+Plan: 1 of 1 in current phase (08-01 complete)
+Status: Plan Complete
+Last activity: 2026-02-23 -- Plan 08-01 completed
 
-Progress: [######----] 62%
+Progress: [########--] 75%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 5
-- Average duration: 5min
+- Total plans completed: 6
+- Average duration: 4min
 - Total execution time: 0.4 hours
 
 | Phase | Plan | Duration | Tasks | Files |
@@ -30,6 +30,7 @@ Progress: [######----] 62%
 | 05    | 03   | 12min    | 3     | 3     |
 | 06    | 01   | 3min     | 2     | 2     |
 | 06    | 02   | 2min     | 1     | 1     |
+| 08    | 01   | 2min     | 2     | 3     |
 
 *Updated after each plan completion*
 
@@ -59,6 +60,9 @@ Progress: [######----] 62%
 - [Phase 6 Plan 02]: Client-side sorting and pagination -- no AJAX re-fetch on sort/page change, only renderTable()
 - [Phase 6 Plan 02]: Integer-cent arithmetic in renderSummaryCards to prevent floating-point display artifacts
 - [Phase 6 Plan 02]: Delegated click handlers for sort and pagination to survive DOM re-renders
+- [Phase 8 Plan 01]: No hard-coded active class on preset buttons -- JS sets it dynamically from state to respect shortcode days attribute
+- [Phase 8 Plan 01]: formatDateISO() uses local time (getFullYear/getMonth/getDate) instead of toISOString() to avoid UTC timezone date shift
+- [Phase 8 Plan 01]: Auto-swap inverted date ranges instead of blocking -- better UX than error message
 
 ### Pending Todos
 
@@ -74,5 +78,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-23
-Stopped at: Completed 06-02-PLAN.md (Phase 6 complete)
-Resume file: .planning/phases/06-stats-table-and-summary-strip/06-02-SUMMARY.md
+Stopped at: Completed 08-01-PLAN.md
+Resume file: .planning/phases/08-date-filtering-and-api-doc/08-01-SUMMARY.md
