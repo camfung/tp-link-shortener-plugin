@@ -162,6 +162,27 @@
     padding: 0 4px;
 }
 
+/* Preset Buttons */
+.tp-ud-presets {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.tp-ud-preset-btn {
+    font-size: .75rem;
+    font-weight: 600;
+    padding: .25rem .65rem;
+    border-radius: .375rem;
+    transition: all .2s;
+}
+
+.tp-ud-preset-btn.active {
+    background: var(--tp-primary);
+    border-color: var(--tp-primary);
+    color: #fff;
+}
+
 /* Chart Wrapper */
 .tp-ud-chart-wrapper {
     position: relative;
@@ -454,6 +475,10 @@
 
     .tp-ud-date-sep {
         display: none;
+    }
+
+    .tp-ud-presets {
+        justify-content: flex-start;
     }
 }
 

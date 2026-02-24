@@ -85,6 +85,11 @@ if (!defined('ABSPATH')) {
                     <i class="fas fa-check me-1"></i><?php esc_html_e('Apply', 'tp-link-shortener'); ?>
                 </button>
             </div>
+            <div class="tp-ud-presets">
+                <button class="btn btn-sm btn-outline-secondary tp-ud-preset-btn" data-days="7">7d</button>
+                <button class="btn btn-sm btn-outline-secondary tp-ud-preset-btn" data-days="30">30d</button>
+                <button class="btn btn-sm btn-outline-secondary tp-ud-preset-btn" data-days="90">90d</button>
+            </div>
         </div>
 
         <!-- Summary Stats Strip -->
