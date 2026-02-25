@@ -91,9 +91,16 @@ class TestEditEmptyKeywordBlocked:
         # Clear the keyword
         keyword_input.fill("")
 
-        # Listen for AJAX calls to admin-ajax.php
-        ajax_requests = []
-        page.on("request", lambda req: ajax_requests.append(req.url) if "admin-ajax.php" in req.url else None)
+        # Intercept AJAX POST bodies to detect update/create link requests
+        link_requests = []
+
+        def capture_request(req):
+            if "admin-ajax.php" in req.url and req.method == "POST":
+                body = req.post_data or ""
+                if "tp_update_link" in body or "tp_create_link" in body:
+                    link_requests.append(body)
+
+        page.on("request", capture_request)
 
         # Click save
         submit_btn = page.locator("#tp-submit-btn")
@@ -102,11 +109,7 @@ class TestEditEmptyKeywordBlocked:
         # Wait a moment for any async activity
         page.wait_for_timeout(1_000)
 
-        # No AJAX request should have been made for tp_update_link
-        update_requests = [url for url in ajax_requests if "tp_update_link" in str(url)]
-        # Since it's a POST, check post data via request interception isn't straightforward,
-        # but we can verify no request was sent at all because validation should block it.
-        # The AJAX call is a POST to admin-ajax.php, so we check for any admin-ajax calls.
-        assert len(ajax_requests) == 0, (
-            f"Bug TP-103: AJAX request was sent despite empty keyword. Requests: {ajax_requests}"
+        # No update/create link AJAX should have been sent
+        assert len(link_requests) == 0, (
+            f"Bug TP-103: Link save request was sent despite empty keyword."
         )
