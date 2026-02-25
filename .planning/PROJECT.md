@@ -8,17 +8,15 @@ A WordPress plugin (Traffic Portal) that provides link shortening, click trackin
 
 Users can track their link usage costs and account balance at a glance — daily stats with a chart and detailed table showing clicks, QR scans, costs, and running balance.
 
-## Current Milestone: v2.0 Usage Dashboard
+## Current Milestone: v2.1 Dashboard Caching
 
-**Goal:** Build a standalone billing/usage dashboard that shows users their daily link activity stats, costs, and account balance via a chart and table.
+**Goal:** Add caching to the client links dashboard to reduce API calls and speed up page loads, while keeping data near-instantly fresh on mutations.
 
 **Target features:**
-- New `[tp_usage_dashboard]` shortcode on its own page
-- Area chart showing daily clicks and QR scans over time
-- Stats table with date, clicks, QR scans, total hits, cost, and running balance
-- Date range filtering (default: last 30 days)
-- Mock data where API falls short (clicks vs QR scans breakdown)
-- API requirements document specifying needed backend changes
+- Browser-side caching of link data with mutation-triggered invalidation
+- Server-side caching (WordPress transients) of link preview thumbnails
+- Cache invalidation on create, edit, and delete operations
+- Faster dashboard load times with fewer redundant API calls
 
 ## Requirements
 
@@ -37,13 +35,10 @@ Users can track their link usage costs and account balance at a glance — daily
 
 ### Active
 
-- [ ] Usage dashboard shortcode renders a standalone billing page
-- [ ] Area chart displays daily clicks and QR scans over time
-- [ ] Stats table shows date, clicks, QR scans, total hits, cost, balance
-- [ ] Date range filter defaults to last 30 days
-- [ ] Dashboard fetches data from user-activity-summary API
-- [ ] Mocked clicks/QR scans split where API only returns totalHits
-- [ ] API requirements doc specifies needed backend changes
+- [ ] Browser-side cache for link data with mutation invalidation
+- [ ] Server-side cache (transients) for link preview thumbnails
+- [ ] Cache invalidation on link create/edit/delete
+- [ ] Reduced API calls and faster dashboard loads
 
 ### Out of Scope
 
@@ -82,4 +77,4 @@ Users can track their link usage costs and account balance at a glance — daily
 | Area chart matching TP-59 design | Yellow=clicks, green=QR scans, data point markers | — Pending |
 
 ---
-*Last updated: 2026-02-22 after v2.0 milestone initialization*
+*Last updated: 2026-02-24 after v2.1 milestone initialization*

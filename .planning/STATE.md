@@ -2,39 +2,17 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-02-22)
+See: .planning/PROJECT.md (updated 2026-02-24)
 
 **Core value:** Users can track their link usage costs and account balance at a glance -- daily stats with a chart and detailed table.
-**Current focus:** All phases complete (5-8)
+**Current focus:** Defining requirements for v2.1
 
 ## Current Position
 
-Phase: 8 of 8 (all phases complete)
-Plan: All plans complete across phases 5-8
-Status: All Phases Complete
-Last activity: 2026-02-23 -- Phase 7 Plan 01 completed (executed out of order after Phase 8)
-
-Progress: [##########] 100%
-
-## Performance Metrics
-
-**Velocity:**
-- Total plans completed: 8
-- Average duration: 4min
-- Total execution time: 0.5 hours
-
-| Phase | Plan | Duration | Tasks | Files |
-|-------|------|----------|-------|-------|
-| 05    | 01   | 2min     | 1     | 7     |
-| 05    | 02   | 4min     | 2     | 5     |
-| 05    | 03   | 12min    | 3     | 3     |
-| 06    | 01   | 3min     | 2     | 2     |
-| 06    | 02   | 2min     | 1     | 1     |
-| 07    | 01   | 2min     | 2     | 2     |
-| 08    | 01   | 2min     | 2     | 3     |
-| 08    | 02   | 1min     | 1     | 1     |
-
-*Updated after each plan completion*
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-02-24 — Milestone v2.1 started
 
 ## Accumulated Context
 
