@@ -633,15 +633,10 @@
             }
 
             // Get the tpKey from the custom key input (Magic Keyword box)
-            // If empty, use the current key from the record
             let tpKey = this.$customKeyInput.val().trim();
             if (!tpKey) {
-                tpKey = this.currentRecord.tpKey || this.currentRecord.key;
-            }
-
-            if (!tpKey) {
-                TPDebug.error('update', 'TP Update: No key found', this.currentRecord);
-                this.showSnackbar('Unable to find link key.', 'error');
+                TPDebug.error('update', 'TP Update: Empty keyword');
+                this.showSnackbar('Magic Keyword is required.', 'error');
                 return;
             }
 
