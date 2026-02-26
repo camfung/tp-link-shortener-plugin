@@ -658,7 +658,7 @@ class TrafficPortalApiClient
 
         // Validate sort format if provided
         if ($sort !== null) {
-            $allowedSortFields = ['updated_at', 'created_at', 'tpKey'];
+            $allowedSortFields = ['updated_at', 'created_at', 'tpKey', 'destination', 'clicks'];
             $allowedDirections = ['asc', 'desc'];
             $sortParts = explode(':', $sort);
 
