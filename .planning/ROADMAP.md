@@ -200,7 +200,10 @@ Plans:
   1. An integration test confirms the wallet client fetches and correctly parses real TerrWallet API data for uid 125
   2. Unit tests pass for all merge adapter scenarios: both sources present, usage-only days, wallet-only days, and multiple transactions on the same day
   3. An E2E test loads the usage dashboard in a browser and verifies the Other Services column displays real wallet amounts with working tooltips
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 13-01-PLAN.md -- Update existing E2E tests for 5-column layout and create Other Services E2E tests
 
 ## Progress
 
@@ -222,4 +225,4 @@ Note: Phases 9 and 10 have no dependency on each other and can be built in paral
 | 10. Merge Adapter | 1/1 | Complete   | 2026-03-10 | - |
 | 11. Backend Integration | v2.2 | Complete    | 2026-03-10 | - |
 | 12. Dashboard UI | v2.2 | Complete    | 2026-03-10 | - |
-| 13. E2E Tests and Validation | v2.2 | 0/0 | Not started | - |
+| 13. E2E Tests and Validation | v2.2 | 0/1 | Planning | - |
