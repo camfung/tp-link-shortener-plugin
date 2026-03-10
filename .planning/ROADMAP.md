@@ -174,7 +174,10 @@ Plans:
   1. Calling admin-ajax.php?action=tp_get_usage_summary returns day records that include otherServices fields with wallet credit amounts -- no additional AJAX call is needed from the browser
   2. If the TerrWallet API returns an error or times out, the AJAX response still returns all usage data normally with null otherServices values -- no error is shown to the user
   3. If the TerrWallet plugin is deactivated, the dashboard loads without any PHP errors or JavaScript failures -- the Other Services column simply shows empty cells
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 11-01-PLAN.md -- Wire wallet client + merge adapter into AJAX handler with graceful degradation
 
 ### Phase 12: Dashboard UI
 **Goal**: Users can see their wallet credit amounts per day in a dedicated Other Services column with tooltip descriptions, and the summary strip shows the period total
@@ -214,6 +217,6 @@ Note: Phases 9 and 10 have no dependency on each other and can be built in paral
 | 8. Date Filtering and API Doc | v2.0 | 0/0 | Not started | - |
 | 9. Wallet Client | v2.2 | 1/1 | Complete | 2026-03-10 |
 | 10. Merge Adapter | 1/1 | Complete   | 2026-03-10 | - |
-| 11. Backend Integration | v2.2 | 0/0 | Not started | - |
+| 11. Backend Integration | v2.2 | 0/1 | Planning | - |
 | 12. Dashboard UI | v2.2 | 0/0 | Not started | - |
 | 13. E2E Tests and Validation | v2.2 | 0/0 | Not started | - |
