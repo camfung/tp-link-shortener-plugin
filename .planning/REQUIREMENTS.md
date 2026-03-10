@@ -1,104 +1,133 @@
-# Requirements: Traffic Portal v2.0 — Usage Dashboard
+# Requirements: Traffic Portal v2.2 — TerrWallet Integration
 
-**Defined:** 2026-02-22
-**Core Value:** Users can track their link usage costs and account balance at a glance — daily stats with a chart and detailed table.
+**Defined:** 2026-03-10
+**Core Value:** Users can track their link usage costs and account balance at a glance — daily stats with a chart and detailed table showing clicks, QR scans, costs, wallet top-ups, and running balance.
 
-## v2.0 Requirements
+## v2.2 Requirements
+
+### Wallet Client
+
+- [ ] **WCLI-01**: Plugin fetches wallet credit transactions from the TerrWallet API for the current user
+- [ ] **WCLI-02**: TerrWallet API credentials (WC consumer key/secret) are configured via wp-config.php constants or direct PHP calls
+- [ ] **WCLI-03**: Wallet client handles pagination to retrieve all transactions within the requested date range
+- [ ] **WCLI-04**: Wallet client uses direct PHP calls or rest_do_request() to avoid loopback HTTP issues on same-server API
+
+### Data Merge
+
+- [ ] **MERGE-01**: Wallet credit transactions are merged with usage data by date into a unified daily dataset
+- [ ] **MERGE-02**: Multiple wallet transactions on the same day are aggregated into a single daily total with combined descriptions
+- [ ] **MERGE-03**: Days with only wallet transactions (no usage activity) appear as rows with zero hits/cost
+- [ ] **MERGE-04**: Date formats are normalized between APIs (usage: YYYY-MM-DD, wallet: YYYY-MM-DD HH:MM:SS)
+
+### Graceful Degradation
+
+- [ ] **GRACE-01**: Dashboard displays usage data normally if TerrWallet API is unavailable or errors — Other Services column shows empty
+- [ ] **GRACE-02**: If TerrWallet plugin is deactivated, dashboard continues to function without errors
+
+### Dashboard UI
+
+- [ ] **UI-01**: Usage dashboard table includes an "Other Services" column showing wallet credit amounts (+$X.XX format)
+- [ ] **UI-02**: Other Services amounts display a tooltip on hover showing the transaction description
+- [ ] **UI-03**: Summary strip includes an Other Services total card for the selected period
+- [ ] **UI-04**: Existing AJAX handler (tp_get_usage_summary) returns merged data — no additional AJAX call needed
+
+### Testing
+
+- [ ] **TEST-01**: Integration tests verify wallet client fetches and parses real TerrWallet API data (uid 125)
+- [ ] **TEST-02**: Unit tests verify merge adapter handles: both sources, usage-only days, wallet-only days, multiple transactions per day
+- [ ] **TEST-03**: E2E tests verify Other Services column appears with real wallet data after deployment
+
+## v2.0 Requirements (Validated)
 
 ### Shortcode & Page
 
-- [ ] **PAGE-01**: User sees a standalone billing dashboard when visiting a page with `[tp_usage_dashboard]`
-- [ ] **PAGE-02**: Unauthenticated user sees a login prompt instead of the dashboard
-- [ ] **PAGE-03**: Dashboard shows a loading skeleton while data is being fetched
+- ✓ **PAGE-01**: User sees a standalone billing dashboard — v2.0 Phase 5
+- ✓ **PAGE-02**: Unauthenticated user sees login prompt — v2.0 Phase 5
+- ✓ **PAGE-03**: Dashboard shows loading skeleton — v2.0 Phase 5
 
 ### Data & API
 
-- [ ] **DATA-01**: Dashboard fetches daily activity data from the external `user-activity-summary` API via WordPress AJAX proxy
-- [ ] **DATA-02**: User ID is always determined server-side — never accepted from client-side request parameters
-- [ ] **DATA-03**: API responses are cached via WordPress transients (5-minute TTL) to avoid redundant external calls
-- [ ] **DATA-04**: Date range filter defaults to last 30 days on first load
-- [ ] **DATA-05**: User can select custom start and end dates to filter the data
-- [ ] **DATA-06**: Preset date buttons (7d, 30d, 90d) allow quick date range selection
-- [ ] **DATA-07**: Clicks and QR scans are split from totalHits using a deterministic mock ratio, clearly labeled as estimated
+- ✓ **DATA-01**: Dashboard fetches daily activity data via AJAX proxy — v2.0 Phase 5
+- ✓ **DATA-02**: User ID determined server-side — v2.0 Phase 5
+- ✓ **DATA-03**: API responses cached via transients — v2.0 Phase 5
+- ✓ **DATA-04**: Date range defaults to last 30 days — v2.0 Phase 6
+- ✓ **DATA-05**: Custom start/end date selection — v2.0 Phase 8
+- ✓ **DATA-06**: Preset date buttons (7d, 30d, 90d) — v2.0 Phase 8
+- ✓ **DATA-07**: Mock clicks/QR split — v2.0 Phase 6
 
 ### Stats Table
 
-- [ ] **TABLE-01**: Daily stats table displays columns: date, clicks, QR scans, total hits, cost, balance
-- [ ] **TABLE-02**: All currency values display with exactly 2 decimal places and dollar sign formatting
-- [ ] **TABLE-03**: Running balance is calculated without floating-point drift (rounded after each step)
-- [ ] **TABLE-04**: When no data exists for the selected range, a clear "No usage data" message is shown with the date range displayed
-- [ ] **TABLE-05**: Date range filter end date cannot exceed today
+- ✓ **TABLE-01**: Daily stats table with date, clicks, QR, hits, cost, balance — v2.0 Phase 6
+- ✓ **TABLE-02**: Currency formatting ($X.XX) — v2.0 Phase 6
+- ✓ **TABLE-03**: Running balance without floating-point drift — v2.0 Phase 6
+- ✓ **TABLE-04**: Empty state message — v2.0 Phase 6
+- ✓ **TABLE-05**: End date cannot exceed today — v2.0 Phase 8
 
 ### Chart
 
-- [ ] **CHART-01**: Area chart displays daily clicks and QR scans as two stacked series (yellow/green matching TP-59 design)
-- [ ] **CHART-02**: Chart has data point markers on each day
-- [ ] **CHART-03**: Chart properly destroys and recreates when date range changes (no "Canvas already in use" errors)
-- [ ] **CHART-04**: Chart container uses proper CSS (position: relative, min-width: 0) to prevent flex resize loops
-- [ ] **CHART-05**: Mock data split is visually labeled as "estimated" via chart legend or disclaimer
+- ✓ **CHART-01**: Stacked area chart (clicks/QR) — v2.0 Phase 7
+- ✓ **CHART-02**: Data point markers — v2.0 Phase 7
+- ✓ **CHART-03**: Proper chart destroy/recreate — v2.0 Phase 7
+- ✓ **CHART-04**: CSS flex resize fix — v2.0 Phase 7
+- ✓ **CHART-05**: Estimated label — v2.0 Phase 7
 
 ### Summary Stats
 
-- [ ] **STATS-01**: Summary strip above the table shows total hits, total cost, and current balance for the selected period
+- ✓ **STATS-01**: Summary strip (hits, cost, balance) — v2.0 Phase 6
 
-### API Requirements Doc
+### API Doc
 
-- [ ] **DOC-01**: API requirements document specifies needed backend changes for real clicks/QR split, other services, and wallet transactions
+- ✓ **DOC-01**: API requirements document — v2.0 Phase 8
 
 ## Future Requirements
-
-### Other Services & Wallet
-- **WALLET-01**: Other Services column showing one-time charges (domain renewals, wallet top-ups)
-- **WALLET-02**: Wallet top-up integration with balance
 
 ### Extended Analytics
 - **EXT-01**: Second table for domains, tpKeys, semaphores info
 - **EXT-02**: CSV/export functionality for usage data
 - **EXT-03**: Real clicks/QR split from by-source API (replacing mock)
 
+### Dashboard Caching (deferred from v2.1)
+- **CACHE-01**: Browser-side cache for link data with mutation invalidation
+- **CACHE-02**: Server-side cache (transients) for link preview thumbnails
+- **CACHE-03**: Cache invalidation on link create/edit/delete
+
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| Link management features | Separate dashboard handles this (tp_client_links) |
-| Real-time data refresh | Daily granularity data doesn't benefit from live updates |
-| Per-link breakdown in this dashboard | Belongs in the link management dashboard |
-| Sortable table columns | Daily chronological data has one natural sort order |
-| Table pagination | 30-90 rows is manageable without pagination |
-| Mobile responsiveness | Separate milestone (v1.0) handles this |
+| Wallet debit transactions | Debits represent usage costs already tracked by hitCost — would double-count |
+| Link management features | Separate dashboard (tp_client_links) |
+| Real-time data refresh | Daily granularity doesn't benefit from live updates |
+| Mobile responsiveness | Separate milestone (v1.0) |
+| Dashboard caching | Deferred to future milestone |
 
 ## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PAGE-01 | Phase 5 | Pending |
-| PAGE-02 | Phase 5 | Pending |
-| PAGE-03 | Phase 5 | Pending |
-| DATA-01 | Phase 5 | Pending |
-| DATA-02 | Phase 5 | Pending |
-| DATA-03 | Phase 5 | Pending |
-| DATA-04 | Phase 6 | Pending |
-| DATA-05 | Phase 8 | Pending |
-| DATA-06 | Phase 8 | Pending |
-| DATA-07 | Phase 6 | Pending |
-| TABLE-01 | Phase 6 | Pending |
-| TABLE-02 | Phase 6 | Pending |
-| TABLE-03 | Phase 6 | Pending |
-| TABLE-04 | Phase 6 | Pending |
-| TABLE-05 | Phase 8 | Pending |
-| CHART-01 | Phase 7 | Pending |
-| CHART-02 | Phase 7 | Pending |
-| CHART-03 | Phase 7 | Pending |
-| CHART-04 | Phase 7 | Pending |
-| CHART-05 | Phase 7 | Pending |
-| STATS-01 | Phase 6 | Pending |
-| DOC-01 | Phase 8 | Pending |
+| WCLI-01 | TBD | Pending |
+| WCLI-02 | TBD | Pending |
+| WCLI-03 | TBD | Pending |
+| WCLI-04 | TBD | Pending |
+| MERGE-01 | TBD | Pending |
+| MERGE-02 | TBD | Pending |
+| MERGE-03 | TBD | Pending |
+| MERGE-04 | TBD | Pending |
+| GRACE-01 | TBD | Pending |
+| GRACE-02 | TBD | Pending |
+| UI-01 | TBD | Pending |
+| UI-02 | TBD | Pending |
+| UI-03 | TBD | Pending |
+| UI-04 | TBD | Pending |
+| TEST-01 | TBD | Pending |
+| TEST-02 | TBD | Pending |
+| TEST-03 | TBD | Pending |
 
 **Coverage:**
-- v2.0 requirements: 22 total
-- Mapped to phases: 22
-- Unmapped: 0
+- v2.2 requirements: 17 total
+- Mapped to phases: 0 (awaiting roadmap)
+- Unmapped: 17
 
 ---
-*Requirements defined: 2026-02-22*
-*Last updated: 2026-02-22 after roadmap creation (phases 5-8)*
+*Requirements defined: 2026-03-10*
+*Last updated: 2026-03-10 after initial definition*
