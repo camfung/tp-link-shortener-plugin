@@ -161,7 +161,10 @@ Plans:
   2. Multiple wallet transactions on the same day are aggregated into a single daily total -- not mapped one-to-one to separate rows
   3. A day with wallet transactions but zero usage activity appears as a row with 0 hits, $0.00 cost, and the wallet amount in Other Services
   4. Wallet timestamps (YYYY-MM-DD HH:MM:SS) and usage dates (YYYY-MM-DD) are normalized to the same date key before merging -- no mismatches from format differences
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 10-01-PLAN.md -- TDD: UsageMergeAdapter with hash-map full outer join and PHPUnit tests
 
 ### Phase 11: Backend Integration
 **Goal**: The existing AJAX handler returns merged usage + wallet data in a single response, and wallet failures never break the dashboard -- usage data always displays even if the wallet API is unavailable
