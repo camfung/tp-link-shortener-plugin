@@ -93,8 +93,9 @@ class TerrWalletClient
     private function fetchViaRest(int $userId, string $afterDate, string $beforeDate): array
     {
         if (!defined('TP_WC_CONSUMER_KEY') || !defined('TP_WC_CONSUMER_SECRET')) {
-            throw new TerrWalletException(
-                'WC API credentials not configured. Add TP_WC_CONSUMER_KEY and TP_WC_CONSUMER_SECRET to wp-config.php.'
+            throw new TerrWalletNotInstalledException(
+                'woo-wallet plugin is not available (direct function missing) and WC API credentials are not configured. '
+                . 'Either install the woo-wallet plugin or add TP_WC_CONSUMER_KEY and TP_WC_CONSUMER_SECRET to wp-config.php.'
             );
         }
 
