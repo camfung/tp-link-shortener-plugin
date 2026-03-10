@@ -38,7 +38,7 @@ if (!defined('ABSPATH')) {
                     <thead>
                         <tr>
                             <th class="tp-ud-col-date"><?php esc_html_e('Date', 'tp-link-shortener'); ?></th>
-                            <th class="tp-ud-col-hits"><?php esc_html_e('Hits (est.)', 'tp-link-shortener'); ?></th>
+                            <th class="tp-ud-col-hits"><?php esc_html_e('Hits', 'tp-link-shortener'); ?></th>
                             <th class="tp-ud-col-cost"><?php esc_html_e('Cost', 'tp-link-shortener'); ?></th>
                             <th class="tp-ud-col-balance"><?php esc_html_e('Balance', 'tp-link-shortener'); ?></th>
                         </tr>
@@ -121,7 +121,7 @@ if (!defined('ABSPATH')) {
                                 <?php esc_html_e('Date', 'tp-link-shortener'); ?> <i class="fas fa-sort tp-ud-sort-icon"></i>
                             </th>
                             <th class="tp-ud-col-hits tp-ud-sortable" data-sort="totalHits">
-                                <?php esc_html_e('Hits (est.)', 'tp-link-shortener'); ?> <i class="fas fa-sort tp-ud-sort-icon"></i>
+                                <?php esc_html_e('Hits', 'tp-link-shortener'); ?> <i class="fas fa-sort tp-ud-sort-icon"></i>
                             </th>
                             <th class="tp-ud-col-cost tp-ud-sortable" data-sort="hitCost">
                                 <?php esc_html_e('Cost', 'tp-link-shortener'); ?> <i class="fas fa-sort tp-ud-sort-icon"></i>
@@ -135,11 +135,6 @@ if (!defined('ABSPATH')) {
                 </table>
             </div>
 
-            <!-- Estimated disclaimer footnote -->
-            <p class="tp-ud-estimated-note">
-                <i class="fas fa-info-circle"></i>
-                <?php esc_html_e('Click/QR breakdown is estimated from total hits.', 'tp-link-shortener'); ?>
-            </p>
 
             <!-- Pagination -->
             <div class="tp-ud-pagination" id="tp-ud-pagination" style="display: none;">
@@ -160,5 +155,13 @@ if (!defined('ABSPATH')) {
         </div>
 
     </div>
+
+    <!-- TEMP: Remove after milestone v2.2 complete -->
+    <div class="tp-ud-wallet-test" style="margin-top: 2rem; padding: 1.5rem; border: 2px dashed #f5a623; border-radius: 8px; background: #fffbf0;">
+        <h5 style="margin: 0 0 1rem;">Wallet Client Test (Temporary)</h5>
+        <button class="btn btn-warning" id="tp-ud-test-wallet">Test Wallet Client</button>
+        <pre id="tp-ud-wallet-output" style="margin-top: 1rem; padding: 1rem; background: #f8f9fa; border-radius: 4px; max-height: 400px; overflow: auto; display: none; white-space: pre-wrap; word-wrap: break-word;"></pre>
+    </div>
+    <!-- /TEMP -->
 
 </div>
