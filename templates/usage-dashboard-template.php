@@ -29,6 +29,10 @@ if (!defined('ABSPATH')) {
                 <div class="tp-ud-skel tp-ud-skel-sm" style="width: 45%; margin-bottom: 8px;"></div>
                 <div class="tp-ud-skel tp-ud-skel-lg" style="width: 75%;"></div>
             </div>
+            <div class="tp-ud-stat-card-skeleton">
+                <div class="tp-ud-skel tp-ud-skel-sm" style="width: 55%; margin-bottom: 8px;"></div>
+                <div class="tp-ud-skel tp-ud-skel-lg" style="width: 60%;"></div>
+            </div>
         </div>
 
         <!-- Table skeleton rows -->
@@ -39,6 +43,7 @@ if (!defined('ABSPATH')) {
                         <tr>
                             <th class="tp-ud-col-date"><?php esc_html_e('Date', 'tp-link-shortener'); ?></th>
                             <th class="tp-ud-col-hits"><?php esc_html_e('Hits', 'tp-link-shortener'); ?></th>
+                            <th class="tp-ud-col-other"><?php esc_html_e('Other Services', 'tp-link-shortener'); ?></th>
                             <th class="tp-ud-col-cost"><?php esc_html_e('Cost', 'tp-link-shortener'); ?></th>
                             <th class="tp-ud-col-balance"><?php esc_html_e('Balance', 'tp-link-shortener'); ?></th>
                         </tr>
@@ -48,6 +53,7 @@ if (!defined('ABSPATH')) {
                         <tr class="tp-ud-skeleton-row">
                             <td><div class="tp-ud-skel tp-ud-skel-md"></div></td>
                             <td><div class="tp-ud-skel tp-ud-skel-lg"></div></td>
+                            <td><div class="tp-ud-skel tp-ud-skel-sm"></div></td>
                             <td><div class="tp-ud-skel tp-ud-skel-sm"></div></td>
                             <td><div class="tp-ud-skel tp-ud-skel-md"></div></td>
                         </tr>
@@ -122,6 +128,9 @@ if (!defined('ABSPATH')) {
                             </th>
                             <th class="tp-ud-col-hits tp-ud-sortable" data-sort="totalHits">
                                 <?php esc_html_e('Hits', 'tp-link-shortener'); ?> <i class="fas fa-sort tp-ud-sort-icon"></i>
+                            </th>
+                            <th class="tp-ud-col-other tp-ud-sortable" data-sort="otherServices">
+                                <?php esc_html_e('Other Services', 'tp-link-shortener'); ?> <i class="fas fa-sort tp-ud-sort-icon"></i>
                             </th>
                             <th class="tp-ud-col-cost tp-ud-sortable" data-sort="hitCost">
                                 <?php esc_html_e('Cost', 'tp-link-shortener'); ?> <i class="fas fa-sort tp-ud-sort-icon"></i>
