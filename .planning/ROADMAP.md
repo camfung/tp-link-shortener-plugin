@@ -147,7 +147,10 @@ Plans:
   2. The wallet client retrieves all transactions within a date range, even when results span multiple API pages
   3. WC API credentials are read from wp-config.php constants -- no credentials are stored in the WordPress database or exposed to the browser
   4. When the TerrWallet plugin is not installed, the client throws a typed TerrWalletException that callers can catch non-fatally
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 09-01-PLAN.md -- TerrWallet client (exceptions, DTO, dual-mode fetch, integration test)
 
 ### Phase 10: Merge Adapter
 **Goal**: Wallet credit transactions can be aggregated by date and merged into usage day records, producing a unified dataset where every day with either usage or wallet activity appears -- independently testable with fixture data and no I/O
@@ -206,7 +209,7 @@ Note: Phases 9 and 10 have no dependency on each other and can be built in paral
 | 6. Stats Table and Summary Strip | v2.0 | Complete | 2026-02-23 | - |
 | 7. Chart Rendering | v2.0 | 0/0 | Not started | - |
 | 8. Date Filtering and API Doc | v2.0 | 0/0 | Not started | - |
-| 9. Wallet Client | v2.2 | 0/0 | Not started | - |
+| 9. Wallet Client | v2.2 | 0/1 | Planning | - |
 | 10. Merge Adapter | v2.2 | 0/0 | Not started | - |
 | 11. Backend Integration | v2.2 | 0/0 | Not started | - |
 | 12. Dashboard UI | v2.2 | 0/0 | Not started | - |
