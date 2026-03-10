@@ -165,12 +165,6 @@ if (!defined('ABSPATH')) {
 
     </div>
 
-    <!-- TEMP: Remove after milestone v2.2 complete -->
-    <div class="tp-ud-wallet-test" style="margin-top: 2rem; padding: 1.5rem; border: 2px dashed #f5a623; border-radius: 8px; background: #fffbf0;">
-        <h5 style="margin: 0 0 1rem;">Wallet Client Test (Temporary)</h5>
-        <button class="btn btn-warning" id="tp-ud-test-wallet">Test Wallet Client</button>
-        <pre id="tp-ud-wallet-output" style="margin-top: 1rem; padding: 1rem; background: #f8f9fa; border-radius: 4px; max-height: 400px; overflow: auto; display: none; white-space: pre-wrap; word-wrap: break-word;"></pre>
     </div>
-    <!-- /TEMP -->
 
 </div>

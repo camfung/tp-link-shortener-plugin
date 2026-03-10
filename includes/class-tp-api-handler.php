@@ -157,9 +157,6 @@ class TP_API_Handler {
         add_action('wp_ajax_tp_get_usage_summary', array($this, 'ajax_get_usage_summary'));
         add_action('wp_ajax_nopriv_tp_get_usage_summary', array($this, 'ajax_require_login'));
 
-        // TEMP: Remove after milestone v2.2 complete
-        add_action('wp_ajax_tp_test_wallet_client', array($this, 'ajax_test_wallet_client'));
-
         // Client links endpoints for non-logged-in users (return 401)
         add_action('wp_ajax_nopriv_tp_get_user_map_items', array($this, 'ajax_require_login'));
         add_action('wp_ajax_nopriv_tp_toggle_link_status', array($this, 'ajax_require_login'));
@@ -1745,54 +1742,4 @@ class TP_API_Handler {
     }
 
     // TEMP: Remove after milestone v2.2 complete
-    /**
-     * Test AJAX endpoint for TerrWalletClient verification.
-     * Exercises getTransactions() for the logged-in user and returns JSON.
-     */
-    public function ajax_test_wallet_client(): void {
-        check_ajax_referer('tp_link_shortener_nonce', 'nonce');
-
-        if (!is_user_logged_in()) {
-            wp_send_json_error(array('message' => 'Not logged in.'), 401);
-            return;
-        }
-
-        $userId = get_current_user_id();
-        $method = function_exists('get_wallet_transactions') ? 'direct' : 'rest';
-
-        try {
-            $client = new \TerrWallet\TerrWalletClient();
-            $transactions = $client->getTransactions($userId, '2026-01-01', '2026-03-10');
-
-            $txData = array_map(function ($tx) {
-                return array(
-                    'date'          => $tx->date,
-                    'amount'        => $tx->amount,
-                    'description'   => $tx->description,
-                    'transactionId' => $tx->transactionId,
-                );
-            }, $transactions);
-
-            wp_send_json_success(array(
-                'transactions' => $txData,
-                'count'        => count($transactions),
-                'user_id'      => $userId,
-                'method'       => $method,
-            ));
-
-        } catch (\TerrWallet\Exception\TerrWalletNotInstalledException $e) {
-            wp_send_json_success(array(
-                'message' => 'woo-wallet not installed — exception caught correctly',
-                'user_id' => $userId,
-                'method'  => $method,
-            ));
-
-        } catch (\TerrWallet\Exception\TerrWalletException $e) {
-            wp_send_json_error(array(
-                'message' => $e->getMessage(),
-                'user_id' => $userId,
-                'method'  => $method,
-            ));
-        }
-    }
 }

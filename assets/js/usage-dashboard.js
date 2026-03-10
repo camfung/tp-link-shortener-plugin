@@ -868,33 +868,6 @@
         bindEvents();
         loadData();
 
-        // TEMP: Remove after milestone v2.2 complete
-        $('#tp-ud-test-wallet').on('click', function() {
-            var $btn = $(this);
-            var $output = $('#tp-ud-wallet-output');
-
-            $btn.prop('disabled', true).text('Testing...');
-            $output.show().text('Loading...');
-
-            $.ajax({
-                url: tpUsageDashboard.ajaxUrl,
-                type: 'POST',
-                data: {
-                    action: 'tp_test_wallet_client',
-                    nonce: tpUsageDashboard.nonce
-                },
-                timeout: 15000,
-                success: function(response) {
-                    $output.text(JSON.stringify(response, null, 2));
-                    $btn.prop('disabled', false).text('Test Wallet Client');
-                },
-                error: function(xhr) {
-                    $output.text('Request failed: ' + xhr.status + ' ' + xhr.statusText);
-                    $btn.prop('disabled', false).text('Test Wallet Client');
-                }
-            });
-        });
-        // /TEMP
     });
 
 })(jQuery);
