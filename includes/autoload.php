@@ -75,3 +75,20 @@ spl_autoload_register(function ($class) use ($includes_path) {
         require $file;
     }
 });
+
+// Register PSR-4 autoloader for TerrWallet namespace
+spl_autoload_register(function ($class) use ($includes_path) {
+    $prefix = 'TerrWallet\\';
+    $len = strlen($prefix);
+
+    if (strncmp($prefix, $class, $len) !== 0) {
+        return;
+    }
+
+    $relative_class = substr($class, $len);
+    $file = $includes_path . '/TerrWallet/' . str_replace('\\', '/', $relative_class) . '.php';
+
+    if (file_exists($file)) {
+        require $file;
+    }
+});
