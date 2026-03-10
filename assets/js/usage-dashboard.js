@@ -132,6 +132,26 @@
     }
 
     /**
+     * Escape HTML entities to prevent XSS in dynamic content.
+     */
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    /**
+     * Escape string for use inside an HTML attribute value.
+     */
+    function escapeAttr(str) {
+        return escapeHtml(str);
+    }
+
+    /**
      * Safe currency formatting. Snaps to cents before toFixed to kill
      * floating-point drift (e.g. 0.1 + 0.2 !== 0.3).
      */
@@ -223,6 +243,71 @@
     }
 
     /* ---------------------------------------------------------------
+     * Other Services helpers
+     * ------------------------------------------------------------- */
+
+    /**
+     * Build tooltip HTML content from an array of wallet transaction items.
+     * Single item: just the escaped description.
+     * Multiple items: each as "Description (+$amount)" on separate lines.
+     */
+    function buildTooltipContent(items) {
+        if (!items || items.length === 0) return '';
+        if (items.length === 1) {
+            return escapeHtml(items[0].description);
+        }
+        return items.map(function(item) {
+            return escapeHtml(item.description) + ' (+' + formatCurrency(item.amount) + ')';
+        }).join('<br>');
+    }
+
+    /**
+     * Build the Other Services table cell for a given day record.
+     * Null-safe: returns $0.00 if otherServices is null or amount is 0.
+     */
+    function buildOtherServicesCell(day) {
+        var os = day.otherServices;
+        if (!os || !os.amount || os.amount <= 0) {
+            return '<td class="tp-ud-col-other" data-label="Other Services"><span class="tp-ud-other-zero">$0.00</span></td>';
+        }
+        var tooltipHtml = buildTooltipContent(os.items);
+        return '<td class="tp-ud-col-other" data-label="Other Services">' +
+            '<span class="tp-ud-other-amount"' +
+            ' data-bs-toggle="tooltip"' +
+            ' data-bs-html="true"' +
+            ' data-bs-title="' + escapeAttr(tooltipHtml) + '"' +
+            '>+' + formatCurrency(os.amount) + '</span></td>';
+    }
+
+    /**
+     * Dispose all Bootstrap tooltips inside the table body.
+     * Must be called before emptying tbody to prevent memory leaks.
+     */
+    function disposeTooltips() {
+        if (!$tbody || !$tbody.length) return;
+        $tbody.find('[data-bs-toggle="tooltip"]').each(function() {
+            var instance = bootstrap.Tooltip.getInstance(this);
+            if (instance) {
+                instance.dispose();
+            }
+        });
+    }
+
+    /**
+     * Initialize Bootstrap tooltips on newly rendered Other Services cells.
+     */
+    function initTooltips() {
+        if (typeof bootstrap === 'undefined' || !bootstrap.Tooltip) return;
+        $('#tp-ud-tbody [data-bs-toggle="tooltip"]').each(function() {
+            new bootstrap.Tooltip(this, {
+                trigger: 'hover focus',
+                placement: 'top',
+                container: 'body'
+            });
+        });
+    }
+
+    /* ---------------------------------------------------------------
      * Sorting
      * ------------------------------------------------------------- */
 
@@ -242,6 +327,9 @@
             if (field === 'date') {
                 aVal = new Date(aVal).getTime();
                 bVal = new Date(bVal).getTime();
+            } else if (field === 'otherServices') {
+                aVal = (a.otherServices && a.otherServices.amount) || 0;
+                bVal = (b.otherServices && b.otherServices.amount) || 0;
             }
 
             var cmp = 0;
@@ -311,6 +399,7 @@
      * Render table rows for the current page of data.
      */
     function renderRows(pageData) {
+        disposeTooltips();
         $tbody.empty();
 
         for (var i = 0; i < pageData.length; i++) {
@@ -328,12 +417,15 @@
                         '</span>' +
                     '</div>' +
                 '</td>' +
+                buildOtherServicesCell(day) +
                 '<td class="tp-ud-col-cost" data-label="Cost"><span class="tp-ud-cost">' + formatCurrency(day.hitCost) + '</span></td>' +
                 '<td class="tp-ud-col-balance" data-label="Balance"><span class="tp-ud-balance">' + formatCurrency(day.balance) + '</span></td>' +
             '</tr>';
 
             $tbody.append(row);
         }
+
+        initTooltips();
     }
 
     /**
@@ -429,19 +521,29 @@
 
         var totalHits = 0;
         var totalCostCents = 0;
+        var otherServicesCents = 0;
+        var daysWithCredits = 0;
 
         for (var i = 0; i < data.length; i++) {
             totalHits += data[i].totalHits;
             totalCostCents += Math.round(data[i].hitCost * 100);
+
+            var os = data[i].otherServices;
+            if (os && os.amount && os.amount > 0) {
+                otherServicesCents += Math.round(os.amount * 100);
+                daysWithCredits++;
+            }
         }
 
         var totalCost = totalCostCents / 100;
+        var otherServicesTotal = otherServicesCents / 100;
         var latestBalance = data[data.length - 1].balance;
         var dailyAvg = data.length > 0 ? Math.round(totalHits / data.length) : 0;
 
         var html = buildStatCard('fa-chart-line', totalHits.toLocaleString(), 'Total Hits', '~' + dailyAvg.toLocaleString() + '/day');
         html += buildStatCard('fa-dollar-sign', formatCurrency(totalCost), 'Total Cost', data.length + ' days');
         html += buildStatCard('fa-wallet', formatCurrency(latestBalance), 'Balance', 'Current');
+        html += buildStatCard('fa-hand-holding-dollar', '+' + formatCurrency(otherServicesTotal), 'Other Services', daysWithCredits + ' day' + (daysWithCredits !== 1 ? 's' : '') + ' with credits');
 
         $summaryStrip.html(html).show();
     }
