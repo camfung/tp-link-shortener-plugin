@@ -105,29 +105,29 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| WCLI-01 | TBD | Pending |
-| WCLI-02 | TBD | Pending |
-| WCLI-03 | TBD | Pending |
-| WCLI-04 | TBD | Pending |
-| MERGE-01 | TBD | Pending |
-| MERGE-02 | TBD | Pending |
-| MERGE-03 | TBD | Pending |
-| MERGE-04 | TBD | Pending |
-| GRACE-01 | TBD | Pending |
-| GRACE-02 | TBD | Pending |
-| UI-01 | TBD | Pending |
-| UI-02 | TBD | Pending |
-| UI-03 | TBD | Pending |
-| UI-04 | TBD | Pending |
-| TEST-01 | TBD | Pending |
-| TEST-02 | TBD | Pending |
-| TEST-03 | TBD | Pending |
+| WCLI-01 | Phase 9 | Pending |
+| WCLI-02 | Phase 9 | Pending |
+| WCLI-03 | Phase 9 | Pending |
+| WCLI-04 | Phase 9 | Pending |
+| MERGE-01 | Phase 10 | Pending |
+| MERGE-02 | Phase 10 | Pending |
+| MERGE-03 | Phase 10 | Pending |
+| MERGE-04 | Phase 10 | Pending |
+| GRACE-01 | Phase 11 | Pending |
+| GRACE-02 | Phase 11 | Pending |
+| UI-01 | Phase 12 | Pending |
+| UI-02 | Phase 12 | Pending |
+| UI-03 | Phase 12 | Pending |
+| UI-04 | Phase 11 | Pending |
+| TEST-01 | Phase 13 | Pending |
+| TEST-02 | Phase 13 | Pending |
+| TEST-03 | Phase 13 | Pending |
 
 **Coverage:**
 - v2.2 requirements: 17 total
-- Mapped to phases: 0 (awaiting roadmap)
-- Unmapped: 17
+- Mapped to phases: 17/17
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-10*
-*Last updated: 2026-03-10 after initial definition*
+*Last updated: 2026-03-10 after roadmap creation*

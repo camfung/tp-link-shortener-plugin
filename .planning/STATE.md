@@ -2,52 +2,52 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-02-24)
+See: .planning/PROJECT.md (updated 2026-03-10)
 
-**Core value:** Users can track their link usage costs and account balance at a glance -- daily stats with a chart and detailed table.
-**Current focus:** Defining requirements for v2.2
+**Core value:** Users can track their link usage costs and account balance at a glance -- daily stats with a chart and detailed table showing clicks, QR scans, costs, wallet top-ups, and running balance.
+**Current focus:** Phase 9 - Wallet Client (v2.2 TerrWallet Integration)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-03-10 — Milestone v2.2 started
+Phase: 9 of 13 (Wallet Client)
+Plan: 0 of TBD in current phase
+Status: Ready to plan
+Last activity: 2026-03-10 -- Roadmap created for v2.2 TerrWallet Integration (Phases 9-13)
+
+Progress: [========-----] 62% (8 of 13 phases positioned, 0 of 5 v2.2 phases complete)
+
+## Performance Metrics
+
+**Velocity:**
+- Total plans completed: 0 (v2.2 milestone)
+- Average duration: -
+- Total execution time: -
+
+**By Phase:**
+
+| Phase | Plans | Total | Avg/Plan |
+|-------|-------|-------|----------|
+| - | - | - | - |
+
+**Recent Trend:**
+- Last 5 plans: -
+- Trend: -
+
+*Updated after each plan completion*
 
 ## Accumulated Context
 
 ### Decisions
 
-- [Milestone]: v1.0 Mobile Responsive paused (phases 1-4 never started), pivoting to v2.0 Usage Dashboard
-- [Milestone]: Usage dashboard is a separate page/shortcode from link management dashboard
-- [Milestone]: Mock clicks/QR scans split -- API only returns totalHits
-- [Milestone]: Skip Other Services and second table for v2.0
-- [Roadmap]: 4 phases (5-8) derived from 22 requirements; research build order (PHP->Template->API->JS->CSS) adopted
-- [Roadmap]: DOC-01 merged into Phase 8 with date filtering -- both are finalization work after core is built
-- [Phase 5]: No caching for v1.0 -- every request hits API fresh; caching deferred
-- [Phase 5]: Inline wp_login_form() for unauthenticated users, any role can access
-- [Phase 5]: Proxy validates/reshapes API response; generic errors for users, detailed for admins
-- [Phase 5 Plan 01]: Created stub JS file instead of leaving missing file to avoid dev console warnings
-- [Phase 5 Plan 01]: Unit tests verify file structure via string assertions; full integration deferred to E2E
-- [Phase 5 Plan 02]: 15-second API client timeout for getUserActivitySummary (matching Lambda timeout)
-- [Phase 5 Plan 02]: 20-second JS timeout (15s server + network overhead)
-- [Phase 5 Plan 02]: Validation contract replicated in unit tests to verify without WordPress
-- [Phase 5 Plan 03]: E2E tests target tp-ud- implementation (not old uad-); auto-skip when not deployed
-- [Phase 5 Plan 03]: Deployment detection pattern: probe DOM for .tp-ud-container and AJAX for 401 vs 400
-- [Phase 6 Plan 01]: Skeleton chart upgraded from pulse to shimmer for consistency with table skeleton
-- [Phase 6 Plan 01]: Summary strip skeleton uses same layout class as real content for matching dimensions
-- [Phase 6 Plan 01]: Skeleton table wrapped in separate div to style independently from real table
-- [Phase 6 Plan 02]: Client-side sorting and pagination -- no AJAX re-fetch on sort/page change, only renderTable()
-- [Phase 6 Plan 02]: Integer-cent arithmetic in renderSummaryCards to prevent floating-point display artifacts
-- [Phase 6 Plan 02]: Delegated click handlers for sort and pagination to survive DOM re-renders
-- [Phase 8 Plan 01]: No hard-coded active class on preset buttons -- JS sets it dynamically from state to respect shortcode days attribute
-- [Phase 8 Plan 01]: formatDateISO() uses local time (getFullYear/getMonth/getDate) instead of toISOString() to avoid UTC timezone date shift
-- [Phase 8 Plan 01]: Auto-swap inverted date ranges instead of blocking -- better UX than error message
-- [Phase 7 Plan 01]: Stacked area chart with fill: 'origin' and scales.y.stacked -- visually accurate since clicks + qr === totalHits
-- [Phase 7 Plan 01]: Category scale for X-axis avoids chartjs-adapter-date-fns dependency
-- [Phase 7 Plan 01]: No resizeDelay -- CSS min-width: 0 addresses root cause of resize loop
-- [Phase 8 Plan 02]: Recommend exploring by-source endpoint before building new backend pipeline for clicks/QR split
-- [Phase 8 Plan 02]: Other Services and Wallet Transactions marked LOW priority, deferred past v2.0
+Decisions are logged in PROJECT.md Key Decisions table.
+Recent decisions affecting current work:
+
+- [Milestone]: v1.0 Mobile Responsive paused, pivoting to v2.0 then v2.2
+- [v2.2 init]: Server-side merge in ajax_get_usage_summary -- single AJAX call, no separate wallet endpoint
+- [v2.2 init]: Direct PHP calls or rest_do_request() preferred over wp_remote_get() to avoid loopback issues
+- [v2.2 init]: Credit transactions only -- debits would double-count costs already tracked by hitCost
+- [v2.2 init]: Full outer join -- wallet-only days appear with 0 hits/cost
+- [v2.2 init]: Zero new dependencies -- new TerrWallet namespace follows existing pattern
 
 ### Pending Todos
 
@@ -55,13 +55,12 @@ None yet.
 
 ### Blockers/Concerns
 
-- API only returns `totalHits`, `hitCost`, `balance` -- no clicks vs QR scans breakdown
-- ~~API response envelope shape verified: API returns `{ source: [...] }`, proxy reshapes to `{ days: [...] }`~~ RESOLVED in 05-02
-- Timezone behavior of date parameters not documented in API reference -- verify empirically in Phase 5
-- Phase 5 code not deployed to dev site -- E2E tests auto-skip until feature/client-links branch is deployed
+- Phase 9 gate: Must verify `function_exists('woo_wallet')` before committing to direct PHP vs. rest_do_request() approach
+- Product decision needed: Timezone handling -- normalize wallet dates to UTC or WordPress site timezone before merge
+- API only returns `totalHits`, `hitCost`, `balance` -- no clicks vs QR scans breakdown (unchanged from v2.0)
 
 ## Session Continuity
 
 Last session: 2026-03-10
-Stopped at: Milestone v2.2 initialized -- defining requirements
-Resume file: —
+Stopped at: Roadmap created for v2.2 milestone (Phases 9-13)
+Resume file: None
