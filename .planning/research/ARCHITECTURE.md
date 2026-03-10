@@ -1,553 +1,688 @@
-# Architecture Research
+# Architecture Research: TerrWallet Integration
 
-**Domain:** WordPress plugin shortcode — billing/usage dashboard (`[tp_usage_dashboard]`)
-**Researched:** 2026-02-22
-**Confidence:** HIGH — based on direct codebase inspection of the three existing shortcodes and their patterns
-
----
-
-## Standard Architecture
-
-### System Overview
-
-```
-Browser (WordPress Page)
-    |
-    | [1] Page load: shortcode renders HTML, enqueues JS/CSS, injects ajaxUrl + nonce via wp_localize_script
-    v
-templates/usage-dashboard-template.php
-    |
-    | [2] On DOMContentLoaded: JS reads date range, fires AJAX
-    v
-assets/js/usage-dashboard.js  (jQuery IIFE, global tpUsageDashboard object)
-    |
-    | [3] POST admin-ajax.php  action=tp_get_usage_summary  (nonce, uid, start_date, end_date)
-    v
-WordPress wp-admin/admin-ajax.php
-    |
-    | [4] Dispatches to registered wp_ajax_ handler
-    v
-includes/class-tp-api-handler.php  ::ajax_get_usage_summary()
-    |
-    | [5] Validates nonce, reads uid from TP_Link_Shortener::get_user_id()
-    | [6] Calls TrafficPortalApiClient::getUserActivitySummary(uid, start_date, end_date)
-    v
-includes/TrafficPortal/TrafficPortalApiClient.php  ::getUserActivitySummary()
-    |
-    | [7] GET {TP_API_ENDPOINT}/user-activity-summary/{uid}?start=...&end=...
-    v
-External Traffic Portal REST API
-    |
-    | [8] Returns daily totals: [{ date, totalHits }, ...]
-    v
-TrafficPortalApiClient  (parse response → DTO or plain array)
-    |
-    v
-TP_API_Handler  (wp_send_json_success($data))
-    |
-    v
-usage-dashboard.js
-    | [9] Receives { success: true, data: { days: [...] } }
-    | [10] Derives clicks/QR split via mock ratio (e.g. 80/20)
-    | [11] Renders Chart.js area chart + stats table
-    v
-Browser DOM (chart canvas + stats table updated)
-```
+**Domain:** Integrating WooCommerce wallet (TeraWallet) data into existing usage dashboard
+**Researched:** 2026-03-10
+**Confidence:** HIGH -- based on direct codebase inspection of all existing files, TeraWallet API V3 docs, and WooCommerce REST API authentication docs
 
 ---
 
-### Component Responsibilities
+## Existing Architecture (Current State)
 
-| Component | File | Responsibility |
-|-----------|------|----------------|
-| Shortcode class | `includes/class-tp-usage-dashboard-shortcode.php` | Register `[tp_usage_dashboard]` shortcode, gate behind `is_user_logged_in()`, enqueue assets, include template via output buffer |
-| Template | `templates/usage-dashboard-template.php` | Static HTML skeleton: chart canvas placeholder, stats table shell, date range inputs, Apply button |
-| JavaScript | `assets/js/usage-dashboard.js` | AJAX call orchestration, date state, Chart.js area chart render, table render, mock clicks/QR split, date range Apply button handler |
-| CSS | `assets/css/usage-dashboard.css` | Dashboard-specific layout: chart wrapper, stats table, date range controls; imports shared CSS custom properties from `:root` |
-| AJAX handler | `includes/class-tp-api-handler.php` (new method) | `ajax_get_usage_summary()` — nonce verify, get uid, call API client, return JSON |
-| API client method | `includes/TrafficPortal/TrafficPortalApiClient.php` (new method) | `getUserActivitySummary(int $uid, string $start, string $end)` — GET request to external API, parse response |
-| Plugin singleton | `includes/class-tp-link-shortener.php` | Instantiate new shortcode class in `init()` |
-| Plugin entry | `tp-link-shortener.php` | `require_once` the new shortcode class file |
+### Usage Dashboard Data Flow
+
+```
+Browser                    WordPress                  External APIs
+-------                    ---------                  -------------
+
+usage-dashboard.js         admin-ajax.php
+    |                          |
+    | [1] loadData()           |
+    | POST action=             |
+    |  tp_get_usage_summary    |
+    | { nonce, start_date,     |
+    |   end_date }             |
+    |------------------------->|
+    |                          |
+    |                     TP_API_Handler
+    |                     ::ajax_get_usage_summary()
+    |                          |
+    |                     [2] $uid = TP_Link_Shortener::get_user_id()
+    |                         (server-side, DATA-02 security)
+    |                          |
+    |                     [3] $this->client->getUserActivitySummary($uid, $start, $end)
+    |                         GET /user-activity-summary/{uid}?start_date=...&end_date=...
+    |                          |------------------------------------>  Traffic Portal API
+    |                          |<------------------------------------  { source: [{ date, totalHits, hitCost, balance }] }
+    |                          |
+    |                     [4] validate_usage_summary_response($raw)
+    |                         -> { days: [{ date, totalHits, hitCost, balance }] }
+    |                          |
+    |                     [5] wp_send_json_success($validated)
+    |<-------------------------|
+    |                          |
+    | [6] state.data = response.data.days
+    |     renderSummaryCards()
+    |     renderChart()
+    |     renderTable()
+    v
+```
+
+### Key Architectural Facts
+
+1. **Single AJAX endpoint:** JS calls `tp_get_usage_summary`, PHP fetches from external API, validates, returns.
+2. **Server-side UID:** UID determined server-side via `TP_Link_Shortener::get_user_id()` (returns WP user ID for logged-in users). Never sent from client.
+3. **Data shape:** Each day record has `{ date, totalHits, hitCost, balance }`. The JS sorts/paginates this array client-side.
+4. **Validation layer:** `validate_usage_summary_response()` strips unexpected fields, type-casts, sanitizes.
+5. **Error handling:** Typed exceptions (NetworkException, ApiException) caught and surfaced differently for admins vs regular users.
 
 ---
 
-## Recommended Project Structure
+## TerrWallet API (Data Source to Integrate)
 
-New files required (additions only — no existing files deleted):
+### Endpoint Details (from TeraWallet API V3 docs)
+
+**Get Wallet Transactions:**
+- URL: `GET /wp-json/wc/v3/wallet/?email={email}`
+- Auth: WooCommerce REST API (consumer_key + consumer_secret via HTTP Basic Auth)
+- Params: `email` (required), `per_page` (optional), `page` (optional)
+- Response: Array of transaction objects:
+
+```json
+[
+  {
+    "transaction_id": 123,
+    "user_id": 45,
+    "date": "2026-03-09T14:30:00",
+    "type": "credit",
+    "amount": "25.00",
+    "balance": "150.00",
+    "details": "Wallet top-up via PayPal",
+    "currency": "USD",
+    "blog_id": 1
+  }
+]
+```
+
+**Get Wallet Balance:**
+- URL: `GET /wp-json/wc/v3/wallet/balance/?email={email}`
+- Response: Balance value
+
+### Key Differences from Traffic Portal API
+
+| Aspect | Traffic Portal API | TerrWallet API |
+|--------|-------------------|----------------|
+| Location | External (AWS Lambda) | Local (same WordPress site) |
+| Auth | x-api-key header | WC REST API consumer_key/secret |
+| Identifier | UID (int) | Email (string) |
+| Data shape | Daily aggregates (date, totalHits, hitCost, balance) | Individual transactions (date, type, amount, details) |
+| Date format | `YYYY-MM-DD` | ISO datetime `YYYY-MM-DDTHH:MM:SS` |
+
+---
+
+## Recommended Architecture: Server-Side Merge
+
+### Decision: Merge in PHP, NOT in JavaScript
+
+**Recommendation:** Add a new AJAX handler that fetches wallet data server-side and returns it pre-merged with usage data. Do NOT make two separate AJAX calls from JS and merge client-side.
+
+**Rationale:**
+
+1. **Auth secrets stay server-side.** WC REST API consumer_key/secret must never be exposed to the browser. A server-side merge keeps these credentials in PHP only.
+
+2. **Single loading state.** One AJAX call = one skeleton/loading/error/content state transition. Two parallel AJAX calls from JS require complex coordination (both must succeed, partial failure handling, two loading spinners or one that waits for both).
+
+3. **Consistent data shape.** The adapter can normalize TerrWallet's transaction-level data into daily aggregates before sending to JS. The JS render functions already expect per-day records -- they need no changes to their core rendering logic.
+
+4. **Follows existing pattern.** The current flow is: JS calls one AJAX action, PHP fetches external data, validates, returns. Adding a second data source fits this pattern -- PHP becomes the aggregation layer.
+
+5. **Same-server optimization.** Since TerrWallet runs on the same WordPress instance, PHP can call the REST endpoint via `wp_remote_get()` to localhost, or potentially even call TeraWallet PHP functions directly. Either way, the latency is negligible compared to a cross-origin AJAX call from the browser.
+
+### Data Flow With TerrWallet Integration
 
 ```
-includes/
-    class-tp-usage-dashboard-shortcode.php   # new — shortcode class
+Browser                    WordPress                  APIs
+-------                    ---------                  ----
 
-templates/
-    usage-dashboard-template.php             # new — HTML skeleton
-
-assets/
-    css/
-        usage-dashboard.css                  # new — scoped styles
-    js/
-        usage-dashboard.js                   # new — chart + table logic
-```
-
-Existing files modified (minimal, additive only):
-
-```
-includes/
-    class-tp-api-handler.php         # add ajax_get_usage_summary() + register_ajax_handlers() entries
-    TrafficPortal/
-        TrafficPortalApiClient.php   # add getUserActivitySummary() method
-
-includes/
-    class-tp-link-shortener.php      # add $usage_dashboard_shortcode property + instantiate in init()
-
-tp-link-shortener.php               # add require_once for new shortcode class
+usage-dashboard.js         admin-ajax.php
+    |                          |
+    | [1] loadData()           |
+    | POST action=             |
+    |  tp_get_usage_summary    |
+    | { nonce, start_date,     |  (UNCHANGED from current)
+    |   end_date }             |
+    |------------------------->|
+    |                          |
+    |                     TP_API_Handler
+    |                     ::ajax_get_usage_summary()
+    |                          |
+    |                     [2] $uid = TP_Link_Shortener::get_user_id()
+    |                          |
+    |                     [3] Fetch usage data (EXISTING)
+    |                         $this->client->getUserActivitySummary(...)
+    |                          |------------------------------------>  Traffic Portal API
+    |                          |<------------------------------------  { source: [...days] }
+    |                          |
+    |                     [4] Fetch wallet data (NEW)
+    |                         $this->wallet_client->getTransactions($email, ...)
+    |                          |---> GET /wp-json/wc/v3/wallet/?email=...
+    |                          |<--- [{ transaction_id, date, type, amount, details }]
+    |                          |     (local HTTP call, ~50ms)
+    |                          |
+    |                     [5] Merge wallet into usage (NEW)
+    |                         $merged = $this->merge_wallet_data($usage_days, $wallet_txns)
+    |                         -> adds 'otherServices' field to matching date records
+    |                          |
+    |                     [6] wp_send_json_success($merged)
+    |<-------------------------|
+    |                          |
+    | [7] state.data = response.data.days
+    |     renderSummaryCards()     (MODIFIED: show wallet total)
+    |     renderChart()            (UNCHANGED)
+    |     renderTable()            (MODIFIED: render otherServices column)
+    v
 ```
 
 ---
 
-## Architectural Patterns
+## New Components
 
-### Pattern 1: Shortcode Class — Template Method
+### Component 1: TerrWalletClient (NEW PHP Class)
 
-Every shortcode in the plugin follows an identical four-step template method:
+**File:** `includes/TerrWallet/TerrWalletClient.php`
 
-1. `__construct()` calls `add_shortcode('tp_xxx', [$this, 'render_shortcode'])`
-2. `render_shortcode()` gates with `is_user_logged_in()`, calls `$this->enqueue_assets()`
-3. `enqueue_assets()` calls `wp_enqueue_style()` / `wp_enqueue_script()` / `wp_localize_script()`
-4. `render_shortcode()` uses `ob_start()` / `include template` / `return ob_get_clean()`
-
-**Apply this exactly.** Do not deviate. The existing three shortcodes are the canonical reference.
-
-**Example (`class-tp-usage-dashboard-shortcode.php`):**
+**Responsibility:** Fetch wallet transactions from the WooCommerce REST API. Handles authentication, HTTP transport, error handling. Does NOT merge or adapt data -- that happens in the adapter.
 
 ```php
-<?php
-declare(strict_types=1);
+namespace TerrWallet;
 
-if (!defined('ABSPATH')) { exit; }
+class TerrWalletClient {
+    private string $siteUrl;
+    private string $consumerKey;
+    private string $consumerSecret;
+    private int $timeout;
 
-class TP_Usage_Dashboard_Shortcode {
+    public function __construct(
+        string $siteUrl,
+        string $consumerKey,
+        string $consumerSecret,
+        int $timeout = 10
+    ) { ... }
 
-    public function __construct() {
-        add_shortcode('tp_usage_dashboard', [$this, 'render_shortcode']);
-    }
-
-    public function render_shortcode($atts): string {
-        if (!is_user_logged_in()) {
-            return '';
-        }
-
-        $atts = shortcode_atts([
-            'days' => 30,
-        ], $atts);
-
-        $this->enqueue_assets($atts);
-
-        ob_start();
-        include TP_LINK_SHORTENER_PLUGIN_DIR . 'templates/usage-dashboard-template.php';
-        return ob_get_clean();
-    }
-
-    private function enqueue_assets(array $atts): void {
-        wp_enqueue_style('tp-bootstrap', 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css', [], '5.3.0');
-        wp_enqueue_style('tp-fontawesome', 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css', [], '6.4.0');
-        wp_enqueue_style('tp-link-shortener', TP_LINK_SHORTENER_PLUGIN_URL . 'assets/css/frontend.css', ['tp-bootstrap'], TP_LINK_SHORTENER_VERSION);
-        wp_enqueue_style('tp-usage-dashboard', TP_LINK_SHORTENER_PLUGIN_URL . 'assets/css/usage-dashboard.css', ['tp-bootstrap', 'tp-link-shortener'], TP_LINK_SHORTENER_VERSION);
-
-        wp_enqueue_script('tp-bootstrap-js', 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js', ['jquery'], '5.3.0', true);
-        wp_enqueue_script('tp-chartjs', 'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js', [], '4.4.1', true);
-        wp_enqueue_script('tp-usage-dashboard-js', TP_LINK_SHORTENER_PLUGIN_URL . 'assets/js/usage-dashboard.js', ['jquery', 'tp-bootstrap-js', 'tp-chartjs'], TP_LINK_SHORTENER_VERSION, true);
-
-        $end = date('Y-m-d');
-        $start = date('Y-m-d', strtotime('-' . intval($atts['days']) . ' days'));
-
-        wp_localize_script('tp-usage-dashboard-js', 'tpUsageDashboard', [
-            'ajaxUrl'   => admin_url('admin-ajax.php'),
-            'nonce'     => wp_create_nonce('tp_link_shortener_nonce'),
-            'isLoggedIn' => is_user_logged_in(),
-            'dateRange'  => ['start' => $start, 'end' => $end],
-            'strings'    => [
-                'loading' => __('Loading...', 'tp-link-shortener'),
-                'error'   => __('Error loading usage data. Please try again.', 'tp-link-shortener'),
-                'noData'  => __('No activity in this date range.', 'tp-link-shortener'),
-                'apply'   => __('Apply', 'tp-link-shortener'),
-            ],
+    /**
+     * Get wallet transactions for a user by email.
+     * @return array Raw transaction array from API
+     * @throws TerrWalletException on HTTP or parse errors
+     */
+    public function getTransactions(string $email, int $perPage = 100, int $page = 1): array
+    {
+        $url = $this->siteUrl . '/wp-json/wc/v3/wallet/?' . http_build_query([
+            'email'    => $email,
+            'per_page' => $perPage,
+            'page'     => $page,
         ]);
+
+        $response = wp_remote_get($url, [
+            'headers' => [
+                'Authorization' => 'Basic ' . base64_encode(
+                    $this->consumerKey . ':' . $this->consumerSecret
+                ),
+            ],
+            'timeout' => $this->timeout,
+            'sslverify' => false,  // Same-server, skip SSL verification
+        ]);
+
+        // Handle errors, decode JSON, return array
     }
+
+    /**
+     * Get current wallet balance for a user.
+     */
+    public function getBalance(string $email): float { ... }
 }
 ```
 
+**Why `wp_remote_get()` instead of cURL:** The existing `TrafficPortalApiClient` uses cURL because it talks to an external AWS Lambda. For same-server requests, WordPress's `wp_remote_get()` is preferred because: (a) it respects WordPress's HTTP transport configuration, (b) it handles SSL/proxy settings automatically, (c) it is more testable (can be filtered with `pre_http_request`).
+
+**Auth credential storage:** Consumer key/secret should be stored as WordPress constants in `wp-config.php`, following the existing pattern for `API_KEY`:
+
+```php
+define('TERRWALLET_CONSUMER_KEY', 'ck_...');
+define('TERRWALLET_CONSUMER_SECRET', 'cs_...');
+```
+
+### Component 2: TerrWalletAdapter (NEW PHP Class)
+
+**File:** `includes/TerrWallet/TerrWalletAdapter.php`
+
+**Responsibility:** Transform raw wallet transactions into daily aggregates and merge with existing usage day records. This is pure data transformation -- no I/O.
+
+```php
+namespace TerrWallet;
+
+class TerrWalletAdapter {
+
+    /**
+     * Aggregate wallet transactions by date.
+     * Groups credit transactions by date, sums amounts, collects descriptions.
+     *
+     * Input: raw transaction array from TerrWalletClient
+     * Output: associative array keyed by date (YYYY-MM-DD)
+     *   [
+     *     '2026-03-09' => [
+     *       'amount' => 25.00,
+     *       'descriptions' => ['Wallet top-up via PayPal']
+     *     ]
+     *   ]
+     */
+    public function aggregateByDate(array $transactions): array { ... }
+
+    /**
+     * Merge wallet daily aggregates into usage day records.
+     * Adds 'otherServices' field to each day record.
+     *
+     * Input:
+     *   $usageDays: [{ date, totalHits, hitCost, balance }]
+     *   $walletByDate: output of aggregateByDate()
+     * Output:
+     *   [{ date, totalHits, hitCost, balance, otherServices: { amount, descriptions } | null }]
+     */
+    public function mergeIntoUsageDays(array $usageDays, array $walletByDate): array { ... }
+}
+```
+
+**Why a separate adapter class:** The merge logic is non-trivial (date matching, filtering credits only, aggregating multiple transactions per day, handling timezone differences). Putting this in a dedicated class makes it independently testable with unit tests. The `TP_API_Handler` stays focused on AJAX orchestration.
+
+### Component 3: TerrWalletException (NEW PHP Class)
+
+**File:** `includes/TerrWallet/Exception/TerrWalletException.php`
+
+Follows the existing exception pattern (see `TrafficPortal/Exception/`, `SnapCapture/Exception/`).
+
+### Component 4: No New JS Files
+
+The existing `usage-dashboard.js` is modified, not replaced. No new JavaScript files are needed.
+
 ---
 
-### Pattern 2: AJAX Handler — Nonce → UID → API Client → JSON
+## Modified Components
 
-Every AJAX handler in `TP_API_Handler` follows this exact sequence:
+### Modified 1: TP_API_Handler::ajax_get_usage_summary() (PHP)
+
+**Current:** Fetches usage data, validates, returns.
+**After:** Fetches usage data AND wallet data, merges, validates, returns.
 
 ```php
 public function ajax_get_usage_summary(): void {
-    // 1. Verify nonce (always first, before any data access)
-    check_ajax_referer('tp_link_shortener_nonce', 'nonce');
+    // ... existing nonce check, login check, date validation ...
 
-    // 2. Get UID server-side (never trust client-sent uid)
-    $uid = TP_Link_Shortener::get_user_id();
-
-    // 3. Sanitize and validate inputs
-    $start_date = isset($_POST['start_date']) ? sanitize_text_field($_POST['start_date']) : '';
-    $end_date   = isset($_POST['end_date'])   ? sanitize_text_field($_POST['end_date'])   : '';
-
-    // 4. Validate date format
-    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $start_date) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $end_date)) {
-        wp_send_json_error(['message' => 'Invalid date range']);
-    }
-
-    // 5. Delegate to API client
     try {
-        $data = $this->client->getUserActivitySummary($uid, $start_date, $end_date);
-        wp_send_json_success($data);
-    } catch (NetworkException $e) {
-        wp_send_json_error(['message' => __('Network error. Please try again.', 'tp-link-shortener')]);
-    } catch (ApiException $e) {
-        wp_send_json_error(['message' => $e->getMessage()]);
+        // EXISTING: Fetch usage data from Traffic Portal API
+        $raw = $this->client->getUserActivitySummary($uid, $start_date, $end_date);
+        $validated = $this->validate_usage_summary_response($raw);
+
+        // NEW: Fetch and merge wallet data
+        if ($this->wallet_client) {
+            $email = $this->get_user_email();
+            $wallet_txns = $this->wallet_client->getTransactions($email);
+            $wallet_by_date = $this->wallet_adapter->aggregateByDate($wallet_txns);
+            $validated['days'] = $this->wallet_adapter->mergeIntoUsageDays(
+                $validated['days'],
+                $wallet_by_date
+            );
+        }
+
+        wp_send_json_success($validated);
+
+    } catch (TerrWalletException $e) {
+        // NEW: Wallet errors are non-fatal -- return usage data without wallet
+        $this->log_to_file('Wallet error (non-fatal): ' . $e->getMessage());
+        wp_send_json_success($validated);  // Usage data still sent
     }
+    // ... existing catch blocks for NetworkException, ApiException ...
 }
 ```
 
-Register in `register_ajax_handlers()`:
+**Critical design decision: Wallet errors are non-fatal.** If the TerrWallet API fails but Traffic Portal succeeds, the dashboard still shows usage data -- just without the "Other Services" column. This prevents a wallet outage from breaking the entire dashboard.
+
+### Modified 2: TP_API_Handler::__construct() (PHP)
+
+**Current:** Initializes `$this->client`, `$this->snapcapture_client`, `$this->shortcode_client`.
+**After:** Also initializes `$this->wallet_client` and `$this->wallet_adapter`.
 
 ```php
-// Logged-in only (usage dashboard requires authentication)
-add_action('wp_ajax_tp_get_usage_summary', [$this, 'ajax_get_usage_summary']);
-add_action('wp_ajax_nopriv_tp_get_usage_summary', [$this, 'ajax_require_login']);
-```
+public function __construct() {
+    $this->init_client();
+    $this->init_wallet_client();  // NEW
+    $this->register_ajax_handlers();
+    add_action('rest_api_init', array($this, 'register_rest_routes'));
+}
 
----
-
-### Pattern 3: JavaScript IIFE with State Object
-
-All three existing JS files use the same structure: a jQuery IIFE containing a `state` object and named functions. Follow this exactly.
-
-```javascript
-(function($) {
-    'use strict';
-
-    // State (single source of truth)
-    var state = {
-        isLoading: false,
-        chart: null,
-        dateStart: '',
-        dateEnd: '',
-        data: []
-    };
-
-    // DOM cache (populated in cacheDom, never query DOM outside cacheDom/init)
-    var $container, $chartCanvas, $tbody, $dateStart, $dateEnd, $applyBtn, $loading, $error;
-
-    function init() {
-        $container = $('.tp-ud-container');
-        if (!$container.length) return;
-
-        cacheDom();
-
-        if (!tpUsageDashboard.isLoggedIn) return;
-
-        state.dateStart = tpUsageDashboard.dateRange.start;
-        state.dateEnd   = tpUsageDashboard.dateRange.end;
-        $dateStart.val(state.dateStart);
-        $dateEnd.val(state.dateEnd);
-
-        bindEvents();
-        loadData();
+private function init_wallet_client(): void {
+    if (!defined('TERRWALLET_CONSUMER_KEY') || !defined('TERRWALLET_CONSUMER_SECRET')) {
+        $this->log_to_file('TerrWallet: Consumer key/secret not configured');
+        return;  // Wallet features disabled gracefully
     }
 
-    function cacheDom() { /* ... */ }
-    function bindEvents() { /* ... */ }
-    function loadData() { /* AJAX call, then renderChart() + renderTable() */ }
-    function renderChart(days) { /* Chart.js area chart */ }
-    function renderTable(days) { /* stats table rows */ }
-    function mockSplit(totalHits) { /* returns { clicks, qr } */ }
-
-    $(document).ready(init);
-
-})(jQuery);
-```
-
----
-
-### Pattern 4: Mock Clicks/QR Split
-
-The API returns only `totalHits` per day. The split is mocked client-side using a deterministic ratio seeded from the date string (to avoid random flicker on re-render):
-
-```javascript
-function mockSplit(date, totalHits) {
-    // Deterministic 80/20 split: stable across renders, no random flicker
-    // The 80/20 ratio is a placeholder — replace when API returns real split
-    var clicks = Math.round(totalHits * 0.80);
-    var qr     = totalHits - clicks;
-    return { clicks: clicks, qr: qr };
+    $this->wallet_client = new \TerrWallet\TerrWalletClient(
+        home_url(),
+        TERRWALLET_CONSUMER_KEY,
+        TERRWALLET_CONSUMER_SECRET
+    );
+    $this->wallet_adapter = new \TerrWallet\TerrWalletAdapter();
 }
 ```
 
-This keeps the mock centralized in one function, making it trivial to replace when the API evolves to return the real split.
+### Modified 3: validate_usage_summary_response() (PHP)
+
+**Current:** Returns `{ days: [{ date, totalHits, hitCost, balance }] }`.
+**After:** Returns `{ days: [{ date, totalHits, hitCost, balance, otherServices }] }`.
+
+The `otherServices` field is `null` for days with no wallet activity, or `{ amount: float, descriptions: string[] }` for days with transactions. The validation function passes through this field after type-checking.
+
+### Modified 4: usage-dashboard.js -- renderRows() (JS)
+
+**Current:** Renders 4 columns: Date, Hits, Cost, Balance.
+**After:** Renders 5 columns: Date, Hits, Cost, Other Services, Balance.
+
+```javascript
+// In renderRows(), add after the Cost <td>:
+var otherHtml = '-';
+if (day.otherServices && day.otherServices.amount) {
+    var tooltipText = day.otherServices.descriptions.join(', ');
+    otherHtml = '<span class="tp-ud-other-services" ' +
+        'data-bs-toggle="tooltip" data-bs-placement="top" ' +
+        'title="' + tooltipText + '">' +
+        formatCurrency(day.otherServices.amount) +
+    '</span>';
+}
+'<td class="tp-ud-col-other" data-label="Other Services">' + otherHtml + '</td>' +
+```
+
+### Modified 5: usage-dashboard.js -- renderSummaryCards() (JS)
+
+**Current:** Shows 3 cards: Total Hits, Total Cost, Balance.
+**After:** Shows 4 cards: Total Hits, Total Cost, Other Services, Balance.
+
+The "Other Services" card aggregates `otherServices.amount` across all days.
+
+### Modified 6: usage-dashboard-template.php (HTML)
+
+**Current:** Table header has 4 `<th>` columns.
+**After:** Table header has 5 `<th>` columns with "Other Services" between Cost and Balance.
+
+### Modified 7: usage-dashboard.css (CSS)
+
+Column widths adjusted for the 5th column. Tooltip styles for "Other Services" amounts.
+
+### Modified 8: includes/autoload.php
+
+Add autoloading for `TerrWallet\*` namespace, following the existing pattern for `TrafficPortal\*` and `SnapCapture\*`.
 
 ---
 
-### Pattern 5: API Client Method Addition
+## Component Boundaries
 
-Add `getUserActivitySummary()` to `TrafficPortalApiClient` following the same pattern as the existing `getMapItems()` method (GET request, handle HTTP errors via `handleHttpErrors()`, return parsed data):
+| Component | Responsibility | Communicates With |
+|-----------|---------------|-------------------|
+| `TerrWalletClient` | HTTP transport to WC REST API. Auth, request, parse, throw on error. | WooCommerce REST API (local) |
+| `TerrWalletAdapter` | Pure data transformation. Aggregate transactions by date, merge into usage records. | Nothing (receives/returns arrays) |
+| `TerrWalletException` | Typed exception for wallet API errors. | Thrown by Client, caught by Handler |
+| `TP_API_Handler` (modified) | Orchestrates: fetch usage, fetch wallet, merge, validate, return. Catches wallet errors non-fatally. | Client, Adapter, existing TrafficPortalApiClient |
+| `usage-dashboard.js` (modified) | Renders the `otherServices` field in table and summary. Tooltip for descriptions. | Receives merged data via AJAX |
+| `usage-dashboard-template.php` (modified) | Adds 5th column header. | Static HTML |
+
+---
+
+## New vs. Modified Files Summary
+
+### New Files
+
+| File | Purpose | Lines (est.) |
+|------|---------|-------------|
+| `includes/TerrWallet/TerrWalletClient.php` | HTTP client for WC REST API wallet endpoint | ~120 |
+| `includes/TerrWallet/TerrWalletAdapter.php` | Data transformation: aggregate + merge | ~80 |
+| `includes/TerrWallet/Exception/TerrWalletException.php` | Exception class | ~15 |
+
+### Modified Files
+
+| File | Changes | Scope |
+|------|---------|-------|
+| `includes/class-tp-api-handler.php` | Add `init_wallet_client()`, modify `ajax_get_usage_summary()` to fetch/merge wallet data, add wallet error handling | ~40 lines added |
+| `includes/autoload.php` | Add TerrWallet namespace mapping | ~3 lines |
+| `assets/js/usage-dashboard.js` | Add "Other Services" column rendering in `renderRows()`, add wallet sum in `renderSummaryCards()`, Bootstrap tooltip init | ~30 lines added |
+| `templates/usage-dashboard-template.php` | Add 5th `<th>` column, update skeleton | ~5 lines |
+| `assets/css/usage-dashboard.css` | Column width adjustment, tooltip styling | ~15 lines |
+
+### Files NOT Modified
+
+| File | Why Not |
+|------|---------|
+| `TrafficPortalApiClient.php` | Wallet is a separate data source; TP client unchanged |
+| `class-tp-usage-dashboard-shortcode.php` | No new assets to enqueue (Bootstrap tooltips already loaded) |
+| `class-tp-link-shortener.php` | No new top-level components; wallet client is internal to API handler |
+
+---
+
+## Patterns to Follow
+
+### Pattern 1: Non-Fatal Secondary Data Source
+
+The wallet data is secondary to usage data. If the wallet API fails, the dashboard must still work with usage data alone. This means:
+
+- Catch `TerrWalletException` separately from `NetworkException`/`ApiException`
+- On wallet failure, log the error but still return `wp_send_json_success($validated)` with usage-only data
+- The JS must handle `otherServices` being absent from all records (render "-" or hide column)
 
 ```php
-/**
- * Get user activity summary for a date range
- *
- * @param int $uid User ID
- * @param string $startDate Format: Y-m-d
- * @param string $endDate Format: Y-m-d
- * @return array Daily activity records: [['date' => 'Y-m-d', 'totalHits' => int], ...]
- * @throws NetworkException
- * @throws ApiException
- */
-public function getUserActivitySummary(int $uid, string $startDate, string $endDate): array
+// PHP: wallet errors are non-fatal
+try {
+    $wallet_txns = $this->wallet_client->getTransactions($email);
+    $wallet_by_date = $this->wallet_adapter->aggregateByDate($wallet_txns);
+    $validated['days'] = $this->wallet_adapter->mergeIntoUsageDays($validated['days'], $wallet_by_date);
+} catch (TerrWalletException $e) {
+    $this->log_to_file('Wallet error (non-fatal): ' . $e->getMessage());
+    // $validated['days'] unchanged -- usage-only data
+}
+```
+
+### Pattern 2: Adapter Separation (Transform vs. Transport)
+
+The `TerrWalletClient` handles I/O (HTTP requests). The `TerrWalletAdapter` handles data transformation (aggregation, merging). These are separate classes because:
+
+- Client is hard to unit test (needs HTTP mocking). Adapter is trivially testable with plain arrays.
+- Client changes if the API changes. Adapter changes if the data model changes. Different reasons to change.
+- This matches the existing SnapCapture pattern where `SnapCaptureClient` handles HTTP and DTOs handle data shaping.
+
+### Pattern 3: Credential Storage via WordPress Constants
+
+Follow the existing pattern (`API_KEY`, `SNAPCAPTURE_API_KEY`) -- store WC REST API credentials in `wp-config.php`:
+
+```php
+define('TERRWALLET_CONSUMER_KEY', 'ck_...');
+define('TERRWALLET_CONSUMER_SECRET', 'cs_...');
+```
+
+The `init_wallet_client()` method gracefully degrades if these are not defined (wallet features silently disabled).
+
+---
+
+## Anti-Patterns to Avoid
+
+### Anti-Pattern 1: Two Separate AJAX Calls from JavaScript
+
+**What:** Adding a second AJAX endpoint `tp_get_wallet_data` and calling it from JS alongside `tp_get_usage_summary`, then merging in JS.
+
+**Why bad:** (a) Exposes WC auth complexity to the client layer, (b) requires coordinating two async calls (Promise.all / jQuery.when), (c) two loading states to manage, (d) two error states to handle, (e) the merge logic in JS duplicates what PHP can do more cleanly.
+
+**Instead:** Single AJAX call, server-side merge.
+
+### Anti-Pattern 2: Calling TeraWallet PHP Functions Directly
+
+**What:** Bypassing the REST API and calling TeraWallet's internal PHP functions (e.g., `woo_wallet()->wallet->get_transactions()`).
+
+**Why bad:** (a) Couples this plugin to TeraWallet's internal API which can change without notice, (b) the REST API is the documented, stable interface, (c) direct function calls skip TeraWallet's own validation and access control.
+
+**Instead:** Use the documented REST API via `wp_remote_get()`.
+
+### Anti-Pattern 3: Storing Consumer Key/Secret in Database
+
+**What:** Using `get_option('terrwallet_consumer_key')` or a settings page.
+
+**Why bad:** (a) API secrets in the database are exposed to any admin user, database backups, and SQL injection, (b) the existing codebase stores all API keys as `wp-config.php` constants.
+
+**Instead:** `define()` constants in `wp-config.php`. Consistent with existing `API_KEY` and `SNAPCAPTURE_API_KEY` patterns.
+
+### Anti-Pattern 4: Filtering Transactions Client-Side
+
+**What:** Sending all wallet transactions to JS and filtering by date range in JavaScript.
+
+**Why bad:** (a) Wallet may have hundreds of transactions, (b) unnecessary data transfer, (c) the PHP adapter can filter by date range before merge.
+
+**Instead:** The adapter's `aggregateByDate()` accepts a date range parameter and discards transactions outside the range.
+
+---
+
+## Build Order (Dependency-Driven)
+
+### Phase 1: TerrWalletClient (PHP -- no UI changes)
+
+Build the HTTP client in isolation. Can be tested with integration tests against the real local API.
+
+**Step 1.1:** Create `includes/TerrWallet/TerrWalletClient.php` with `getTransactions()` and `getBalance()`
+**Step 1.2:** Create `includes/TerrWallet/Exception/TerrWalletException.php`
+**Step 1.3:** Add namespace to `includes/autoload.php`
+**Step 1.4:** Add `TERRWALLET_CONSUMER_KEY` / `TERRWALLET_CONSUMER_SECRET` constants to wp-config
+**Step 1.5:** Integration test: `TerrWalletClient->getTransactions('user@email.com')` returns valid data
+
+**Dependencies:** None. Can be built without touching existing code.
+
+### Phase 2: TerrWalletAdapter (PHP -- no UI changes)
+
+Build the data transformation layer. Purely unit-testable with mock data.
+
+**Step 2.1:** Create `includes/TerrWallet/TerrWalletAdapter.php` with `aggregateByDate()` and `mergeIntoUsageDays()`
+**Step 2.2:** Unit tests with fixture data: verify date matching, credit-only filtering, multi-transaction-per-day aggregation, empty wallet graceful handling
+
+**Dependencies:** None. Can be built in parallel with Phase 1.
+
+### Phase 3: Wire Into AJAX Handler (PHP -- backend integration)
+
+Connect the client and adapter into the existing AJAX flow.
+
+**Step 3.1:** Add `$wallet_client` and `$wallet_adapter` properties to `TP_API_Handler`
+**Step 3.2:** Add `init_wallet_client()` method, call from constructor
+**Step 3.3:** Modify `ajax_get_usage_summary()` to fetch wallet data and merge
+**Step 3.4:** Add non-fatal error handling for wallet failures
+**Step 3.5:** Integration test: AJAX call returns merged data with `otherServices` field
+
+**Dependencies:** Phase 1 and Phase 2 complete.
+
+### Phase 4: Dashboard UI (JS/HTML/CSS -- frontend)
+
+Add the "Other Services" column to the dashboard display.
+
+**Step 4.1:** Add 5th `<th>` column to `usage-dashboard-template.php`
+**Step 4.2:** Update `renderRows()` in `usage-dashboard.js` to render `otherServices` with tooltip
+**Step 4.3:** Update `renderSummaryCards()` to include wallet total
+**Step 4.4:** Update `usage-dashboard.css` for column widths and tooltip styling
+**Step 4.5:** Initialize Bootstrap tooltips on render
+**Step 4.6:** Update skeleton loading template for 5 columns
+
+**Dependencies:** Phase 3 complete (needs merged data from backend).
+
+### Phase 5: E2E Tests
+
+**Step 5.1:** Test with real wallet data on trafficportal.dev
+**Step 5.2:** Test wallet API unavailable scenario (dashboard still works)
+**Step 5.3:** Test date range filtering includes correct wallet transactions
+**Step 5.4:** Test tooltip displays correct descriptions
+
+**Dependencies:** Phase 4 complete.
+
+**Phase ordering rationale:**
+- Phases 1 and 2 have zero dependencies and can be built in parallel. They produce independently testable components.
+- Phase 3 depends on both 1 and 2 but requires no UI changes -- backend can be tested via direct AJAX calls.
+- Phase 4 is UI-only and depends on Phase 3's data shape being finalized.
+- This ordering means any phase can be shipped independently without breaking the existing dashboard.
+
+---
+
+## Data Shape: Before and After
+
+### Current Response (from ajax_get_usage_summary)
+
+```json
 {
-    $url = $this->apiEndpoint . '/user-activity-summary/' . $uid
-         . '?start=' . urlencode($startDate)
-         . '&end='   . urlencode($endDate);
-
-    $httpClient = $this->getHttpClient();
-    $response   = $httpClient->get($url, ['x-api-key' => $this->apiKey]);
-
-    $this->handleHttpErrors($response->getStatusCode(), $response->getBody());
-
-    return $response->getBody()['days'] ?? [];
+  "success": true,
+  "data": {
+    "days": [
+      {
+        "date": "2026-03-09",
+        "totalHits": 142,
+        "hitCost": 1.42,
+        "balance": 48.58
+      }
+    ]
+  }
 }
 ```
 
-**Note:** The exact response envelope shape (`data.days`, `data.records`, etc.) must be verified against the live API before implementation. The method returns a plain array — no new DTO class is needed for this simple structure, but one can be added if the team prefers type safety.
+### After Integration
 
----
-
-## Data Flow
-
-### Request Flow (Full)
-
-```
-[User loads page with [tp_usage_dashboard]]
-    |
-    v
-WordPress resolves shortcode → TP_Usage_Dashboard_Shortcode::render_shortcode()
-    |  is_user_logged_in() check → return '' if not logged in
-    v
-enqueue_assets() → wp_enqueue_script/style + wp_localize_script('tpUsageDashboard', {...})
-    |
-    v
-ob_start() → include usage-dashboard-template.php → ob_get_clean()
-    (HTML: container div, canvas#tp-ud-chart, table#tp-ud-stats, date inputs, Apply btn)
-    |
-    v
-Browser: DOM ready fires usage-dashboard.js init()
-    |  Reads tpUsageDashboard.dateRange.start / .end from wp_localize_script data
-    v
-loadData() → $.ajax POST to admin-ajax.php
-    |  action: 'tp_get_usage_summary'
-    |  nonce:  tpUsageDashboard.nonce
-    |  start_date, end_date
-    v
-admin-ajax.php → TP_API_Handler::ajax_get_usage_summary()
-    |  check_ajax_referer('tp_link_shortener_nonce', 'nonce')
-    |  uid = TP_Link_Shortener::get_user_id()    ← server-side, never from POST
-    v
-TrafficPortalApiClient::getUserActivitySummary(uid, start, end)
-    |  GET /user-activity-summary/{uid}?start=...&end=...
-    |  x-api-key header
-    v
-External Traffic Portal API
-    |  Response: { days: [{ date, totalHits }, ...] }
-    v
-wp_send_json_success({ days: [...] })
-    v
-usage-dashboard.js AJAX success callback
-    |  data.data.days → apply mockSplit() per day
-    v
-renderChart(days)   → Chart.js area chart (clicks + QR stacked/overlaid)
-renderTable(days)   → <tr> per day with date / clicks / QR / total columns
+```json
+{
+  "success": true,
+  "data": {
+    "days": [
+      {
+        "date": "2026-03-09",
+        "totalHits": 142,
+        "hitCost": 1.42,
+        "balance": 48.58,
+        "otherServices": {
+          "amount": 25.00,
+          "descriptions": ["Wallet top-up via PayPal"]
+        }
+      },
+      {
+        "date": "2026-03-08",
+        "totalHits": 98,
+        "hitCost": 0.98,
+        "balance": 50.00,
+        "otherServices": null
+      }
+    ]
+  }
+}
 ```
 
-### Date Range Filter Flow
-
-```
-User changes date inputs + clicks Apply
-    |
-    v
-$applyBtn click handler → reads $dateStart.val(), $dateEnd.val()
-    |  validates: start < end, not future
-    v
-state.dateStart = ..., state.dateEnd = ...
-    |
-    v
-loadData()   ← same function as initial load, reads from state
-    |
-    v
-AJAX → re-renders chart and table
-```
+The `otherServices` field is `null` when no wallet transactions exist for that date. JS checks `day.otherServices && day.otherServices.amount` before rendering.
 
 ---
 
-## Component Build Order
+## User Identity Mapping
 
-Build in this order — each step depends on the previous:
+The Traffic Portal API uses `uid` (integer, from `TP_Link_Shortener::get_user_id()`).
+The TerrWallet API uses `email` (string, the WP user's email).
 
-```
-Step 1: PHP Shortcode Class + Plugin Registration (no dependencies)
-    class-tp-usage-dashboard-shortcode.php
-    + register in class-tp-link-shortener.php + tp-link-shortener.php
+Both are resolved server-side:
 
-Step 2: HTML Template (depends on shortcode class existing to include it)
-    templates/usage-dashboard-template.php
-    (static skeleton: container, canvas, table, date inputs, Apply btn)
-
-Step 3: API Client Method (depends on knowing the API response shape)
-    TrafficPortalApiClient::getUserActivitySummary()
-    + AJAX handler in class-tp-api-handler.php
-
-Step 4: JavaScript (depends on template HTML IDs + AJAX handler action name)
-    assets/js/usage-dashboard.js
-    — AJAX call wired to action 'tp_get_usage_summary'
-    — Chart.js area chart render
-    — Stats table render
-    — Mock split function
-    — Date Apply button handler
-
-Step 5: CSS (depends on template HTML classes)
-    assets/css/usage-dashboard.css
-    — Chart wrapper sizing
-    — Stats table layout
-    — Date range control styles
-    — Loading/error state styles
+```php
+$uid = TP_Link_Shortener::get_user_id();           // For Traffic Portal
+$user = wp_get_current_user();
+$email = $user->user_email;                          // For TerrWallet
 ```
 
-**Rationale for this order:** PHP shortcode and template define the HTML structure (IDs and classes). JS depends on those IDs for DOM targeting. CSS depends on those classes for styling. API client and AJAX handler must exist before JS fires live requests. Never write JS or CSS before the HTML contract (template) is finalized.
-
----
-
-## File Naming Conventions
-
-Follow the established pattern exactly:
-
-| New File | Naming Rationale |
-|----------|-----------------|
-| `class-tp-usage-dashboard-shortcode.php` | WordPress class prefix `class-tp-`, then component name in kebab-case, suffix `-shortcode.php` — matches `class-tp-dashboard-shortcode.php` and `class-tp-client-links-shortcode.php` |
-| `templates/usage-dashboard-template.php` | Component name kebab-case + `-template.php` — matches `dashboard-template.php`, `client-links-template.php` |
-| `assets/js/usage-dashboard.js` | Component name kebab-case — matches `dashboard.js`, `client-links.js` |
-| `assets/css/usage-dashboard.css` | Component name kebab-case — matches `dashboard.css`, `client-links.css` |
-
-CSS class prefix for template: use `tp-ud-` (Usage Dashboard) to avoid collision with `tp-dashboard` (existing dashboard) and `tp-cl-` (client-links).
-
-`wp_localize_script` global object name: `tpUsageDashboard` — matches `tpDashboard` and `tpClientLinks`.
-
-AJAX action names: `tp_get_usage_summary` — follows `tp_get_user_map_items` naming pattern.
-
-PHP class name: `TP_Usage_Dashboard_Shortcode` — follows `TP_Dashboard_Shortcode`, `TP_Client_Links_Shortcode`.
-
----
-
-## Integration Points
-
-### External Services
-
-| Service | Integration Pattern | Notes |
-|---------|---------------------|-------|
-| Traffic Portal API | `GET /user-activity-summary/{uid}` via `TrafficPortalApiClient` | Endpoint and auth already configured in existing client; add one method, no new client class |
-| Chart.js 4.4.1 | Already enqueued in client-links shortcode as `tp-chartjs` — reuse the same handle | WordPress deduplicates scripts by handle; registering `tp-chartjs` twice is safe |
-| Bootstrap 5.3.0 | Already enqueued as `tp-bootstrap` — reuse same handle | Same deduplication applies |
-
-### Internal Boundaries
-
-| Boundary | Communication | Notes |
-|----------|---------------|-------|
-| Shortcode class → TP_API_Handler | No direct call; AJAX via browser | Shortcode only enqueues assets and renders template; all data goes via AJAX |
-| usage-dashboard.js → admin-ajax.php | jQuery $.ajax POST with nonce | Standard wp_ajax pattern used by all existing shortcodes |
-| TP_API_Handler → TrafficPortalApiClient | Direct PHP method call | Handler holds `$this->client` reference; add new method to existing client |
-| Template → JavaScript | `tpUsageDashboard` global injected by `wp_localize_script` | The only PHP→JS data bridge; all runtime data fetched via AJAX |
-
----
-
-## Anti-Patterns
-
-### Anti-Pattern 1: Adding a New API Client Class for Usage Data
-
-**What people do:** Create `includes/TrafficPortal/UsageClient.php` as a separate class for the activity summary endpoint.
-
-**Why it's wrong:** The existing `TrafficPortalApiClient` already owns all Traffic Portal endpoints and holds the API key and endpoint configuration. Creating a parallel client duplicates initialization, creates a second place to update when the API key changes, and breaks the Facade pattern `TP_API_Handler` relies on.
-
-**Do this instead:** Add `getUserActivitySummary()` as a new method on the existing `TrafficPortalApiClient`.
-
----
-
-### Anti-Pattern 2: Sending UID from JavaScript
-
-**What people do:** In the AJAX POST body, include `uid: tpUsageDashboard.userId`.
-
-**Why it's wrong:** Client-supplied user IDs can be spoofed. Every existing AJAX handler in `TP_API_Handler` calls `TP_Link_Shortener::get_user_id()` server-side and ignores any uid from `$_POST`. Recent commits explicitly removed client-side uid passing (see commit `e063541`).
-
-**Do this instead:** Never include uid in the AJAX payload. The handler calls `TP_Link_Shortener::get_user_id()` which reads `get_current_user_id()` for logged-in users.
-
----
-
-### Anti-Pattern 3: Randomizing the Mock Clicks/QR Split Per Render
-
-**What people do:** `var qr = Math.floor(Math.random() * totalHits)`.
-
-**Why it's wrong:** Chart re-renders on date change, page focus, or any trigger. Random split causes chart bars to jitter between renders for identical data — confusing and looks broken.
-
-**Do this instead:** Use a deterministic formula (fixed ratio, or a hash of the date string) so the same totalHits always produces the same split regardless of how many times the chart renders.
-
----
-
-### Anti-Pattern 4: Sharing a CSS File with the Existing Dashboard
-
-**What people do:** Add usage dashboard styles to `dashboard.css` because "they're similar."
-
-**Why it's wrong:** The existing convention is one CSS file per shortcode/view (`dashboard.css` for `[tp_link_dashboard]`, `client-links.css` for `[tp_client_links]`). Mixing concerns forces both CSS files to load even when only one shortcode is on the page.
-
-**Do this instead:** Create `usage-dashboard.css` and enqueue it only from `TP_Usage_Dashboard_Shortcode::enqueue_assets()`.
-
----
-
-### Anti-Pattern 5: Calling `wp_localize_script` Before `wp_enqueue_script`
-
-**What people do:** Call `wp_localize_script('tp-usage-dashboard-js', ...)` before `wp_enqueue_script('tp-usage-dashboard-js', ...)`.
-
-**Why it's wrong:** `wp_localize_script` requires the script handle to be registered/enqueued first. It silently fails if called before enqueue.
-
-**Do this instead:** Call `wp_enqueue_script()` for the handle, then immediately call `wp_localize_script()` — in this order, in the same `enqueue_assets()` method. All existing shortcodes follow this ordering.
+No new identity mapping infrastructure is needed. Both identifiers come from the same WordPress user session.
 
 ---
 
 ## Scalability Considerations
 
-| Scale | Architecture Adjustments |
-|-------|--------------------------|
-| 0–1k users | Current AJAX proxy to external API is fine. No caching needed. |
-| 1k–10k users | Consider WordPress transient caching on the API response (keyed by uid + date range) with 5–15 minute TTL. Reduces Traffic Portal API calls when multiple users view the same day's data. |
-| 10k+ users | If Traffic Portal API rate-limits per-account, the WordPress transient cache becomes necessary. Also consider whether the usage dashboard should pull from a local WordPress table rather than the external API. |
+| Concern | At 10 txns/month | At 100 txns/month | At 1000 txns/month |
+|---------|-----------------|-------------------|---------------------|
+| API payload size | ~1 KB | ~10 KB | ~100 KB |
+| PHP merge time | <1ms | <5ms | <20ms |
+| Total AJAX latency | +50ms (local HTTP) | +80ms | +150ms |
+| JS rendering impact | None | None | Minimal |
 
-**First bottleneck:** External API rate limits from Traffic Portal, not WordPress load. The proxy pattern means every usage dashboard page load hits the external API. Add `get_transient`/`set_transient` wrapping in `ajax_get_usage_summary()` before this becomes a problem.
+The TerrWallet REST API call is local (same server), so network latency is minimal. The adapter's `aggregateByDate()` is O(n) where n = number of transactions. For 1000+ transactions per month, consider adding `per_page` pagination and date filtering in the API query params to reduce payload size.
 
 ---
 
 ## Sources
 
-- Direct inspection: `includes/class-tp-dashboard-shortcode.php` — canonical shortcode pattern (HIGH confidence)
-- Direct inspection: `includes/class-tp-client-links-shortcode.php` — second canonical shortcode pattern (HIGH confidence)
-- Direct inspection: `includes/class-tp-api-handler.php` — AJAX handler registration and nonce pattern (HIGH confidence)
-- Direct inspection: `includes/TrafficPortal/TrafficPortalApiClient.php` — HTTP client method pattern (HIGH confidence)
-- Direct inspection: `assets/js/client-links.js` — IIFE/state/DOM-cache JS pattern (HIGH confidence)
-- Direct inspection: `includes/class-tp-link-shortener.php` — plugin singleton and component registration (HIGH confidence)
-- Direct inspection: `tp-link-shortener.php` — plugin entry, require_once pattern (HIGH confidence)
-- Direct inspection: `.planning/codebase/ARCHITECTURE.md` — layer map and data flows (HIGH confidence)
-- Direct inspection: `.planning/codebase/CONVENTIONS.md` — naming rules, file patterns (HIGH confidence)
-- Git log: commit `e063541` — confirmed uid must always be server-side (HIGH confidence)
+- Direct inspection: `includes/class-tp-api-handler.php` -- `ajax_get_usage_summary()`, `validate_usage_summary_response()`, constructor, AJAX registration (HIGH confidence)
+- Direct inspection: `includes/TrafficPortal/TrafficPortalApiClient.php` -- `getUserActivitySummary()` method (HIGH confidence)
+- Direct inspection: `assets/js/usage-dashboard.js` -- `loadData()`, `renderRows()`, `renderSummaryCards()`, state management (HIGH confidence)
+- Direct inspection: `templates/usage-dashboard-template.php` -- table structure, column headers (HIGH confidence)
+- Direct inspection: `includes/class-tp-usage-dashboard-shortcode.php` -- asset enqueuing, localize script (HIGH confidence)
+- Direct inspection: `includes/class-tp-link-shortener.php` -- `get_user_id()`, `get_api_endpoint()` patterns (HIGH confidence)
+- TeraWallet API V3 docs: https://github.com/malsubrata/woo-wallet/wiki/API-V3 (HIGH confidence)
+- WooCommerce REST API authentication: https://woocommerce.github.io/woocommerce-rest-api-docs/#authentication (HIGH confidence)
+- WooCommerce REST API docs: https://developer.woocommerce.com/docs/apis/rest-api/ (HIGH confidence)
 
 ---
 
-*Architecture research for: `[tp_usage_dashboard]` billing/usage dashboard shortcode*
-*Researched: 2026-02-22*
+*Architecture research for: TerrWallet Integration (v2.2)*
+*Researched: 2026-03-10*

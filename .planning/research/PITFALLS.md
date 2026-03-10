@@ -1,329 +1,526 @@
-# Pitfalls Research
+# Domain Pitfalls: TerrWallet Integration (v2.2)
 
-**Domain:** Billing/usage dashboard added to existing WordPress link shortener plugin
-**Researched:** 2026-02-22
-**Confidence:** HIGH (Chart.js issues verified via official GitHub and docs; financial precision from multiple authoritative sources; WordPress security from WordPress Developer Blog and Patchstack)
+**Domain:** Integrating WooCommerce Wallet (TeraWallet) API into existing WordPress plugin usage dashboard
+**Researched:** 2026-03-10
+**Confidence:** HIGH for architecture/integration pitfalls (based on codebase inspection + WC REST API docs); MEDIUM for TeraWallet-specific behaviors (based on GitHub wiki + community reports)
 
 ---
 
 ## Critical Pitfalls
 
-### Pitfall 1: Chart.js Canvas Grows Indefinitely in Flex Container
+Mistakes that cause rewrites, data corruption, or security vulnerabilities.
+
+### Pitfall 1: Loopback HTTP Request to Own Server for WC REST API
 
 **What goes wrong:**
-Chart.js with `responsive: true` and `maintainAspectRatio: false` inside a flex container causes an infinite resize loop. Chart.js reads the container width, resizes the canvas, which grows the flex container, which triggers another Chart.js resize. The area chart grows taller with each resize event and never stabilizes. Observed in production as the chart area doubling in height every time the page is resized or orientation changes.
+The TerrWallet API lives at `trafficportal.dev/wp-json/wc/v3/wallet/`. The plugin also runs on `trafficportal.dev`. Making an HTTP request (via `wp_remote_get` or cURL) from the server to itself creates a loopback request. On many WordPress hosting environments (especially behind Cloudflare, reverse proxies, or Docker), loopback requests fail with cURL error 28 (timeout), get blocked by bot protection, or deadlock because PHP-FPM has no available workers to serve the request while it is also waiting for the response.
 
 **Why it happens:**
-Flex containers have an implicit `min-width: auto` that prevents flex children from shrinking below their content width. When Chart.js expands the canvas, the container grows to match. Chart.js's ResizeObserver detects the container size change and triggers another resize. This is a documented long-standing bug (GitHub issues #5805 and #9001 in the Chart.js repo, still referenced in 2025 discussions).
+The existing `TrafficPortalApiClient` uses cURL (`CurlHttpClient`) to call an external Lambda API on AWS. Developers naturally reach for the same pattern to call the WC REST API. But the WC REST API is local -- it is served by the same WordPress installation. An HTTP request from the server to itself is fundamentally different from an HTTP request to an external service.
 
-**How to avoid:**
-The chart wrapper div MUST have `position: relative` and the flex child containing it MUST have `min-width: 0` (or `overflow: hidden`). Without `min-width: 0`, the flex intrinsic sizing prevents the chart from ever shrinking.
+**Consequences:**
+- Timeout errors on shared hosting where PHP workers are limited
+- 403 errors behind Cloudflare (bot protection blocks server-to-server requests to own domain)
+- Doubled server load (each dashboard page load triggers a PHP request that spawns another PHP request)
+- SSL certificate verification failures when the server's internal IP does not match the domain's certificate
 
-```css
-/* The flex row containing the chart */
-.tp-billing-chart-row {
-    display: flex;
-    min-width: 0; /* CRITICAL — allows chart to shrink */
-}
-
-/* The chart wrapper itself */
-.tp-billing-chart-wrapper {
-    position: relative;  /* Required by Chart.js */
-    min-width: 0;        /* Belt-and-suspenders */
-    overflow: hidden;    /* Prevents bleedout */
-    height: 280px;       /* Explicit height, not min-height */
-}
-```
-
-Never rely on `min-height` alone for the chart wrapper — use explicit `height` so Chart.js has a definitive constraint.
-
-**Warning signs:**
-- Chart area visually grows taller every time the browser window is resized
-- Console shows: `ResizeObserver loop limit exceeded` or `ResizeObserver loop completed with undelivered notifications`
-- Chart renders correctly on first load but breaks after a date range change that re-renders the chart
-
-**Phase to address:**
-Phase 1 (Chart Foundation) — The wrapper CSS must be established correctly before any chart rendering code is written. Fixing this after the JS is complete requires CSS-only changes, but detecting it requires testing at specific flex container widths.
-
----
-
-### Pitfall 2: Chart.js Requires a Date Adapter for Time-Scale X-Axis — Silent Failure
-
-**What goes wrong:**
-When using `type: 'time'` on the X-axis (needed to render daily data correctly with date labels), Chart.js 3+ throws a silent or cryptic error: `"This method is not implemented: Check that a complete date adapter is provided"`. The chart renders blank or broken with no obvious user-facing error. Developers often waste time debugging chart configuration when the fix is adding one script tag.
-
-**Why it happens:**
-In Chart.js v3, date/time handling was separated from the core library. `type: 'time'` requires an external adapter (e.g., `chartjs-adapter-date-fns`, `chartjs-adapter-luxon`, `chartjs-adapter-moment`). This is not loaded by the Chart.js CDN bundle by default. The error message is non-obvious and easy to miss if the browser console is not open.
-
-**How to avoid:**
-Include the date adapter CDN script immediately after Chart.js. For this project (no build step, CDN delivery via `wp_enqueue_scripts`):
+**Prevention:**
+Do NOT make HTTP requests to the local WC REST API. Instead, use WordPress's internal REST API dispatch mechanism:
 
 ```php
-// In PHP enqueue
-wp_enqueue_script('chartjs', 'https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js', [], '4.x', true);
-wp_enqueue_script('chartjs-adapter', 'https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3/dist/chartjs-adapter-date-fns.bundle.min.js', ['chartjs'], '3.x', true);
+// BAD: HTTP loopback request
+$response = wp_remote_get('https://trafficportal.dev/wp-json/wc/v3/wallet/?email=' . $email, [
+    'headers' => ['Authorization' => 'Basic ' . base64_encode($key . ':' . $secret)]
+]);
+
+// GOOD: Internal REST API dispatch (no HTTP request, no loopback)
+$request = new \WP_REST_Request('GET', '/wc/v3/wallet');
+$request->set_query_params(['email' => $email]);
+$response = rest_do_request($request);
+$data = $response->get_data();
 ```
 
-The bundle version of `chartjs-adapter-date-fns` includes date-fns, so only one additional script is needed. Alternatively, avoid the time scale entirely and use a `'category'` scale with pre-formatted date strings as labels — this avoids the adapter requirement at the cost of some axis flexibility.
+Alternatively, use TeraWallet's PHP functions directly if available (e.g., `woo_wallet()->wallet->get_transactions()`), bypassing the REST API entirely.
 
-**Warning signs:**
-- Chart canvas renders as blank white rectangle
-- Console error: `"This method is not implemented"` or `"No scale found with id 'time'"`
-- Chart works for `type: 'bar'` or `type: 'line'` with category scale but fails when switching to time scale
+**Detection:**
+- cURL error 28 in error logs when loading the usage dashboard
+- Dashboard works on local dev but fails on staging/production
+- `wp_remote_get` to own domain in the codebase
 
-**Phase to address:**
-Phase 1 (Chart Foundation) — Must be resolved at the time the chart is first rendered. A category scale with formatted date strings is an acceptable alternative if the time scale adapter adds complexity.
+**Phase:** Must be addressed in Phase 1 (API client design). Getting this wrong requires a full rewrite of the client layer.
 
 ---
 
-### Pitfall 3: Chart Instance Not Destroyed Before Re-Render Causes Memory Leak and Double Rendering
+### Pitfall 2: Date Format Mismatch Between APIs
 
 **What goes wrong:**
-When the date range filter changes and the chart needs to re-render with new data, calling `new Chart(canvas, config)` on a canvas that already has a Chart.js instance causes the error: `"Canvas is already in use. Chart with ID X must be destroyed before the canvas with ID Y can be reused"`. Even without that error (in older Chart.js versions), the old instance persists in memory and both instances receive resize events, causing visual artifacts — two datasets stacked, wrong colors, duplicate tooltips.
+The usage API returns dates as `YYYY-MM-DD` (ISO date, no time component). The TeraWallet API returns dates as `YYYY-MM-DD HH:MM:SS` (MySQL datetime format with time component). When merging by date, a naive string comparison (`"2026-03-10" === "2026-03-10 14:30:22"`) fails. Every wallet transaction appears as an unmatched row in the merged data.
 
 **Why it happens:**
-Chart.js tracks instances internally by canvas element. If the canvas DOM element is reused without calling `.destroy()` on the previous instance, Chart.js throws or behaves unpredictably. Developers building filter-triggered chart refreshes often forget this because simple pages render charts once and never need to destroy them.
+The two APIs are maintained by different teams with different conventions. The usage API aggregates per-day and returns date-only strings. TeraWallet stores individual transactions with full timestamps. The developer writing the merge adapter assumes both APIs return the same date format because the PROJECT.md says "merge by date."
 
-**How to avoid:**
-Always keep a reference to the chart instance and destroy it before re-creating:
+**Consequences:**
+- Wallet transactions never align with usage rows -- "Other Services" column is always empty
+- Or worse: partial matches on some days, missing on others, creating an inconsistent UI
+- Sorting by date produces interleaved garbage if date strings and datetime strings are mixed
 
-```javascript
-let billingChart = null;
+**Prevention:**
+The adapter that merges the two datasets must normalize dates BEFORE matching:
 
-function renderChart(data) {
-    const canvas = document.getElementById('tp-billing-chart');
+```php
+// Normalize TeraWallet datetime to date-only for matching
+$walletDate = substr($transaction['date'], 0, 10); // "2026-03-10 14:30:22" -> "2026-03-10"
+```
 
-    // Destroy previous instance before re-using canvas
-    if (billingChart) {
-        billingChart.destroy();
-        billingChart = null;
+Or more robustly:
+
+```php
+$walletDate = (new \DateTime($transaction['date']))->format('Y-m-d');
+```
+
+The merge key is always `Y-m-d`. Multiple wallet transactions on the same day should be summed before merging with the usage row for that date.
+
+**Detection:**
+- "Other Services" column shows $0.00 for all rows despite wallet transactions existing
+- Unit test that creates wallet transactions and usage data on the same date fails to merge
+
+**Phase:** Must be addressed in Phase 2 (merge adapter). Add unit tests with explicit date format assertions.
+
+---
+
+### Pitfall 3: WC REST API Authentication When Using Internal Dispatch
+
+**What goes wrong:**
+If you use `rest_do_request()` for internal dispatch, the request runs in the same PHP context as the AJAX handler. The WC REST API authentication layer (`WC_REST_Authentication`) expects either: (a) Basic Auth headers with consumer key/secret, or (b) an authenticated WordPress user with appropriate capabilities. Internal requests via `rest_do_request()` do not carry HTTP headers, so Basic Auth fails. But if the current user (from the AJAX session) does not have WooCommerce capabilities, the WC endpoint returns 401 Unauthorized.
+
+**Why it happens:**
+The AJAX handler runs as the logged-in WordPress user (the customer viewing their dashboard). WooCommerce REST API endpoints require either API key auth or a user with `manage_woocommerce` capability. Regular customers do not have this capability. The developer assumes that since the code runs on the server, authentication is not needed.
+
+**Consequences:**
+- 401 Unauthorized errors when fetching wallet data for regular users
+- Works fine when tested by admin users, fails for regular customers
+- Security review flags the workaround of granting customers `manage_woocommerce` capability
+
+**Prevention:**
+Two approaches, in order of preference:
+
+1. **Bypass the REST API entirely** -- use TeraWallet's PHP functions directly:
+```php
+// Direct PHP call -- no REST API auth needed
+$user_id = get_current_user_id();
+$transactions = get_wallet_transactions([
+    'user_id' => $user_id,
+    'per_page' => -1,
+]);
+```
+
+2. **If REST API is required** -- temporarily elevate to an application-level context:
+```php
+// Create an internal request with proper auth context
+add_filter('woocommerce_rest_check_permissions', function($permission, $context, $object_id, $post_type) {
+    // Only allow for our specific internal call
+    if (doing_action('wp_ajax_tp_get_usage_summary')) {
+        return true;
     }
+    return $permission;
+}, 10, 4);
+```
 
-    billingChart = new Chart(canvas, {
-        type: 'line',
-        // ... config
-    });
+The first approach (direct PHP) is strongly preferred. It avoids all REST API auth complexity and is faster.
+
+**Detection:**
+- Works for admin, fails for customer -- the classic auth pitfall
+- 401 errors in AJAX responses when non-admin users load the dashboard
+
+**Phase:** Must be addressed in Phase 1 (API client design). The auth approach determines the entire client architecture.
+
+---
+
+### Pitfall 4: User ID Mismatch Between APIs
+
+**What goes wrong:**
+The existing usage API uses a Traffic Portal `uid` (obtained via `TP_Link_Shortener::get_user_id()`, which returns the WordPress user ID). The TeraWallet API requires an email address (`?email={email}`) or a WordPress user ID depending on the endpoint. The internal `API_REFERENCE.md` wallet endpoints use `wpUserId`, but the WC REST API endpoint uses `email`. If the wrong identifier is passed, the wallet data returns empty or belongs to the wrong user.
+
+**Why it happens:**
+Three different identifier conventions exist in this system:
+- Traffic Portal API: `uid` (which happens to be the WP user ID)
+- TeraWallet REST API (wp-json): `email` parameter
+- Internal Lambda wallet proxy: `wpUserId` path parameter
+
+The developer may use the `uid` from the existing flow and pass it to an endpoint that expects email, or vice versa.
+
+**Consequences:**
+- Empty wallet data (no user found for email/ID)
+- Wrong user's wallet data displayed (if ID/email mapping is wrong)
+- Security vulnerability: exposing another user's financial data
+
+**Prevention:**
+Resolve the email from the WordPress user ID at the PHP layer, never from the frontend:
+
+```php
+$wp_user_id = get_current_user_id();
+$user = get_userdata($wp_user_id);
+$email = $user->user_email;
+```
+
+If using TeraWallet PHP functions directly, use the WordPress user ID (which TeraWallet maps internally). If using the REST API, use the email parameter. Never accept the email from the frontend POST data.
+
+**Detection:**
+- Wallet data is empty for a user who definitely has transactions
+- Different users see the same wallet data
+
+**Phase:** Phase 1 (API client). Server-side user resolution, never trust client-provided identity.
+
+---
+
+## Moderate Pitfalls
+
+### Pitfall 5: Multiple Wallet Transactions Per Day Not Aggregated
+
+**What goes wrong:**
+The usage API returns one row per day. TeraWallet may have multiple transactions on the same day (e.g., a top-up at 9am and a charge at 3pm). If the merge adapter maps transactions 1:1 with usage rows, days with multiple transactions create duplicate rows or only show the first/last transaction.
+
+**Prevention:**
+The adapter must aggregate wallet transactions by date BEFORE merging with usage data:
+
+```php
+$walletByDate = [];
+foreach ($transactions as $tx) {
+    $date = substr($tx['date'], 0, 10);
+    if (!isset($walletByDate[$date])) {
+        $walletByDate[$date] = ['total' => 0, 'descriptions' => []];
+    }
+    if ($tx['type'] === 'credit') {
+        $walletByDate[$date]['total'] += (float) $tx['amount'];
+        $walletByDate[$date]['descriptions'][] = $tx['details'];
+    }
 }
 ```
 
-Alternatively, use `chart.data.datasets[0].data = newData; chart.update()` to update data in-place without destroying/recreating — this is more performant and avoids the lifecycle issue entirely.
+Then merge: for each usage row, look up `$walletByDate[$usageRow['date']]` and attach the aggregated amount + descriptions.
 
-**Warning signs:**
-- Console error: `"Canvas is already in use"`
-- Changing the date range filter adds a second colored line on top of the existing one
-- Memory usage grows each time the date range is changed (visible in Chrome DevTools Memory panel)
-
-**Phase to address:**
-Phase 1 (Chart Foundation) — Must be part of the initial chart rendering code. Retrofitting destroy/recreate logic after the fact is easy but discovering the bug requires multiple date range filter changes.
+**Phase:** Phase 2 (merge adapter). Unit test with 3+ transactions on a single day.
 
 ---
 
-### Pitfall 4: Floating-Point Arithmetic Corrupts Running Balance Display
+### Pitfall 6: Wallet Transactions Exist on Dates With No Usage Data
 
 **What goes wrong:**
-The running balance column is calculated by cumulatively summing costs across rows: `runningBalance += row.cost`. Because JavaScript uses IEEE 754 floating-point arithmetic, values like `0.1 + 0.2` do not equal `0.3` exactly — they equal `0.30000000000000004`. In a billing context, a running balance that shows `$12.3000000000001` or `$0.0000000000003` instead of `$0.00` destroys user trust and looks like a billing error.
+A user might have wallet top-ups on days with zero link activity. The usage API returns NO row for days with zero hits. The wallet has a credit transaction on that day. If the merge only iterates usage rows and looks up wallet data, the wallet-only days are silently dropped.
 
-**Why it happens:**
-Decimal fractions (like $0.001 cost per click) cannot be represented exactly in binary floating point. Errors are tiny per operation but accumulate across 30+ rows of daily totals. The issue is invisible in unit tests unless the test specifically checks for exact string equality after formatting.
+**Prevention:**
+The merge must be a full outer join by date, not a left join from usage data:
 
-**How to avoid:**
-Two options:
-1. **Work in integer micro-cents**: Multiply all cost values by 100000 (or whatever the precision requires), sum as integers, divide only at display time.
-2. **Round after each addition**: `runningBalance = Math.round((runningBalance + row.cost) * 10000) / 10000` — round to 4 decimal places after each step, not just at display time.
-3. **Use `toFixed()` only for display**: Always format displayed values with `Number(value).toFixed(4)` or similar — never display raw float to user.
+```php
+// Collect all dates from both sources
+$allDates = array_unique(array_merge(
+    array_column($usageDays, 'date'),
+    array_keys($walletByDate)
+));
+sort($allDates);
 
-The preferred approach for this project: round to the API's precision after each step (if API returns 6 decimal places, work at 6 decimal places) and use `toFixed()` at render time only.
+// Build merged rows for ALL dates
+foreach ($allDates as $date) {
+    $usage = $usageByDate[$date] ?? ['totalHits' => 0, 'hitCost' => 0, 'balance' => 0];
+    $wallet = $walletByDate[$date] ?? ['total' => 0, 'descriptions' => []];
+    // ... build merged row ...
+}
+```
 
-**Warning signs:**
-- Balance column shows trailing zeros like `$0.000001` when it should show `$0.00`
-- Final running balance for a period doesn't match the "total cost" summary card
-- Any balance value shows more than 4 decimal places when rendered without explicit formatting
+Decide at the product level: should days with ONLY wallet transactions (no usage) appear in the table? If yes, implement full outer join. If no, implement left join from usage and accept that some wallet data is invisible.
 
-**Phase to address:**
-Phase 1 (Data Layer) — Must be addressed when writing the table rendering logic. It will not be caught during development if testing with round numbers like $0.10 or $1.00.
+**Phase:** Phase 2 (merge adapter). Requires a product decision documented before implementation.
 
 ---
 
-### Pitfall 5: Date Range Filter Timezone Mismatch Causes Wrong Day Boundaries
+### Pitfall 7: Timezone Discrepancy Between APIs
 
 **What goes wrong:**
-The date range filter uses HTML `<input type="date">` which returns a date string in `YYYY-MM-DD` format interpreted in the browser's local timezone. The external API likely uses UTC timestamps. When a user in UTC-5 selects "today" (e.g., `2026-02-22`), the API query with `start_date=2026-02-22` may be interpreted as `2026-02-22T00:00:00Z` (UTC midnight) — which is 7pm the previous day in the user's timezone. This means the dashboard shows data for a different day than the user expects, and off-by-one-day errors appear in the stats table.
+The usage API stores dates in UTC (confirmed by existing `formatDateISO` using `getUTCFullYear()`). TeraWallet stores transaction dates in the WordPress site timezone (typically set in Settings > General). If the site timezone is `America/Toronto` (UTC-5), a wallet transaction at 11pm Toronto time on March 10 is stored as `2026-03-10 23:00:00` in the database but corresponds to `2026-03-11` in UTC. The merge puts this transaction on March 10 (based on its local timestamp) while the usage data has it affecting March 11 (based on UTC).
 
 **Why it happens:**
-`new Date('2026-02-22')` in JavaScript parses a date-only string as UTC midnight, not local midnight. API date parameters are almost always UTC. The gap between local browser time and UTC causes the boundary to shift by the user's UTC offset, most severely for users in UTC-12 to UTC+14 ranges.
+WordPress's `current_time('mysql')` returns site-local time. TeraWallet uses this for transaction timestamps. The Lambda-based usage API operates in UTC. One-day-off mismatches appear for transactions near midnight in any non-UTC timezone.
 
-**How to avoid:**
-When building the API query parameters from the date input:
+**Prevention:**
+Convert TeraWallet timestamps to UTC before extracting the date for merge:
+
+```php
+$siteTimezone = wp_timezone();
+$utcTimezone = new \DateTimeZone('UTC');
+
+$txDate = new \DateTime($transaction['date'], $siteTimezone);
+$txDate->setTimezone($utcTimezone);
+$mergeDate = $txDate->format('Y-m-d');
+```
+
+Alternatively, if the product decision is "merge by site-local date" (which may be more intuitive for users), convert the usage API dates from UTC to site timezone before merging. Be consistent -- pick one timezone for the merge key and document the decision.
+
+**Detection:**
+- Transactions near midnight appear on the "wrong" day in the table
+- Test passes in UTC-0 environments, fails in UTC-5
+
+**Phase:** Phase 2 (merge adapter). Add a unit test with a transaction at 11:30pm in a non-UTC timezone.
+
+---
+
+### Pitfall 8: Performance Degradation From Sequential API Calls
+
+**What goes wrong:**
+The current `ajax_get_usage_summary()` makes one API call to the external Lambda. Adding the wallet data fetch makes it two sequential operations per dashboard load. If the wallet fetch takes 500ms (REST API dispatch + database query), the dashboard load time increases by 500ms. On slow database servers, this could be 1-2 seconds.
+
+**Why it happens:**
+PHP is single-threaded. The AJAX handler must complete both data fetches before returning to the browser. The developer adds the wallet fetch after the usage fetch in the same handler, making them sequential.
+
+**Prevention:**
+If using internal `rest_do_request()` or direct PHP calls, both happen in the same PHP process and are inherently sequential. Mitigation options:
+
+1. **Cache wallet data with transients** -- wallet transactions rarely change mid-session:
+```php
+$cache_key = 'tp_wallet_' . $user_id . '_' . $start_date . '_' . $end_date;
+$cached = get_transient($cache_key);
+if ($cached !== false) {
+    $wallet_data = $cached;
+} else {
+    $wallet_data = $this->fetch_wallet_transactions($user_id, $start_date, $end_date);
+    set_transient($cache_key, $wallet_data, 5 * MINUTE_IN_SECONDS);
+}
+```
+
+2. **Separate AJAX endpoint** -- fetch wallet data in a parallel AJAX call from the browser:
 ```javascript
-// WRONG: new Date(dateInputValue) parses as UTC midnight
-// RIGHT: explicitly parse as local date
-function localDateToApiParam(dateString) {
-    // dateString is "YYYY-MM-DD" from input[type=date]
-    // Return as-is for the API — let the API handle timezone context
-    // Never convert to a timestamp without knowing the API's expected timezone
-    return dateString; // "2026-02-22" passed directly
+// Fire both requests simultaneously from the browser
+$.when(
+    $.ajax({ action: 'tp_get_usage_summary', ... }),
+    $.ajax({ action: 'tp_get_wallet_transactions', ... })
+).then(function(usageResp, walletResp) {
+    // Merge client-side
+});
+```
+
+Option 2 is more complex but faster. Option 1 is simpler and sufficient for v2.2.
+
+**Phase:** Phase 1 (architecture decision). Choose single-endpoint vs dual-endpoint before building.
+
+---
+
+### Pitfall 9: Error Handling When One API Succeeds and the Other Fails
+
+**What goes wrong:**
+The usage API call succeeds, but the wallet data fetch fails (TeraWallet plugin deactivated, database error, permission denied). If the AJAX handler treats any failure as a total failure, the entire dashboard shows an error state -- even though 90% of the data (usage stats) is available.
+
+**Why it happens:**
+The existing `ajax_get_usage_summary()` has a try/catch that returns an error response on any exception. Adding the wallet fetch inside the same try block means a wallet failure kills the entire response.
+
+**Consequences:**
+- Dashboard shows "Error loading usage data" when only the wallet data is unavailable
+- Users cannot see their usage stats because of an unrelated wallet plugin issue
+- TeraWallet plugin deactivation breaks the usage dashboard entirely
+
+**Prevention:**
+Fetch wallet data in a separate try/catch. Return usage data even if wallet fails:
+
+```php
+// Always fetch usage data first
+$usage = $this->client->getUserActivitySummary($uid, $start_date, $end_date);
+$validated = $this->validate_usage_summary_response($usage);
+
+// Attempt wallet data -- failure is non-fatal
+$wallet_data = [];
+$wallet_error = null;
+try {
+    $wallet_data = $this->fetch_wallet_transactions($user_id, $start_date, $end_date);
+} catch (\Exception $e) {
+    $wallet_error = $e->getMessage();
+    $this->log_to_file('Wallet fetch failed (non-fatal): ' . $e->getMessage());
+}
+
+// Merge whatever we have
+$merged = $this->merge_usage_and_wallet($validated['days'], $wallet_data);
+
+wp_send_json_success([
+    'days' => $merged,
+    'wallet_available' => empty($wallet_error),
+    'wallet_error' => $wallet_error,
+]);
+```
+
+The frontend should render the table with empty "Other Services" cells if wallet data is unavailable, not show an error state.
+
+**Detection:**
+- Deactivate TeraWallet plugin -- dashboard should still work with empty Other Services column
+- Simulate wallet database timeout -- dashboard should degrade gracefully
+
+**Phase:** Phase 2 (merge adapter) and Phase 3 (frontend). Design the partial-failure response shape early.
+
+---
+
+### Pitfall 10: WC REST API Consumer Key/Secret Storage in wp_options
+
+**What goes wrong:**
+If using the WC REST API with HTTP requests (despite Pitfall 1 recommending against it), the consumer key and secret must be stored somewhere. Storing them in `wp_options` as plaintext is a security risk. Storing them in plugin settings UI exposes them to any admin user. Hardcoding them in the plugin source means they are in version control.
+
+**Why it happens:**
+WooCommerce generates consumer key/secret pairs for REST API access. The developer needs to store these credentials for the plugin to authenticate. There is no standard WordPress pattern for storing third-party API credentials securely.
+
+**Prevention:**
+If HTTP requests to the WC REST API are truly needed (which they should NOT be per Pitfall 1):
+- Store credentials in `wp-config.php` as constants: `define('TP_WC_CONSUMER_KEY', 'ck_xxx');`
+- Never store in the database or plugin settings
+- Never commit to version control
+- Use `wp_options` only if the value is encrypted
+
+But the real prevention is to avoid needing WC REST API credentials entirely by using direct PHP function calls (Pitfall 1 and Pitfall 3).
+
+**Phase:** Phase 1 (API client design). If the direct PHP approach is used, this pitfall is eliminated entirely.
+
+---
+
+## Minor Pitfalls
+
+### Pitfall 11: TeraWallet Pagination Not Handled
+
+**What goes wrong:**
+The TeraWallet API supports `per_page` and `page` parameters. If a user has more transactions than the default `per_page` (typically 10), only the first page is returned. The adapter silently works with incomplete data, showing only some wallet transactions.
+
+**Prevention:**
+Either request all transactions by setting `per_page` to a high number, or implement pagination to fetch all pages:
+
+```php
+$page = 1;
+$all_transactions = [];
+do {
+    $response = $this->fetch_wallet_page($email, $page, 100);
+    $all_transactions = array_merge($all_transactions, $response);
+    $page++;
+} while (count($response) === 100);
+```
+
+For the date-filtered use case, consider filtering server-side if the API supports it, or filter client-side after fetching all transactions within the date range.
+
+**Phase:** Phase 1 (API client). Test with a user who has 50+ wallet transactions.
+
+---
+
+### Pitfall 12: Wallet Amount Precision (String vs Float)
+
+**What goes wrong:**
+The TeraWallet API returns amounts as strings with high precision: `"3.50000000"`. The usage API returns amounts as floats: `0.15`. JavaScript's floating-point arithmetic means `parseFloat("3.50000000") + 0.15` may not equal `3.65` exactly. If the merged data is used for balance calculations or displayed with inconsistent decimal places, users see "$3.50000000" or rounding errors.
+
+**Prevention:**
+Convert all amounts to cents (integers) for arithmetic, format to 2 decimal places for display only:
+
+```php
+// PHP: normalize wallet amount to float with 2 decimal precision
+$amount = round((float) $transaction['amount'], 2);
+```
+
+```javascript
+// JS: use the existing formatCurrency() which already rounds to cents
+formatCurrency(day.otherServices); // Already handles precision via Math.round(value * 100) / 100
+```
+
+The existing `formatCurrency()` in `usage-dashboard.js` already uses cent-snapping (`Math.round(value * 100) / 100`), so this is handled if the PHP layer delivers clean floats.
+
+**Phase:** Phase 1 (API client) for PHP normalization, Phase 3 (frontend) already handled by existing `formatCurrency()`.
+
+---
+
+### Pitfall 13: TeraWallet Plugin Not Installed/Active
+
+**What goes wrong:**
+The plugin assumes TeraWallet is installed and active. If a WordPress installation uses a different wallet plugin, or has no wallet plugin, calling TeraWallet PHP functions throws a fatal error ("Call to undefined function").
+
+**Prevention:**
+Check for TeraWallet availability before attempting to use it:
+
+```php
+private function is_terawallet_available(): bool {
+    return function_exists('woo_wallet') || class_exists('Woo_Wallet');
 }
 ```
 
-Verify with the API documentation whether `start_date` and `end_date` parameters are interpreted as UTC or local time. If UTC: document this prominently and consider displaying a note like "Dates shown in UTC". If local: ensure the API accepts YYYY-MM-DD and doesn't require ISO 8601 timestamps.
+If unavailable, return empty wallet data (not an error). The "Other Services" column simply shows nothing.
 
-**Warning signs:**
-- Stats for "today" show data from yesterday (user is in a positive UTC offset)
-- Total for a 30-day range shows 29 days or 31 days of data
-- The first or last day in the table always shows 0 clicks even when clicks occurred
-
-**Phase to address:**
-Phase 1 (Data Layer) — Must be verified against actual API behavior on day 1. Write a test that fetches data for a known date and confirms the count matches expectations.
+**Phase:** Phase 1 (API client). This check must be the first thing the wallet client does.
 
 ---
 
-### Pitfall 6: Mocked Clicks/QR Split Ratio Presented as Real Data Without Labeling
+### Pitfall 14: "Other Services" Column Tooltip Rendering With HTML Injection
 
 **What goes wrong:**
-The external API returns only `totalHits` — it does not split clicks from QR scans at the per-day level. If the dashboard shows a chart with two stacked areas ("Clicks" and "QR Scans"), and the split is mocked using a static ratio (e.g., 70% clicks / 30% QR), this will be visually indistinguishable from real data. Users may make business decisions (e.g., "my QR campaign is outperforming expectations") based on fabricated data. If the real split ratio later becomes available from the API, the historical mocked data cannot be reconciled.
+Wallet transaction `details` field contains user-provided text (e.g., "Deposit from payment", "Usage charge"). If this text is rendered inside a tooltip without escaping, and a malicious description contains HTML or JavaScript, it creates an XSS vulnerability.
 
-**Why it happens:**
-Dashboard features are scoped before the underlying data is available. The shortcut of applying a fixed ratio to a known total looks correct on screen and passes visual QA.
+**Prevention:**
+Escape all wallet descriptions before rendering in tooltips:
 
-**How to avoid:**
-Two acceptable approaches:
-1. **Show only `totalHits` on the chart** — one area, labeled "Total hits". No split. Label the chart clearly as "Total Clicks (QR breakdown not available)".
-2. **Show stacked areas but label them clearly as estimated** — add a visible disclaimer: "QR/Click split is estimated based on historical ratios. Actual split not available at daily granularity."
+```javascript
+// BAD: direct insertion
+tooltip.html(day.otherServicesDetails.join('<br>'));
 
-Never present the mocked split as if it were real API data. Add a `// TODO: Replace with real API split when available` comment in the code and a task card on the board.
+// GOOD: text content only, or escaped HTML
+var $tooltip = $('<div>');
+day.otherServicesDetails.forEach(function(desc) {
+    $tooltip.append($('<div>').text(desc));
+});
+```
 
-**Warning signs:**
-- A constant QR percentage (e.g., exactly 30%) across all 30 days regardless of actual campaigns
-- No difference in the QR/click ratio even on days when no QR codes were distributed
-- Code comments like `// assume 70/30 split` without a visible disclaimer to the user
+In PHP, sanitize descriptions before sending to the frontend:
 
-**Phase to address:**
-Phase 2 (Chart Rendering) — Decision must be made at design time before any chart rendering code is written. Changing from mocked split to real split later requires a data model change.
+```php
+$details = sanitize_text_field($transaction['details']);
+```
 
----
-
-## Technical Debt Patterns
-
-| Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
-|----------|-------------------|----------------|-----------------|
-| Using a static click/QR split ratio from totalHits | Allows stacked chart without API changes | Historical mocked data cannot be reconciled when real data becomes available; users may trust fabricated percentages | Only with explicit user-facing disclaimer |
-| Fetching fresh data from external API on every dashboard load (no transient cache) | Always current | External API latency (100-500ms) on every page visit; if external API is down, dashboard breaks | Never — use 5-15 minute WordPress transient cache for usage data |
-| Using `type: 'category'` scale instead of `type: 'time'` for the X-axis | No date adapter required, simpler setup | Cannot handle sparse data (gaps in days with zero hits) gracefully; labels must be pre-generated | Acceptable for MVP if date adapter adds significant complexity |
-| Calculating running balance as raw float accumulation without rounding | Simpler code | Floating point drift causes cents-off errors in balance column, especially with many rows | Never for financial data |
-| Inline `wp_remote_get()` call inside AJAX handler (no caching) | Direct, simple | Each dashboard load triggers a synchronous HTTP call to the external API, adding 200-500ms to every page load; external API downtime breaks the dashboard | Never in production — always wrap in transient |
+**Phase:** Phase 3 (frontend rendering). Standard WordPress XSS prevention.
 
 ---
 
-## Integration Gotchas
+## Phase-Specific Warnings
 
-| Integration | Common Mistake | Correct Approach |
-|-------------|----------------|------------------|
-| External usage API via WordPress AJAX proxy | Not caching the API response — every dashboard page load triggers a live HTTP request | Cache via `set_transient('tp_usage_{uid}_{start}_{end}', $data, 5 * MINUTE_IN_SECONDS)` with a user-scoped cache key |
-| WordPress AJAX nonce + billing data | Using nonce alone as access control ("if nonce passes, return data") | Nonce prevents CSRF but does not authorize. Always pair with `is_user_logged_in()` + ownership check: verify the `uid` in the request matches `get_current_user_id()` |
-| Chart.js + date adapter CDN | Registering Chart.js in `wp_enqueue_scripts` but forgetting the adapter | The adapter script must be enqueued as a dependency of the chart initialization script: `wp_enqueue_script('tp-billing-chart', ..., ['chartjs-adapter'], ...)` |
-| `input[type=date]` default value for "last 30 days" | Using `new Date()` to compute the start date — result is browser-timezone-dependent | Use `new Date().toISOString().slice(0, 10)` for UTC today or document the timezone assumption clearly |
-| Running balance from paginated API data | Calculating running balance only from the current page's rows | Running balance must span the full date range, not just the visible table page. Fetch all rows for the date range, calculate balance from the full set, then paginate the display |
-
----
-
-## Performance Traps
-
-| Trap | Symptoms | Prevention | When It Breaks |
-|------|----------|------------|----------------|
-| Fetching full 30-day usage dataset on every filter change (no debounce) | Rapid date picker interactions fire multiple concurrent AJAX requests; last response wins but may not be the last request sent | Debounce date range filter changes by 300ms; cancel in-flight requests using an AbortController or a request serial number check | Noticeable immediately when user types into date fields; race condition appears on slow connections |
-| Rendering the full stats table (30 rows) via jQuery `.append()` in a loop | Each `.append()` causes a DOM reflow; 30 separate appends = 30 reflows | Build the complete HTML string first, then do a single `.html(tableHtml)` call | With 30+ rows, visible render flash on every filter change |
-| Loading Chart.js (~200KB) on all plugin pages | Adds 200KB parse cost to pages that don't show the billing dashboard | Use `wp_enqueue_script()` only on the page that renders the billing shortcode; check `has_shortcode()` or use a specific CSS class check | On shared hosting, noticeable on mobile; wastes bandwidth for all non-billing dashboard page views |
-| Re-fetching usage data when only the chart display changes (e.g., toggling between chart types) | Unnecessary API calls for UI-only changes | Separate data fetching from rendering; cache the last API response in a JS variable and re-render from cache for UI-only changes | Any time a display toggle causes an AJAX request |
+| Phase Topic | Likely Pitfall | Mitigation |
+|-------------|---------------|------------|
+| API Client Design (Phase 1) | Loopback HTTP request to WC REST API (Pitfall 1) | Use direct PHP functions or `rest_do_request()`, never `wp_remote_get` to own server |
+| API Client Design (Phase 1) | WC REST API auth for non-admin users (Pitfall 3) | Bypass REST API entirely with direct TeraWallet PHP calls |
+| API Client Design (Phase 1) | User ID vs email mismatch (Pitfall 4) | Resolve email server-side from `get_current_user_id()`, never from POST data |
+| API Client Design (Phase 1) | TeraWallet not installed (Pitfall 13) | Feature-detect before calling; degrade gracefully |
+| API Client Design (Phase 1) | Pagination not handled (Pitfall 11) | Fetch all pages or set high `per_page` limit |
+| Merge Adapter (Phase 2) | Date format mismatch (Pitfall 2) | Normalize to `Y-m-d` before merge key comparison |
+| Merge Adapter (Phase 2) | Timezone discrepancy (Pitfall 7) | Convert TeraWallet dates to UTC (or decide on site-local) before extracting date |
+| Merge Adapter (Phase 2) | Multiple transactions per day (Pitfall 5) | Aggregate by date before merging |
+| Merge Adapter (Phase 2) | Wallet-only dates dropped (Pitfall 6) | Full outer join, not left join from usage data |
+| Merge Adapter (Phase 2) | One API fails, dashboard dies (Pitfall 9) | Separate try/catch; wallet failure is non-fatal |
+| Frontend (Phase 3) | XSS via tooltip descriptions (Pitfall 14) | Escape all user-provided text with `.text()` not `.html()` |
+| Frontend (Phase 3) | Amount precision display (Pitfall 12) | Existing `formatCurrency()` handles this; ensure PHP sends clean floats |
 
 ---
 
-## Security Mistakes
+## Decision Log: Key Architectural Choices That Prevent Pitfalls
 
-| Mistake | Risk | Prevention |
-|---------|------|------------|
-| AJAX endpoint returns billing data without ownership verification | User A can see User B's costs and usage by sending `uid=B` in the request | On every AJAX call: `$uid = TP_Link_Shortener::get_user_id()` (server-side, not from POST data). Never accept `uid` as a POST parameter for billing data retrieval |
-| Nonce verification only (no `is_user_logged_in()`) on billing AJAX handler | A cached page with a valid nonce could allow unauthenticated access in some cache configurations | Always double-check: `check_ajax_referer('...', 'nonce')` AND `if (!is_user_logged_in()) { wp_send_json_error(..., 401); return; }` — both checks, in order |
-| Displaying raw API error messages to the user | API errors may expose internal endpoint URLs, authentication tokens, or server structure | Catch all exceptions in the PHP AJAX handler and return only sanitized user-facing messages; log the detailed error server-side |
-| No rate limiting on the billing data AJAX endpoint | An authenticated user could hammer the endpoint 100x/second, causing repeated external API calls and potential cost | Add a transient-based rate limit: refuse requests more frequent than once per 30 seconds per user for the same date range |
-
----
-
-## UX Pitfalls
-
-| Pitfall | User Impact | Better Approach |
-|---------|-------------|-----------------|
-| Showing "Loading..." with no skeleton state for chart and table | Blank white area for 1-3 seconds while API data loads; user doesn't know if page is broken | Show a skeleton chart (grey box with shimmer) and skeleton table rows during load, matching the final layout dimensions |
-| Date range defaulting to "today only" instead of "last 30 days" | User sees one row of data and thinks the feature is broken or that they have no history | Default to last 30 days on first load; persist the user's last-used date range in `localStorage` |
-| Displaying balance as `$0.000001` (raw float) instead of `$0.00` | Looks like a billing bug; erodes trust | Always format with `toFixed(2)` for dollar display; use `toFixed(4)` if showing cost-per-click precision |
-| "No data" empty state with no explanation for the date range | User doesn't know if they have no clicks yet or if the API failed | Distinguish between "zero clicks in this period" (with the date range shown) and "data failed to load" (with a retry button) |
-| Date range filter accepting future dates | User can select a range ending in the future; API returns 0 for future days, which looks like a bug | Set `max` attribute on the end date input to today's date: `endDateInput.max = new Date().toISOString().slice(0, 10)` |
-
----
-
-## "Looks Done But Isn't" Checklist
-
-- [ ] **Running balance column:** Verify the last row's balance equals the sum of all `cost` values — if there is floating-point drift, the totals will not match
-- [ ] **Date range "last 30 days":** Verify the default 30-day range produces exactly 30 rows (not 29 or 31) — off-by-one in the date calculation is common
-- [ ] **Chart destroy on re-render:** Verify changing the date range 3 times in a row does NOT produce the console error `"Canvas is already in use"` and does NOT stack multiple datasets
-- [ ] **Chart adapter loaded:** Verify the time-scale X-axis renders date labels (not numbers or "Invalid Date") — open console and confirm no date adapter errors
-- [ ] **Chart in flex container:** Verify the chart does not grow taller when the browser window is resized 5 times rapidly
-- [ ] **User data isolation:** Verify that changing `uid` in the browser's DevTools Network tab to a different user ID returns an error, not another user's billing data
-- [ ] **Stale data cache:** Verify that after clicking a link 5 times, refreshing the billing dashboard within 1 minute still shows cached (not live) data, and after 15 minutes shows updated data
-- [ ] **Zero-click days:** Verify that days with zero clicks appear as `0` in the table (not missing rows) and appear as `0` on the chart (not a gap in the line)
-- [ ] **Empty state messaging:** Verify that a brand-new account with no links shows a clear "No usage data yet" message rather than a broken chart or empty table with no explanation
-- [ ] **Balance with mocked QR split:** If using a mocked split, verify the user-facing disclaimer is present and the legend or tooltip clearly labels the data as estimated
-
----
-
-## Recovery Strategies
-
-| Pitfall | Recovery Cost | Recovery Steps |
-|---------|---------------|----------------|
-| Chart grows indefinitely (flex container) | LOW | Add `min-width: 0` to flex parent and `position: relative; height: [explicit]px; overflow: hidden` to chart wrapper — CSS-only change, no JS needed |
-| Missing date adapter (blank chart) | LOW | Add one `wp_enqueue_script` call for the adapter; takes 10 minutes to deploy |
-| Chart not destroyed before re-render | LOW | Store chart instance in a module-scoped variable; add `if (chart) chart.destroy()` before `new Chart()` — 3 lines of code |
-| Floating-point balance drift | LOW-MEDIUM | Add `Math.round(value * 10000) / 10000` after each accumulation step; requires re-testing the entire table with non-round numbers |
-| Timezone date mismatch | MEDIUM | Requires verifying the API contract and potentially adjusting how date strings are built and displayed; may require showing a "UTC" label on the dashboard |
-| User data not isolated (security) | HIGH | Requires immediate deployment of a server-side uid enforcement fix; audit logs should be checked for unauthorized access before patching |
-| Mocked split accepted as real | MEDIUM | Cannot retroactively correct historical mocked data; requires adding a visible disclaimer and a code-level TODO; when real data is available, a migration plan is needed |
-
----
-
-## Pitfall-to-Phase Mapping
-
-| Pitfall | Prevention Phase | Verification |
-|---------|------------------|--------------|
-| Chart flex resize loop | Phase 1: Chart Foundation | Resize browser window 10 times rapidly — chart height stays constant |
-| Missing date adapter | Phase 1: Chart Foundation | Open browser console — zero errors when chart renders |
-| Chart not destroyed on re-render | Phase 1: Chart Foundation | Change date range 5 times — no `"Canvas is already in use"` errors |
-| Floating-point balance drift | Phase 1: Data Layer | Sum of all `cost` column values equals the final `runningBalance` value (test with non-round numbers) |
-| Date range timezone mismatch | Phase 1: Data Layer | Fetch "today" data and verify the row count matches actual activity for local calendar day |
-| Mocked QR/click split | Phase 2: Chart Rendering | User-facing disclaimer present; code comment with TODO present; single-area fallback available |
-| Missing data ownership check | Phase 1: API Proxy | Send a request with a different user's uid — receive 401/403, not data |
-| No transient cache on AJAX proxy | Phase 1: API Proxy | Check browser DevTools — second dashboard load within 5 minutes shows same data without triggering external API call |
-| Stale mocked data baked into localStorage | Any phase | Clear localStorage — dashboard still loads correctly with API data |
-| Balance displayed as raw float | Phase 2: Table Rendering | Inspect every value in the balance column with non-round input data — all show max 2 decimal places |
+| Decision | Prevents Pitfall | Rationale |
+|----------|-----------------|-----------|
+| Use direct PHP calls, not HTTP requests, for wallet data | 1 (loopback), 3 (auth), 10 (credentials) | Same server, same process. No HTTP overhead, no auth complexity, no credential storage. |
+| Normalize all dates to `Y-m-d` before merge | 2 (format mismatch), 7 (timezone) | Single canonical date format for the merge key. |
+| Wallet fetch failure is non-fatal | 9 (partial failure) | Usage dashboard works even if TeraWallet is broken, deactivated, or uninstalled. |
+| Server-side user identity resolution | 4 (user ID mismatch) | `get_current_user_id()` in PHP, never from frontend. Consistent with existing DATA-02 pattern. |
+| Feature-detect TeraWallet before use | 13 (plugin not installed) | Plugin must work on WP installations without TeraWallet. |
 
 ---
 
 ## Sources
 
-- [Chart.js Responsive Canvas Grows Indefinitely - GitHub Issue #5805](https://github.com/chartjs/Chart.js/issues/5805) — HIGH confidence, official repo
-- [Chart.js Resizing in Flex Containers - GitHub Issue #9001](https://github.com/chartjs/Chart.js/issues/9001) — HIGH confidence, official repo
-- [Chart.js Responsive Configuration - Official Docs](https://www.chartjs.org/docs/latest/configuration/responsive.html) — HIGH confidence
-- [Chart.js Time Cartesian Axis - Official Docs](https://www.chartjs.org/docs/latest/axes/cartesian/time.html) — HIGH confidence
-- [chartjs-adapter-date-fns - npm](https://www.npmjs.com/package/chartjs-adapter-date-fns) — HIGH confidence
-- [Chart.js API - destroy() method](https://www.chartjs.org/docs/latest/developers/api.html) — HIGH confidence
-- [Floats Don't Work For Storing Cents - Modern Treasury](https://www.moderntreasury.com/journal/floats-dont-work-for-storing-cents) — HIGH confidence, financial engineering blog
-- [Currency Calculations in JavaScript - Honeybadger Developer Blog](https://www.honeybadger.io/blog/currency-money-calculations-in-javascript/) — MEDIUM confidence, verified against multiple sources
-- [WordPress Nonces - Official Developer Documentation](https://developer.wordpress.org/apis/security/nonces/) — HIGH confidence
-- [Understand and use WordPress nonces properly - WordPress Developer Blog 2023](https://developer.wordpress.org/news/2023/08/understand-and-use-wordpress-nonces-properly/) — HIGH confidence
-- [Broken Access Control in WordPress - Patchstack Academy](https://patchstack.com/academy/wordpress/vulnerabilities/broken-access-control/) — HIGH confidence, security-focused WordPress source
-- [DatePickers working with Timezones - Medium](https://nezspencer.medium.com/datepickers-working-with-timezones-c0e342904aa4) — MEDIUM confidence, verified against Grafana and OpenSearch issues
-- [WordPress Transients API - Official Handbook](https://developer.wordpress.org/apis/transients/) — HIGH confidence
-- [How to consume external APIs with wp_remote_get and cache in transients - YourWPweb 2025](https://yourwpweb.com/2025/09/26/how-to-consume-external-apis-with-wp_remote_get-and-cache-in-transients-in-wordpress/) — MEDIUM confidence
-- [Bridging Data Gaps in Time-Series Charts - chartjs-plugin-fill-gaps-zero - Medium](https://medium.com/nethive-engineering/bridging-data-gaps-in-time-series-line-charts-e853cffc623d) — MEDIUM confidence
+- Codebase inspection: `includes/class-tp-api-handler.php` lines 1573-1670 -- existing `ajax_get_usage_summary()` handler and `validate_usage_summary_response()` (HIGH confidence)
+- Codebase inspection: `assets/js/usage-dashboard.js` -- `loadData()`, `renderRows()`, `formatCurrency()`, `formatDateISO()` functions (HIGH confidence)
+- Codebase inspection: `includes/TrafficPortal/TrafficPortalApiClient.php` -- cURL-based HTTP client pattern (HIGH confidence)
+- Codebase inspection: `API_REFERENCE.md` lines 1812-1896 -- Wallet API endpoint documentation showing `wpUserId` path params and datetime format `"2025-12-03 11:51:47"` (HIGH confidence)
+- Codebase inspection: `docs/API-REQUIREMENTS-V2.md` -- usage API response shape `{ date: "YYYY-MM-DD", totalHits, hitCost, balance }` (HIGH confidence)
+- [TeraWallet API V3 wiki](https://github.com/malsubrata/woo-wallet/wiki/API-V3) -- REST API endpoints, `email` parameter, `per_page`/`page` pagination, transaction response shape (MEDIUM confidence)
+- [WooCommerce REST API Authentication docs](https://woocommerce.github.io/woocommerce-rest-api-docs/) -- consumer key/secret, Basic Auth, query string auth (HIGH confidence)
+- [WordPress loopback request issues](https://github.com/docker-library/wordpress/issues/493) -- cURL error 28 on self-requests, Cloudflare blocking (MEDIUM confidence)
+- [WordPress REST API loopback failures behind Cloudflare](https://lukapaunovic.com/2025/04/24/fix-wordpress-loopback-and-rest-api-403-errors-behind-cloudflare/) -- 403 errors on server-to-server requests (MEDIUM confidence)
+- [WooCommerce REST API auth issue #26847](https://github.com/woocommerce/woocommerce/issues/26847) -- `wp_get_current_user()` conflicts with WC auth (MEDIUM confidence)
+- [wp_timezone() reference](https://developer.wordpress.org/reference/functions/wp_timezone/) -- WordPress site timezone resolution (HIGH confidence)
+- [WordPress Transients API](https://developer.wordpress.org/apis/transients/) -- caching pattern for wallet data (HIGH confidence)
 
 ---
-*Pitfalls research for: Billing/usage dashboard — WordPress link shortener plugin (v2.0 milestone)*
-*Researched: 2026-02-22*
+
+*Pitfalls research for: TerrWallet Integration (v2.2 milestone)*
+*Researched: 2026-03-10*

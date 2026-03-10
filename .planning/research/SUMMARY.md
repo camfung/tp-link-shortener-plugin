@@ -1,17 +1,17 @@
 # Project Research Summary
 
-**Project:** tp-link-shortener-plugin — v2.0 Usage Dashboard (`[tp_usage_dashboard]`)
-**Domain:** WordPress plugin billing/usage analytics shortcode
-**Researched:** 2026-02-22
+**Project:** TerrWallet Integration (v2.2)
+**Domain:** WordPress plugin — WooCommerce Wallet API client for usage dashboard
+**Researched:** 2026-03-10
 **Confidence:** HIGH
 
 ## Executive Summary
 
-This feature adds a `[tp_usage_dashboard]` shortcode to the existing WordPress link shortener plugin. The dashboard gives users a daily view of their link activity, costs, and running account balance — a metered-credit billing dashboard analogous to GoHighLevel SaaS Wallet or AWS Cost Dashboard. Research is grounded almost entirely in direct codebase inspection and an authoritative API reference, which gives unusually high confidence: an established four-file pattern (shortcode class, template, JS, CSS) already exists in two sibling shortcodes, and the full technology stack (Chart.js 4.4.1, Bootstrap 5.3.0, jQuery, native date inputs) is already loaded on every shortcode page.
+The v2.2 TerrWallet Integration adds an "Other Services" column to the existing `[tp_usage_dashboard]` shortcode table, showing wallet credit transaction totals per day alongside the existing Date, Hits, Cost, and Balance columns. The critical architectural insight from research is that the TerrWallet API lives on the same WordPress instance as the plugin, which changes the integration approach entirely: HTTP loopback requests to the local WC REST API are unreliable and should be avoided in favor of either WordPress's internal `rest_do_request()` dispatch or direct TeraWallet PHP function calls. The recommended approach is direct PHP functions (`woo_wallet()->wallet->get_transactions()`) to bypass REST API authentication complexity, eliminate loopback risk, and stay consistent with the existing single-AJAX-call pattern.
 
-The recommended approach is zero new library dependencies. Every technology needed for the area chart, date filter, AJAX data flow, and stats table is already present in the plugin. The implementation is additive: four new files plus small additions to three existing files. The key architectural decision is to route data through WordPress admin-ajax.php (not call the external API directly from JS), matching the security posture of the existing shortcodes where the user ID is always derived server-side and never accepted from the client.
+The recommended stack adds zero new libraries. One new PHP namespace (`TerrWallet\`) follows the exact pattern of the three existing API namespaces (`TrafficPortal`, `SnapCapture`, `ShortCode`). A client class fetches transactions, a separate adapter aggregates them by date and merges them into the existing usage day records server-side, and the modified JS renders the additional column. The entire data flow remains a single browser AJAX call returning a unified response — the existing `ajax_get_usage_summary` handler is extended rather than duplicated.
 
-The primary implementation risk is Chart.js-specific: a documented infinite resize loop in flex containers, silent failure when a date adapter is missing (use category scale instead to avoid this entirely), and memory leaks from not destroying chart instances before re-render. A secondary risk is financial display precision: floating-point drift in the running balance column. Both categories must be addressed in the same phase as chart and table rendering — retrofitting them is significantly harder than building correctly from the start.
+The top risk is the loopback HTTP request trap: using `wp_remote_get()` to call the local WC REST API from PHP running on the same server causes cURL error 28 (timeout) behind Cloudflare and reverse proxies, and deadlocks under limited-worker PHP-FPM setups. The second risk is the merge adapter edge cases — date format normalization, timezone handling, multi-transaction-per-day aggregation, and full-outer-join behavior for wallet-only dates all need explicit handling before the column data is trustworthy.
 
 ---
 
@@ -19,152 +19,158 @@ The primary implementation risk is Chart.js-specific: a documented infinite resi
 
 ### Recommended Stack
 
-The stack is locked by the existing plugin. Zero new libraries are required. Chart.js 4.4.1 (already loaded via `tp-chartjs` handle) supports area charts natively with `type: 'line'` and `fill: 'origin'` — no additional plugin needed. Bootstrap 5.3.0 covers all layout needs (stats cards, table, responsive grid). jQuery provides AJAX and DOM manipulation. `wp_localize_script` passes PHP context (default date range, nonce, user ID) to JS — identical to how `tpClientLinks` works in the existing client-links shortcode.
+The integration requires no new dependencies. The existing `CurlHttpClient` / `HttpClientInterface` pattern used by `TrafficPortal`, `SnapCapture`, and `ShortCode` namespaces is replicated under a new `TerrWallet\` namespace. WooCommerce consumer key and secret are stored as `wp-config.php` constants following the existing `API_KEY` / `SNAPCAPTURE_API_KEY` pattern. User email is resolved server-side via `get_userdata(get_current_user_id())` and never accepted from the browser.
 
-New files are three (JS, CSS, template) plus one PHP shortcode class, matching the exact pattern of `class-tp-client-links-shortcode.php`. CSS uses the `tp-ud-*` prefix to avoid collisions. JS is a plain IIFE using `var` + jQuery — no ES modules, no build step.
+The key decision against using the `automattic/woocommerce` Composer package (or Guzzle, or `wp_remote_get()` for local calls) is that the codebase deliberately avoids Composer dependencies and the WC REST API requires only a single GET endpoint with HTTP Basic Auth — a 2-line auth header, not a full OAuth implementation.
 
 **Core technologies:**
-- Chart.js 4.4.1: area chart (`type: 'line'`, `fill: 'origin'`) for time-series daily activity — already loaded, reuse `tp-chartjs` handle
-- Bootstrap 5.3.0: stats cards, table, grid layout — already loaded, reuse `tp-bootstrap` handle
-- jQuery (WP-bundled): AJAX to admin-ajax.php, DOM updates — consistent with all other shortcodes
-- Native `<input type="date">`: date range filter — already the codebase pattern in client-links, no flatpickr needed
-- `wp_localize_script`: PHP-to-JS config bridge — identical pattern to `tpClientLinks` global object
-- WordPress transients: caching AJAX proxy responses — prevents every page load from hitting the external API live
+- `TerrWallet\TerrWalletClient` (new PHP class): HTTP transport or direct PHP access for wallet data — follows existing namespace pattern, zero new dependencies
+- `TerrWallet\TerrWalletAdapter` (new PHP class): Pure data transformation (aggregate + merge) — independently unit-testable, no I/O
+- `TerrWallet\Exception\TerrWalletException` (new PHP class): Typed exception — caught non-fatally in the handler to preserve usage data on wallet failure
+- `WordPress get_userdata()`: User ID to email resolution — standard WP function, object-cached, consistent with existing server-side identity pattern
+- WordPress `wp-config.php` constants: Credential storage — consistent with `API_KEY`, `SNAPCAPTURE_API_KEY` pattern already in codebase
 
-**What NOT to add:** flatpickr (49 KB for functionality already covered by two native date inputs), Moment.js/Day.js (API date strings need no parsing), DataTables.js (30 rows max needs no library), any Chart.js date adapter (use `type: 'category'` scale with pre-formatted strings instead), or any build tool.
+**What NOT to add:** `automattic/woocommerce` Composer package (overkill for one GET endpoint), Guzzle (codebase uses raw cURL), `wp_remote_get()` to own server (loopback failure risk), OAuth 1.0a (HTTPS makes Basic Auth sufficient), separate AJAX endpoint (adds two round trips and client-side merge complexity), any new JS file (all changes are additive to existing `usage-dashboard.js`).
+
+**See:** `.planning/research/STACK.md` for full rationale and new/modified file manifest.
 
 ### Expected Features
 
-The `GET /user-activity-summary/{uid}` endpoint returns `[{ date, totalHits, hitCost, balance }]` per day. This hard API constraint shapes what is buildable for v2.0 without additional backend work.
+The feature set is tightly scoped: one new table column with a Bootstrap tooltip, one new summary stat card, and the PHP backend to power them. Total estimated effort is 14–18 hours for the full MVP.
 
-**Must have (table stakes — v2.0):**
-- Auth gate — private billing data; show login prompt for unauthenticated users
-- Date range filter (last 30 days default) — universal dashboard expectation; two `<input type="date">` + Apply button
-- Summary stats strip — three cards: Total Hits, Total Cost (period), Current Balance
-- Area chart — daily time series, Chart.js, yellow=clicks, green=QR (or totalHits single series if split data unavailable)
-- Daily stats table — Date, Clicks, QR Scans, Total Hits, Cost, Balance; sorted newest-first
-- Running balance column — API already returns cumulative `balance`; color-code green/amber/red
-- Cost formatted as currency — `$0.50` not `-0.5`; non-negotiable for any billing UI
-- Loading skeleton, empty state, error state — all reuse existing plugin patterns
+**Must have (table stakes):**
+- PHP client for TeraWallet wallet API — server-side only, WC credentials never reach the browser
+- Date-keyed merge adapter — aggregates credit transactions by date, merges into existing `days[]` array with `otherServices` field
+- AJAX handler extension — `ajax_get_usage_summary` extended to fetch and merge wallet data before returning; wallet errors non-fatal
+- "Other Services" table column — 5th column between Cost and Balance; `+$X.XX` format with Bootstrap tooltip showing `details` text
+- Filter to credit transactions only — debit transactions are not "Other Services" and would double-count costs
+- Summary card for Other Services total — 4th stat card added to `renderSummaryCards()`
+- Mobile card layout — `data-label="Other Services"` attribute, Bootstrap tooltip verified on tap
+- Graceful degradation — wallet fetch failure shows usage data normally with empty Other Services cells; TeraWallet not installed shows the same
 
-**Should have (competitive — v2.x after validation):**
-- Preset date buttons (7d/30d/90d) — low effort, reduces friction significantly for return users
-- Hover chart tooltips — Chart.js tooltip config, patterns already in codebase
-- Period totals row in table — sum columns, eliminate user mental math
-- Clicks vs QR split (two-series chart) — requires `/by-source` parallel API call or clearly labeled mock
+**Should have (differentiators, defer if time-constrained):**
+- Color-coded credit badge (green `+$X.XX` pill) — visual distinction from Cost column
+- Sort by Other Services column — additive JS change, no data model changes needed
+- Server-side transient caching — 5-minute TTL keyed by user and date range; reduces repeated multi-page fetches for users with many transactions
 
-**Defer (v3.0+):**
-- Wallet top-up/payment flow — requires Stripe/WooCommerce; completely out of scope
-- CSV/PDF export — out of scope per PROJECT.md; defer until users explicitly request it
-- Per-link cost breakdown — belongs in `[tp_client_links]`, not this billing dashboard
-- Real-time auto-refresh — daily data granularity makes polling pointless
+**Defer to v2.3+:**
+- Wallet transactions overlaid in Chart.js — HIGH complexity, mixed chart type, risk of visual clutter for sparse transaction data
+- Expandable row detail panel — tooltip is sufficient for MVP; row expansion is a distinct UI pattern
+- Separate wallet transaction history page — out of scope for this dashboard column integration
 
-**Hard API constraint:** `totalHits` does not split clicks vs QR at the summary level. Two options: (a) show a single area labeled "Total Hits", or (b) call `/by-source` in parallel and subtract QR hits. If mocking the split with a static ratio, a user-facing disclaimer is mandatory — never present fabricated percentages as real data.
+**See:** `.planning/research/FEATURES.md` for complexity estimates and the full feature dependency tree.
 
 ### Architecture Approach
 
-The architecture is dictated by the existing codebase pattern. A new `TP_Usage_Dashboard_Shortcode` class follows the identical four-step template method used by `TP_Dashboard_Shortcode` and `TP_Client_Links_Shortcode`: constructor registers the shortcode, `render_shortcode()` gates on `is_user_logged_in()`, `enqueue_assets()` enqueues scripts/styles and calls `wp_localize_script`, and the template is included via output buffer. Data flows from the browser through WordPress admin-ajax.php to a new method on the existing `TrafficPortalApiClient`, then back as `wp_send_json_success`.
-
-The mandated build order (PHP shortcode → HTML template → API client/AJAX handler → JS → CSS) is not negotiable: JS cannot be written without knowing the HTML IDs, and the API method cannot be tested without the AJAX handler. This is the same dependency chain used to build both existing shortcodes.
+The architecture extends the existing proxy pattern: one browser AJAX call, PHP fetches from both external APIs, merges server-side, returns a single unified response. The two new PHP classes have clean separation of concerns — `TerrWalletClient` handles I/O, `TerrWalletAdapter` handles data transformation — mirroring the existing split between `TrafficPortalApiClient` and the validation/shaping logic in `validate_usage_summary_response()`.
 
 **Major components:**
-1. `class-tp-usage-dashboard-shortcode.php` — shortcode registration, asset enqueue, template include, auth gate
-2. `templates/usage-dashboard-template.php` — static HTML skeleton (canvas, table, date inputs, Apply button)
-3. `assets/js/usage-dashboard.js` — IIFE with state object, `loadData()`, `renderChart()`, `renderTable()`, `mockSplit()`
-4. `assets/css/usage-dashboard.css` — `.tp-ud-*` scoped styles, chart wrapper constraints
-5. `TP_API_Handler::ajax_get_usage_summary()` — nonce check, server-side UID, delegate to API client, return JSON
-6. `TrafficPortalApiClient::getUserActivitySummary()` — GET request to external API, parse response
+1. `TerrWalletClient` (new) — transport layer; auth, request, parse, throw on error; no data shaping
+2. `TerrWalletAdapter` (new) — `aggregateByDate()` + `mergeIntoUsageDays()`; pure arrays in/out; independently unit-testable
+3. `TerrWalletException` (new) — typed exception; caught non-fatally in the handler, preserving usage data on wallet failure
+4. `TP_API_Handler::ajax_get_usage_summary()` (modified) — orchestrator; adds wallet fetch and merge after existing usage fetch; separate try/catch for wallet errors
+5. `usage-dashboard.js` (modified) — `renderRows()` adds 5th column; `renderSummaryCards()` adds 4th card; Bootstrap tooltip initialized on render
+6. `usage-dashboard-template.php` + `usage-dashboard.css` (modified) — 5th `<th>` column header, column width rebalancing
 
-**Critical security boundary:** The UID must always be determined server-side via `TP_Link_Shortener::get_user_id()`. Never accept `uid` from `$_POST`. This pattern is already enforced across all existing AJAX handlers (confirmed in commit `e063541`).
+**Data shape change:** Each day record gains `otherServices: { amount: float, descriptions: string[] } | null`. JS checks `day.otherServices && day.otherServices.amount` before rendering — null means no wallet activity that day.
+
+**See:** `.planning/research/ARCHITECTURE.md` for full before/after data shapes, component boundaries, and the five-phase build order.
 
 ### Critical Pitfalls
 
-1. **Chart.js infinite resize loop in flex containers** — Add `min-width: 0` to the flex parent and `position: relative; height: 280px; overflow: hidden` (explicit height, not min-height) to the chart wrapper. Must be in CSS before any chart JS is written; detecting it requires resizing the browser window multiple times.
+1. **Loopback HTTP request to own server** — Using `wp_remote_get()` to call `trafficportal.dev/wp-json/wc/v3/wallet/` from PHP running on `trafficportal.dev` causes cURL error 28 (timeout) behind Cloudflare and reverse proxies, and deadlocks under limited-worker PHP-FPM. Use `rest_do_request()` or direct TeraWallet PHP functions. This decision must be made in Phase 1 — getting it wrong requires a full client rewrite.
 
-2. **Missing date adapter causes silent blank chart** — Avoid `type: 'time'` scale entirely. Use `type: 'category'` scale with pre-formatted `YYYY-MM-DD` label strings from the API. This eliminates the adapter requirement without any functionality loss; the chart renders date labels correctly with no extra script.
+2. **WC REST API auth failure for non-admin users** — If using `rest_do_request()`, the WC endpoint returns 401 for regular customers who lack `manage_woocommerce` capability. Works fine when tested as admin, silently fails for actual users. Prevention: bypass the REST API entirely with direct PHP calls (`woo_wallet()->wallet->get_transactions()`).
 
-3. **Chart instance not destroyed before re-render** — Keep `var chart = null` in module scope. Always call `chart.destroy(); chart = null;` before `new Chart()`. The date range filter triggers re-render on every Apply click — this bug surfaces on the first filter change.
+3. **Date format mismatch between APIs** — Usage API returns `YYYY-MM-DD`; TeraWallet returns `YYYY-MM-DD HH:MM:SS`. Naive string comparison makes every wallet transaction appear as an unmatched row. Always normalize: `substr($tx['date'], 0, 10)` before using as a merge key.
 
-4. **Floating-point drift in running balance column** — Use `Math.round((runningBalance + cost) * 10000) / 10000` after each accumulation step. Display with `toFixed(2)`. Testing with round numbers ($1.00/day) hides this bug; test with values like $0.001 per hit across 30+ rows.
+4. **Merge edge cases in the adapter** — Three requirements that must all be explicitly tested: (a) multiple transactions on the same day must be summed, not mapped 1:1; (b) wallet-only dates with no usage activity require a full outer join, not a left join from usage data; (c) TeraWallet stores datetimes in site timezone while the usage API operates in UTC — transactions near midnight can land on the wrong day without UTC conversion.
 
-5. **Mocked click/QR split presented as real data** — Add a visible user-facing disclaimer if using the 80/20 mock ratio. Alternatively, show a single total-hits area labeled "Total Hits (QR breakdown coming soon)". A constant 20% QR line across all 30 days regardless of actual campaigns is the warning sign.
+5. **Wallet error killing the entire dashboard** — Placing the wallet fetch inside the existing try/catch block means a wallet failure returns an error response even though usage data is available. The wallet fetch must be in its own non-fatal try/catch that logs the error and continues with usage-only data.
+
+**See:** `.planning/research/PITFALLS.md` for the full 14-pitfall catalogue with code-level prevention patterns.
 
 ---
 
 ## Implications for Roadmap
 
-Based on research, the implementation has clear sequential dependencies dictated by the existing architecture pattern. The build order (PHP → Template → API → JS → CSS) is the same order used to build both sibling shortcodes and must be followed. Pitfalls 1 through 4 must all be addressed in the same phase as chart and table rendering — they cannot be deferred to a polish phase without significant rework risk.
+Research identified a clear dependency ordering. Phases 1 and 2 are independent of each other and produce zero UI changes, allowing parallel development and isolated testing. Each phase can be shipped without breaking the existing dashboard.
 
-### Phase 1: Foundation — Shortcode, Template, and API Proxy
+### Phase 1: TerrWalletClient — HTTP Transport
 
-**Rationale:** The PHP shortcode class and HTML template define the entire HTML contract. All downstream work (JS, CSS, AJAX) depends on the element IDs and classes established here. The AJAX handler and API client method must exist before any JS can make a real data call. This phase has direct codebase templates to copy from and zero external dependencies.
+**Rationale:** The client is the foundational dependency for everything else. The loopback pitfall (Pitfall 1) and auth pitfall (Pitfall 3) must be resolved before any other work begins — these decisions determine the entire client architecture. Building in isolation (no UI changes) allows integration testing against the real local API before touching the AJAX handler.
 
-**Delivers:** A page showing `[tp_usage_dashboard]` renders the static HTML skeleton (chart canvas placeholder, table structure, date inputs, Apply button). The AJAX endpoint `admin-ajax.php?action=tp_get_usage_summary` returns real data from the Traffic Portal API. Auth gate blocks unauthenticated access. WordPress transient cache wraps the API call.
+**Delivers:** A working, tested PHP class that retrieves wallet transactions for a given user, handles auth, pagination, and errors; a typed exception class; autoloader registration for the new namespace; `wp-config.php` constants documented for deployment.
 
-**Features addressed:** Auth gate (P1), HTML skeleton for loading/empty/error states, date range filter inputs (static, wired via `wp_localize_script` default).
+**Addresses:** PHP TerrWallet client (table stakes), TeraWallet plugin detection, credential storage pattern.
 
-**Pitfalls to prevent:** Server-side UID enforcement (never from `$_POST`), nonce + `is_user_logged_in()` double-check on AJAX handler, WordPress transient caching to prevent hammering the external API.
+**Avoids:** Pitfall 1 (loopback HTTP), Pitfall 3 (non-admin auth failure), Pitfall 4 (user ID/email mismatch), Pitfall 10 (credentials in database), Pitfall 11 (pagination not handled), Pitfall 13 (plugin not installed).
 
-**Research flag:** None — direct codebase templates exist in two sibling shortcodes; copy, rename, adapt.
+**Research flag:** NEEDS VALIDATION — the loopback vs. `rest_do_request()` vs. direct PHP call decision requires verifying which TeraWallet PHP functions are accessible in this specific installation. Confirm `function_exists('woo_wallet')` at the start of Phase 1 before committing to an approach.
 
----
+### Phase 2: TerrWalletAdapter — Data Transformation
 
-### Phase 2: Data Layer and Stats Table
+**Rationale:** Independently buildable and testable in parallel with Phase 1 — pure PHP array manipulation with no I/O. The merge edge cases are the highest logical complexity in the feature and deserve isolation. Testing the adapter with fixture data before wiring it to live API calls prevents corrupted table data from masking logic bugs.
 
-**Rationale:** Before rendering a chart, establish the data pipeline and validate it with the simpler stats table. The table has no Chart.js complexity and will immediately confirm that the API response shape is correct, cost values are properly formatted, and the running balance calculation is accurate. The floating-point pitfall must be addressed here, not discovered after the chart is built.
+**Delivers:** A working, unit-tested adapter with `aggregateByDate()` (credit-only filter, date normalization, multi-transaction summing) and `mergeIntoUsageDays()` (full outer join, timezone-aware date keys, null for days with no wallet activity).
 
-**Delivers:** A fully working stats table (Date, Clicks, QR Scans, Total Hits, Cost, Balance) with real API data, currency formatting, balance color-coding (green/amber/red), and the summary stats strip (three cards: Total Hits, Total Cost, Current Balance). The date range Apply button reloads the table.
+**Addresses:** Date-keyed merge adapter (table stakes), full outer join behavior, timezone handling.
 
-**Features addressed:** Summary stats strip (P1), daily stats table (P1), cost as currency (P1), running balance column (P1), balance color coding (P1), loading skeleton wired to real state transitions, empty state, error state.
+**Avoids:** Pitfall 2 (date format mismatch), Pitfall 5 (multi-transaction aggregation), Pitfall 6 (wallet-only dates dropped), Pitfall 7 (timezone discrepancy).
 
-**Pitfalls to prevent:** Floating-point balance drift (round after each accumulation step), date range timezone behavior verification (pass `YYYY-MM-DD` strings directly — confirm API interprets them as expected), table HTML built as single string and injected once (not 30 separate `.append()` calls causing 30 DOM reflows).
+**Research flag:** STANDARD PATTERNS — pure PHP array transformation, no external dependencies, straightforward unit tests with fixture data.
 
-**Research flag:** None — straightforward JS table rendering and currency formatting. API shape is known from API_REFERENCE.md.
+### Phase 3: Backend Integration — Wire Into AJAX Handler
 
----
+**Rationale:** Depends on both Phase 1 and Phase 2. Connects the client and adapter into the existing AJAX flow via a surgical modification to `ajax_get_usage_summary()`. The non-fatal error handling design is implemented here. The modified response shape (`otherServices` field) is validated before any UI is built.
 
-### Phase 3: Chart Rendering
+**Delivers:** The AJAX endpoint returns merged data with `otherServices` field per day; wallet errors are caught non-fatally and usage data is returned without the wallet column; integration tests confirm end-to-end data shape.
 
-**Rationale:** The area chart is the most complex UI component and contains the majority of the technical pitfalls. Building it after the data layer is validated means chart bugs are isolated to Chart.js behavior, not mixed with data shape issues. All three Chart.js pitfalls (flex resize loop, missing adapter, chart not destroyed) must be addressed in this phase — they are interconnected and cannot be split.
+**Addresses:** AJAX handler extension (table stakes), error handling and graceful degradation (table stakes).
 
-**Delivers:** A working area chart showing daily activity with correct date labels on the X-axis. Yellow line = regular hits, green line = QR hits (mocked 80/20 with visible disclaimer, OR single total-hits series with clear label). Chart re-renders correctly on date range change without memory leaks or canvas errors. X-axis uses `type: 'category'` scale (no date adapter required). CSS chart wrapper uses `position: relative; height: 280px; overflow: hidden` and flex parent has `min-width: 0`.
+**Avoids:** Pitfall 9 (wallet error kills entire dashboard).
 
-**Features addressed:** Area chart (P1), color scheme matching design mockup (`#f5a623` yellow, `#22b573` green), clicks vs QR series (with mocked split disclaimer).
+**Research flag:** STANDARD PATTERNS — surgical extension of existing AJAX handler following established WordPress AJAX proxy pattern.
 
-**Pitfalls to prevent:** Flex container resize loop (CSS-first fix, established before chart JS), chart not destroyed before re-render (module-scoped chart variable with `.destroy()`), category scale used instead of time scale (eliminates adapter dependency entirely). Mocked split must have visible disclaimer in UI and `// TODO` comment in code.
+### Phase 4: Dashboard UI — Column, Tooltip, and Summary Card
 
-**Research flag:** Needs explicit QA during implementation. Run the "Looks Done But Isn't" checklist from PITFALLS.md: resize browser window 10 times (chart height must stay constant), change date range 5 times in a row (no canvas errors, no double-stacked datasets), inspect balance column with non-round input values.
+**Rationale:** Depends on Phase 3's finalized response shape. All changes are additive to existing JS/HTML/CSS — no rearchitecting of the rendering pipeline. Column rendering, tooltip initialization, summary card, and mobile layout can all be built and tested together since they share the same data source.
 
----
+**Delivers:** 5-column table with "Other Services" showing `+$X.XX` with Bootstrap tooltip listing transaction descriptions; 4th summary card showing period total; mobile card layout updated; column widths rebalanced; graceful "-" rendering when `otherServices` is null.
 
-### Phase 4: Polish and v2.x Features
+**Addresses:** "Other Services" column (table stakes), tooltip (table stakes), summary card (table stakes), mobile layout (table stakes), column width rebalancing (table stakes), XSS prevention in tooltip text.
 
-**Rationale:** Once the core v2.0 functionality is deployed and verified working, add the low-complexity enhancements that reduce friction for return users. These features have zero dependencies on each other and none block the v2.0 launch.
+**Avoids:** Pitfall 12 (amount precision — existing `formatCurrency()` handles this if PHP delivers clean floats), Pitfall 14 (XSS via tooltip — use `.text()` not `.html()` for user-provided description strings).
 
-**Delivers:** Preset date buttons (7d/30d/90d) with active state, hover chart tooltips configured via `tooltip.callbacks` to show date + clicks + QR + cost, period totals row in table footer. If the `/by-source` endpoint proves reliable with real user data, upgrade the mocked split to a real two-series chart.
+**Research flag:** STANDARD PATTERNS — follows existing `renderRows()` and `renderSummaryCards()` patterns directly; Bootstrap 5 tooltip already loaded and initialized in the existing codebase.
 
-**Features addressed:** Preset date buttons (P2), hover tooltips (P2), period totals row (P2), refined QR/click split (P2 conditional on by-source data quality).
+### Phase 5: E2E Tests and Edge Case Validation
 
-**Research flag:** None — all standard patterns. By-source integration is a single data-source swap in `mockSplit()`.
+**Rationale:** The integration has edge cases that require real or realistic data: wallet API unavailable, date range spanning a month boundary, user with 100+ transactions requiring pagination, user with wallet-only days, transactions near midnight in a non-UTC timezone.
 
----
+**Delivers:** E2E test suite covering the nominal path, wallet unavailable degradation, date filtering, pagination edge cases, and tooltip rendering.
+
+**Addresses:** Integration confidence, production deployment readiness.
+
+**Research flag:** STANDARD PATTERNS — follows existing Python pytest E2E test structure in `tests/e2e/`.
 
 ### Phase Ordering Rationale
 
-- PHP shortcode and template must come first because they define the HTML contract (IDs, classes) that JS and CSS depend on — this is the mandatory build order established by both existing sibling shortcodes.
-- Data layer (table) before chart because: (a) it validates API shape with simpler rendering code, (b) floating-point pitfall is easier to catch and test in a table, (c) chart debugging is cleaner when the data layer is proven.
-- Chart phase is isolated because it contains the majority of technical pitfalls; isolating it prevents chart bugs from being attributed to data issues.
-- Polish features go last because they are entirely additive to already-working functionality.
+- Phases 1 and 2 have zero dependencies on each other and zero UI changes — they can be built and tested in parallel without modifying any existing code.
+- Phase 3 is the first modification to existing code; keeping it after both foundational components are tested limits the blast radius of any integration issues.
+- Phase 4 is UI-only; blocking it on Phase 3 ensures the response shape is final before building the renderer.
+- This ordering means deploying any phase individually leaves the existing dashboard fully functional with no partial-state breakage.
 
 ### Research Flags
 
-Phases needing attention during implementation:
-- **Phase 3 (Chart Rendering):** Chart.js flex container behavior and instance lifecycle require explicit verification against the PITFALLS.md "Looks Done But Isn't" checklist. The category-scale vs time-scale choice must be confirmed to handle zero-click days correctly (appear as `0`, not gaps in the line).
+Phases needing deeper investigation during planning:
+- **Phase 1:** The loopback vs. `rest_do_request()` vs. direct PHP function approach must be validated against the actual TeraWallet installation. Research documents both paths but cannot confirm function availability without a live environment check. This is a binary gate: if `woo_wallet()` is available, use it; otherwise fall back to `rest_do_request()` with the permission filter documented in PITFALLS.md Pitfall 3.
 
-Phases with standard patterns (no additional research needed):
-- **Phase 1 (Foundation):** Direct codebase templates exist in `class-tp-client-links-shortcode.php` and `class-tp-api-handler.php`. Copy, rename, adapt.
-- **Phase 2 (Data Layer):** Standard JS table rendering and currency formatting. API shape is fully documented in API_REFERENCE.md.
-- **Phase 4 (Polish):** All enhancements are additive to already-proven functionality; Chart.js tooltip config pattern exists in the codebase.
+Phases with standard, well-documented patterns (skip additional research):
+- **Phase 2:** Pure PHP array manipulation, fully unit-testable offline, no external dependencies.
+- **Phase 3:** Surgical extension of existing AJAX handler following the established WordPress AJAX proxy pattern.
+- **Phase 4:** Additive JS/HTML/CSS following existing `renderRows()` and `renderSummaryCards()` patterns.
+- **Phase 5:** Follows existing pytest E2E test structure in `tests/e2e/`.
 
 ---
 
@@ -172,56 +178,48 @@ Phases with standard patterns (no additional research needed):
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | Based on direct codebase inspection — existing handles, versions, and IIFE patterns are known with certainty. No new library additions, eliminating version conflict risk entirely. |
-| Features | HIGH | API_REFERENCE.md is authoritative and determines exactly what is buildable. Competitor analysis (GoHighLevel, Bitly, AWS) confirms expected UX patterns. The `totalHits`-only constraint is a hard API fact, not an assumption. |
-| Architecture | HIGH | Based on direct inspection of two canonical sibling shortcodes and the codebase ARCHITECTURE.md and CONVENTIONS.md. The four-step template method pattern is well-established and consistent across the plugin. |
-| Pitfalls | HIGH | Chart.js pitfalls verified against official GitHub issues (#5805, #9001) and official docs. Financial float precision from multiple authoritative sources (Modern Treasury, Honeybadger). WordPress security from official developer docs and Patchstack. |
+| Stack | HIGH | All 3 existing API namespaces directly inspected; WC REST API auth documented in official WooCommerce docs; zero new libraries required means no version conflict risk |
+| Features | HIGH | TeraWallet API V3 docs confirmed; `ajax_get_usage_summary` and `renderRows` directly inspected; feature set is narrow and well-bounded |
+| Architecture | HIGH | All data flow components inspected in codebase; response shapes before/after documented from live code; component boundaries follow existing patterns exactly |
+| Pitfalls | HIGH (architecture/integration) / MEDIUM (TeraWallet-specific behaviors) | Loopback/auth/merge pitfalls verified against official WC docs and codebase patterns; TeraWallet-specific API behaviors based on GitHub wiki and community reports |
 
 **Overall confidence:** HIGH
 
 ### Gaps to Address
 
-- **API response envelope shape:** The `getUserActivitySummary()` method assumes the response body is `{ days: [...] }`. The exact key name must be verified against the live API before the PHP method is finalized. This is a one-line fix but cannot be assumed from the reference doc alone.
+- **Direct PHP access vs. REST API dispatch:** Research recommends direct TeraWallet PHP functions but cannot confirm which functions are exposed in the specific version installed on `trafficportal.dev`. Verify `function_exists('woo_wallet')` and available methods at the start of Phase 1. If direct PHP is unavailable, fall back to `rest_do_request()` with the auth workaround documented in PITFALLS.md Pitfall 3.
 
-- **Timezone behavior of date parameters:** API_REFERENCE.md does not specify whether `start_date`/`end_date` parameters are interpreted as UTC or local time. Must be verified empirically by fetching known-date data and comparing row counts with actual activity. The PITFALLS.md checklist item ("fetch today's data and verify the row count matches actual activity for local calendar day") is the verification step.
+- **Full outer join product decision:** PITFALLS.md Pitfall 6 flags that showing wallet-only days (no usage activity) in the table requires a product decision — should a day with a $25 top-up but zero link hits appear as a row? Research documents the full-outer-join implementation but the business rule must be confirmed before Phase 2 implementation begins.
 
-- **`/by-source` data reliability:** The decision to use a mocked 80/20 click/QR split vs. a real `/by-source` API call depends on whether existing users have QR links tagged with `?qr=1`. This cannot be known from research — requires checking real data in the environment. Safe default: single-series total hits with clear label, upgraded to two-series if by-source proves consistently populated.
+- **Pagination depth:** The WC REST API `per_page` default is typically 10. The Phase 1 client must implement pagination or set a high `per_page` limit. The correct maximum must be confirmed against the installed TeraWallet version's actual API behavior.
 
-- **WordPress transient key strategy:** Cache key `tp_usage_{uid}_{start}_{end}` is assumed. The actual `$uid` value format and max transient key length (172 characters in WordPress) must be verified when implementing the PHP AJAX handler.
+- **Timezone handling decision:** The merge adapter can normalize dates to UTC or to the WordPress site timezone before matching. Both are technically correct but produce different user-visible behavior for transactions near midnight. The product decision (UTC or site-local) must be documented before Phase 2 implementation.
 
 ---
 
 ## Sources
 
 ### Primary (HIGH confidence)
-
-- `includes/class-tp-client-links-shortcode.php` (codebase) — canonical shortcode pattern, enqueue order, `wp_localize_script` config
-- `includes/class-tp-api-handler.php` (codebase) — AJAX handler nonce/uid/JSON pattern, `register_ajax_handlers()` structure
-- `includes/TrafficPortal/TrafficPortalApiClient.php` (codebase) — HTTP client method structure, `handleHttpErrors()` pattern
-- `assets/js/client-links.js` (codebase) — IIFE/state/DOM-cache JS pattern, Chart.js bar chart reference config
-- `API_REFERENCE.md` (codebase) — authoritative API shape (`/user-activity-summary/{uid}`, response fields: `date`, `totalHits`, `hitCost`, `balance`)
-- `.planning/codebase/ARCHITECTURE.md` (codebase) — layer map and data flows
-- `.planning/codebase/CONVENTIONS.md` (codebase) — naming rules, file patterns, CSS prefix conventions
-- Chart.js official docs (chartjs.org) — `fill: 'origin'`, area chart config, responsive config, `.destroy()` API
-- Chart.js GitHub issues #5805 and #9001 — flex container infinite resize loop (known bug, documented CSS fix)
-- WordPress Developer Docs — nonces, transients, `wp_localize_script`, `wp_ajax_` action pattern
-- Patchstack Academy — broken access control patterns in WordPress plugins
-- Git log commit `e063541` — confirmed uid must always be server-side (removed all client-side uid passing)
+- `includes/class-tp-api-handler.php` (this repo) — `ajax_get_usage_summary()` line 1573, `validate_usage_summary_response()` line 1647, AJAX proxy pattern
+- `includes/TrafficPortal/TrafficPortalApiClient.php` (this repo) — `getUserActivitySummary()`, `CurlHttpClient` / `HttpClientInterface` pattern
+- `includes/SnapCapture/SnapCaptureClient.php` (this repo) — namespace structure: Client + DTO + Exception + Http layers
+- `assets/js/usage-dashboard.js` (this repo) — `loadData()`, `renderRows()`, `renderSummaryCards()`, `formatCurrency()`
+- `templates/usage-dashboard-template.php` (this repo) — table structure, column headers
+- `includes/autoload.php` (this repo) — PSR-4 namespace registration pattern
+- `includes/class-tp-link-shortener.php` (this repo) — `get_api_key()`, `get_user_id()`, wp-config constant pattern
+- [WooCommerce REST API Authentication](https://woocommerce.github.io/woocommerce-rest-api-docs/#authentication) — HTTP Basic Auth, consumer key/secret
+- [WooCommerce REST API Developer Docs](https://developer.woocommerce.com/docs/apis/rest-api/) — REST API overview, key generation
+- [WordPress Transients API](https://developer.wordpress.org/apis/transients/) — caching pattern
+- [wp_timezone() reference](https://developer.wordpress.org/reference/functions/wp_timezone/) — site timezone resolution
 
 ### Secondary (MEDIUM confidence)
-
-- GoHighLevel SaaS Wallet documentation — billing/balance dashboard UX patterns (running balance, color-coding, date presets)
-- Bitly Analytics documentation — clicks + scans time-series chart, 7d/14d/30d date preset patterns
-- AWS Cost Dashboard (search results) — daily breakdown table, date range filter, period cost summary pattern
-- Modern Treasury / Honeybadger — floating-point currency precision in JavaScript
-- flatpickr.js.org — file size confirmation (~49 KB JS); native inputs are superior on mobile per their own docs
-
-### Tertiary (LOW confidence)
-
-- SaaS billing dashboard UX patterns (general web search 2025/2026) — summary stats strip position, chart-first layout
-- colorwhistle.com SaaS Credits System Guide 2026 — wallet/credit balance UX expectations
+- [TeraWallet API V3 Documentation](https://github.com/malsubrata/woo-wallet/wiki/API-V3) — endpoint definitions, parameters, response format
+- [TeraWallet WordPress Plugin](https://wordpress.org/plugins/woo-wallet/) — plugin overview
+- [TeraWallet GitHub Repository](https://github.com/malsubrata/woo-wallet) — source code reference
+- [WordPress loopback request issues](https://github.com/docker-library/wordpress/issues/493) — cURL error 28 on self-requests
+- [WordPress REST API loopback failures behind Cloudflare](https://lukapaunovic.com/2025/04/24/fix-wordpress-loopback-and-rest-api-403-errors-behind-cloudflare/) — 403 errors on server-to-server requests
+- [WooCommerce REST API auth issue #26847](https://github.com/woocommerce/woocommerce/issues/26847) — `wp_get_current_user()` conflicts with WC auth
 
 ---
-
-*Research completed: 2026-02-22*
+*Research completed: 2026-03-10*
 *Ready for roadmap: yes*
