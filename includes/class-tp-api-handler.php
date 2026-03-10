@@ -27,6 +27,9 @@ use ShortCode\GenerationTier;
 use ShortCode\Exception\ApiException as ShortCodeApiException;
 use ShortCode\Exception\ValidationException as ShortCodeValidationException;
 use ShortCode\Exception\NetworkException as ShortCodeNetworkException;
+use TerrWallet\TerrWalletClient;
+use TerrWallet\UsageMergeAdapter;
+use TerrWallet\Exception\TerrWalletException;
 
 class TP_API_Handler {
 
@@ -1618,11 +1621,28 @@ class TP_API_Handler {
 
             // Validate and reshape response
             $validated = $this->validate_usage_summary_response($raw);
+            $days = $validated['days'];
 
-            $this->log_to_file('Usage summary validated successfully: ' . count($validated['days']) . ' days');
+            // Wallet integration: merge credit transactions into usage days
+            try {
+                $walletClient = new TerrWalletClient();
+                $wpUserId = get_current_user_id();
+                $transactions = $walletClient->getTransactions($wpUserId, $start_date, $end_date);
+                $days = UsageMergeAdapter::merge($days, $transactions);
+                $this->log_to_file('Wallet data merged: ' . count($transactions) . ' transactions');
+            } catch (TerrWalletException $e) {
+                error_log('TP Link Shortener: Wallet data unavailable: ' . $e->getMessage());
+                $this->log_to_file('Wallet data unavailable: ' . $e->getMessage());
+                $days = array_map(function($day) {
+                    $day['otherServices'] = null;
+                    return $day;
+                }, $days);
+            }
+
+            $this->log_to_file('Usage summary validated successfully: ' . count($days) . ' days');
             $this->log_to_file('=== GET USAGE SUMMARY REQUEST END ===');
 
-            wp_send_json_success($validated);
+            wp_send_json_success(['days' => $days]);
 
         } catch (NetworkException $e) {
             $this->log_to_file('Network error: ' . $e->getMessage());
