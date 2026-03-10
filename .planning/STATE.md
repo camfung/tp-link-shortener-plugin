@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-02-24)
 
 **Core value:** Users can track their link usage costs and account balance at a glance -- daily stats with a chart and detailed table.
-**Current focus:** Defining requirements for v2.1
+**Current focus:** Defining requirements for v2.2
 
 ## Current Position
 
 Phase: Not started (defining requirements)
 Plan: —
 Status: Defining requirements
-Last activity: 2026-02-24 — Milestone v2.1 started
+Last activity: 2026-03-10 — Milestone v2.2 started
 
 ## Accumulated Context
 
@@ -62,6 +62,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-23
-Stopped at: Completed 07-01-PLAN.md -- ALL PHASES COMPLETE
-Resume file: .planning/phases/07-chart-rendering/07-01-SUMMARY.md
+Last session: 2026-03-10
+Stopped at: Milestone v2.2 initialized -- defining requirements
+Resume file: —
