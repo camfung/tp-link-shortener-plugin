@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-03-10)
 
 **Core value:** Users can track their link usage costs and account balance at a glance -- daily stats with a chart and detailed table showing clicks, QR scans, costs, wallet top-ups, and running balance.
-**Current focus:** Phase 10 - Merge Adapter (v2.2 TerrWallet Integration)
+**Current focus:** Phase 11 - Backend Integration (v2.2 TerrWallet Integration)
 
 ## Current Position
 
-Phase: 10 of 13 (Merge Adapter)
+Phase: 11 of 13 (Backend Integration)
 Plan: 1 of 1 in current phase (COMPLETE)
-Status: Phase 10 complete -- ready for Phase 11
-Last activity: 2026-03-10 -- Completed 10-01 UsageMergeAdapter with TDD
+Status: Phase 11 complete -- ready for Phase 12
+Last activity: 2026-03-10 -- Completed 11-01 AJAX wallet wiring with graceful degradation
 
-Progress: [==========---] 77% (10 of 13 phases positioned, 2 of 5 v2.2 phases complete)
+Progress: [===========--] 85% (11 of 13 phases positioned, 3 of 5 v2.2 phases complete)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 2 (v2.2 milestone)
-- Average duration: 3.5min
-- Total execution time: 7min
+- Total plans completed: 3 (v2.2 milestone)
+- Average duration: 3min
+- Total execution time: 9min
 
 **By Phase:**
 
@@ -29,9 +29,10 @@ Progress: [==========---] 77% (10 of 13 phases positioned, 2 of 5 v2.2 phases co
 |-------|-------|-------|----------|
 | 09-wallet-client | 1 | 5min | 5min |
 | 10-merge-adapter | 1 | 2min | 2min |
+| 11-backend-integration | 1 | 2min | 2min |
 
 **Recent Trend:**
-- Last 5 plans: 09-01 (5min), 10-01 (2min)
+- Last 5 plans: 09-01 (5min), 10-01 (2min), 11-01 (2min)
 - Trend: improving
 
 *Updated after each plan completion*
@@ -55,6 +56,9 @@ Recent decisions affecting current work:
 - [10-01]: Items array preserves per-transaction detail (amount + description), no transactionId exposed
 - [10-01]: Empty/whitespace descriptions stored as-is per CONTEXT.md decision
 - [10-01]: strcmp() for YYYY-MM-DD date sorting -- lexicographic comparison is correct
+- [11-01]: Catch only TerrWalletException, not generic Exception -- merge adapter bugs bubble up
+- [11-01]: Use get_current_user_id() for wallet, not Traffic Portal UID variable
+- [11-01]: otherServices set to null (not absent) on failure -- frontend checks null, not field existence
 
 ### Pending Todos
 
@@ -69,5 +73,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-10
-Stopped at: Completed 10-01-PLAN.md (UsageMergeAdapter) -- ready for Phase 11 AJAX wiring
+Stopped at: Completed 11-01-PLAN.md (Backend Integration) -- ready for Phase 12 frontend integration
 Resume file: None
