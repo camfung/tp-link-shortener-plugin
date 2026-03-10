@@ -187,7 +187,10 @@ Plans:
   1. The usage dashboard table shows an "Other Services" column displaying wallet credit amounts in +$X.XX format for days with wallet activity, and a dash for days without
   2. Hovering over an Other Services amount displays a Bootstrap tooltip showing the transaction description text
   3. The summary strip includes a fourth card showing the Other Services total for the selected date range
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 12-01-PLAN.md -- Other Services column, tooltips, sorting, and summary card
 
 ### Phase 13: E2E Tests and Validation
 **Goal**: The full TerrWallet integration is verified end-to-end with real data, covering the wallet client, merge adapter edge cases, and the rendered UI column
@@ -218,5 +221,5 @@ Note: Phases 9 and 10 have no dependency on each other and can be built in paral
 | 9. Wallet Client | v2.2 | 1/1 | Complete | 2026-03-10 |
 | 10. Merge Adapter | 1/1 | Complete   | 2026-03-10 | - |
 | 11. Backend Integration | v2.2 | Complete    | 2026-03-10 | - |
-| 12. Dashboard UI | v2.2 | 0/0 | Not started | - |
+| 12. Dashboard UI | v2.2 | 0/1 | Planning | - |
 | 13. E2E Tests and Validation | v2.2 | 0/0 | Not started | - |
