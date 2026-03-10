@@ -38,7 +38,7 @@
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 9: Wallet Client** - PHP client that fetches wallet credit transactions via direct PHP calls or rest_do_request(), with pagination and error handling
+- [x] **Phase 9: Wallet Client** - PHP client that fetches wallet credit transactions via direct PHP calls or rest_do_request(), with pagination and error handling
 - [ ] **Phase 10: Merge Adapter** - Pure data transformation that aggregates wallet transactions by date and merges them into usage day records via full outer join
 - [ ] **Phase 11: Backend Integration** - Wire wallet client and merge adapter into the existing AJAX handler with non-fatal error handling for graceful degradation
 - [ ] **Phase 12: Dashboard UI** - Add Other Services column to table with tooltip descriptions, and Other Services total card to summary strip
@@ -209,7 +209,7 @@ Note: Phases 9 and 10 have no dependency on each other and can be built in paral
 | 6. Stats Table and Summary Strip | v2.0 | Complete | 2026-02-23 | - |
 | 7. Chart Rendering | v2.0 | 0/0 | Not started | - |
 | 8. Date Filtering and API Doc | v2.0 | 0/0 | Not started | - |
-| 9. Wallet Client | v2.2 | 0/1 | Planning | - |
+| 9. Wallet Client | v2.2 | 1/1 | Complete | 2026-03-10 |
 | 10. Merge Adapter | v2.2 | 0/0 | Not started | - |
 | 11. Backend Integration | v2.2 | 0/0 | Not started | - |
 | 12. Dashboard UI | v2.2 | 0/0 | Not started | - |

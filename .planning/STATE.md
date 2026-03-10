@@ -10,28 +10,28 @@ See: .planning/PROJECT.md (updated 2026-03-10)
 ## Current Position
 
 Phase: 9 of 13 (Wallet Client)
-Plan: 0 of TBD in current phase
-Status: Ready to plan
-Last activity: 2026-03-10 -- Roadmap created for v2.2 TerrWallet Integration (Phases 9-13)
+Plan: 1 of 1 in current phase (COMPLETE)
+Status: Phase 9 complete -- ready for Phase 10
+Last activity: 2026-03-10 -- Completed 09-01 TerrWallet client with dual-mode fetch
 
-Progress: [========-----] 62% (8 of 13 phases positioned, 0 of 5 v2.2 phases complete)
+Progress: [=========----] 69% (9 of 13 phases positioned, 1 of 5 v2.2 phases complete)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 0 (v2.2 milestone)
-- Average duration: -
-- Total execution time: -
+- Total plans completed: 1 (v2.2 milestone)
+- Average duration: 5min
+- Total execution time: 5min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| - | - | - | - |
+| 09-wallet-client | 1 | 5min | 5min |
 
 **Recent Trend:**
-- Last 5 plans: -
-- Trend: -
+- Last 5 plans: 09-01 (5min)
+- Trend: baseline
 
 *Updated after each plan completion*
 
@@ -48,6 +48,9 @@ Recent decisions affecting current work:
 - [v2.2 init]: Credit transactions only -- debits would double-count costs already tracked by hitCost
 - [v2.2 init]: Full outer join -- wallet-only days appear with 0 hits/cost
 - [v2.2 init]: Zero new dependencies -- new TerrWallet namespace follows existing pattern
+- [09-01]: Direct PHP get_wallet_transactions() as primary path -- no permission overhead for regular users
+- [09-01]: REST fallback uses rest_do_request() with email lookup and PHP-side date/type filtering
+- [09-01]: WalletTransaction DTO sanitizes HTML via wp_strip_all_tags() on details field
 
 ### Pending Todos
 
@@ -62,5 +65,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-10
-Stopped at: Roadmap created for v2.2 milestone (Phases 9-13)
+Stopped at: Completed 09-01-PLAN.md (TerrWallet client) -- test UI deployed, ready for Phase 10
 Resume file: None
