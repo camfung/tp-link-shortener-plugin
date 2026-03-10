@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-03-10)
 
 **Core value:** Users can track their link usage costs and account balance at a glance -- daily stats with a chart and detailed table showing clicks, QR scans, costs, wallet top-ups, and running balance.
-**Current focus:** Phase 11 - Backend Integration (v2.2 TerrWallet Integration)
+**Current focus:** Phase 12 - Dashboard UI (v2.2 TerrWallet Integration)
 
 ## Current Position
 
-Phase: 11 of 13 (Backend Integration)
+Phase: 12 of 13 (Dashboard UI)
 Plan: 1 of 1 in current phase (COMPLETE)
-Status: Phase 11 complete -- ready for Phase 12
-Last activity: 2026-03-10 -- Completed 11-01 AJAX wallet wiring with graceful degradation
+Status: Phase 12 complete -- ready for Phase 13
+Last activity: 2026-03-10 -- Completed 12-01 Other Services column, tooltips, and summary card
 
-Progress: [===========--] 85% (11 of 13 phases positioned, 3 of 5 v2.2 phases complete)
+Progress: [============-] 92% (12 of 13 phases positioned, 4 of 5 v2.2 phases complete)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3 (v2.2 milestone)
+- Total plans completed: 4 (v2.2 milestone)
 - Average duration: 3min
-- Total execution time: 9min
+- Total execution time: 12min
 
 **By Phase:**
 
@@ -30,10 +30,11 @@ Progress: [===========--] 85% (11 of 13 phases positioned, 3 of 5 v2.2 phases co
 | 09-wallet-client | 1 | 5min | 5min |
 | 10-merge-adapter | 1 | 2min | 2min |
 | 11-backend-integration | 1 | 2min | 2min |
+| 12-dashboard-ui | 1 | 3min | 3min |
 
 **Recent Trend:**
-- Last 5 plans: 09-01 (5min), 10-01 (2min), 11-01 (2min)
-- Trend: improving
+- Last 5 plans: 09-01 (5min), 10-01 (2min), 11-01 (2min), 12-01 (3min)
+- Trend: stable
 
 *Updated after each plan completion*
 
@@ -59,6 +60,9 @@ Recent decisions affecting current work:
 - [11-01]: Catch only TerrWalletException, not generic Exception -- merge adapter bugs bubble up
 - [11-01]: Use get_current_user_id() for wallet, not Traffic Portal UID variable
 - [11-01]: otherServices set to null (not absent) on failure -- frontend checks null, not field existence
+- [12-01]: fa-hand-holding-dollar icon for Other Services summary card
+- [12-01]: Bootstrap Tooltip with container: 'body' for proper z-index in table overflow
+- [12-01]: Tooltip lifecycle: dispose before DOM removal, init after insertion to prevent memory leaks
 
 ### Pending Todos
 
@@ -73,5 +77,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-10
-Stopped at: Completed 11-01-PLAN.md (Backend Integration) -- ready for Phase 12 frontend integration
+Stopped at: Completed 12-01-PLAN.md (Dashboard UI) -- ready for Phase 13 cleanup
 Resume file: None
