@@ -5,33 +5,34 @@
 See: .planning/PROJECT.md (updated 2026-03-10)
 
 **Core value:** Users can track their link usage costs and account balance at a glance -- daily stats with a chart and detailed table showing clicks, QR scans, costs, wallet top-ups, and running balance.
-**Current focus:** Phase 9 - Wallet Client (v2.2 TerrWallet Integration)
+**Current focus:** Phase 10 - Merge Adapter (v2.2 TerrWallet Integration)
 
 ## Current Position
 
-Phase: 9 of 13 (Wallet Client)
+Phase: 10 of 13 (Merge Adapter)
 Plan: 1 of 1 in current phase (COMPLETE)
-Status: Phase 9 complete -- ready for Phase 10
-Last activity: 2026-03-10 -- Completed 09-01 TerrWallet client with dual-mode fetch
+Status: Phase 10 complete -- ready for Phase 11
+Last activity: 2026-03-10 -- Completed 10-01 UsageMergeAdapter with TDD
 
-Progress: [=========----] 69% (9 of 13 phases positioned, 1 of 5 v2.2 phases complete)
+Progress: [==========---] 77% (10 of 13 phases positioned, 2 of 5 v2.2 phases complete)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 1 (v2.2 milestone)
-- Average duration: 5min
-- Total execution time: 5min
+- Total plans completed: 2 (v2.2 milestone)
+- Average duration: 3.5min
+- Total execution time: 7min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 09-wallet-client | 1 | 5min | 5min |
+| 10-merge-adapter | 1 | 2min | 2min |
 
 **Recent Trend:**
-- Last 5 plans: 09-01 (5min)
-- Trend: baseline
+- Last 5 plans: 09-01 (5min), 10-01 (2min)
+- Trend: improving
 
 *Updated after each plan completion*
 
@@ -51,6 +52,9 @@ Recent decisions affecting current work:
 - [09-01]: Direct PHP get_wallet_transactions() as primary path -- no permission overhead for regular users
 - [09-01]: REST fallback uses rest_do_request() with email lookup and PHP-side date/type filtering
 - [09-01]: WalletTransaction DTO sanitizes HTML via wp_strip_all_tags() on details field
+- [10-01]: Items array preserves per-transaction detail (amount + description), no transactionId exposed
+- [10-01]: Empty/whitespace descriptions stored as-is per CONTEXT.md decision
+- [10-01]: strcmp() for YYYY-MM-DD date sorting -- lexicographic comparison is correct
 
 ### Pending Todos
 
@@ -65,5 +69,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-10
-Stopped at: Completed 09-01-PLAN.md (TerrWallet client) -- test UI deployed, ready for Phase 10
+Stopped at: Completed 10-01-PLAN.md (UsageMergeAdapter) -- ready for Phase 11 AJAX wiring
 Resume file: None
