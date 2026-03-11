@@ -474,24 +474,23 @@ class TP_API_Handler {
 
                 return $result;
             } catch (ShortCodeValidationException $e) {
-                error_log('TP Link Shortener: Gemini validation error (' . $tier->value . '), falling back to random key - ' . $e->getMessage());
+                error_log('TP Link Shortener: Gemini validation error (' . $tier->value . ') - ' . $e->getMessage());
+                $result['error'] = $e->getMessage();
             } catch (ShortCodeNetworkException $e) {
-                error_log('TP Link Shortener: Gemini network error (' . $tier->value . '), falling back to random key - ' . $e->getMessage());
+                error_log('TP Link Shortener: Gemini network error (' . $tier->value . ') - ' . $e->getMessage());
+                $result['error'] = $e->getMessage();
             } catch (ShortCodeApiException $e) {
-                error_log('TP Link Shortener: Gemini API error (' . $tier->value . '), falling back to random key - ' . $e->getMessage());
+                error_log('TP Link Shortener: Gemini API error (' . $tier->value . ') - ' . $e->getMessage());
+                $result['error'] = $e->getMessage();
             } catch (\Exception $e) {
-                error_log('TP Link Shortener: Unexpected Gemini error (' . $tier->value . '), falling back to random key - ' . $e->getMessage());
+                error_log('TP Link Shortener: Unexpected Gemini error (' . $tier->value . ') - ' . $e->getMessage());
+                $result['error'] = $e->getMessage();
             }
         }
 
-        // Fallback to random key if Gemini not enabled or failed
-        $random = $this->generate_random_key();
-        $result['shortcode'] = $random;
-        $result['candidates'] = array($random);
-        $result['method'] = 'random-fallback';
-        $result['was_modified'] = false;
-        $result['original_code'] = $random;
-        $result['url'] = $destination;
+        if (!isset($result['error'])) {
+            $result['error'] = 'Shortcode generation is not available';
+        }
 
         return $result;
     }
@@ -1284,6 +1283,16 @@ class TP_API_Handler {
         // Generate shortcode using the requested tier
         $this->log_to_file('Gemini generation enabled, calling generate_short_code for tier: ' . $tier->value);
         $result = $this->generate_short_code_result($destination, $tier);
+
+        if (isset($result['error'])) {
+            $this->log_to_file('ERROR - Shortcode generation failed: ' . $result['error']);
+            $this->log_to_file('=== SUGGEST SHORTCODE REQUEST END ===');
+            wp_send_json_error(array(
+                'message' => $result['error'],
+            ), 500);
+            return;
+        }
+
         $suggested_code = $result['shortcode'];
 
         $this->log_to_file('Suggested shortcode: ' . $suggested_code);
