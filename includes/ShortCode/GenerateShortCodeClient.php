@@ -17,15 +17,18 @@ class GenerateShortCodeClient
     private const DEFAULT_BASE_URL = 'https://ce7jzbocq1.execute-api.ca-central-1.amazonaws.com/dev';
 
     private string $baseUrl;
+    private string $apiKey;
     private HttpClientInterface $httpClient;
     private int $timeout;
 
     public function __construct(
         ?string $baseUrl = null,
         ?HttpClientInterface $httpClient = null,
-        int $timeout = 15
+        int $timeout = 15,
+        ?string $apiKey = null
     ) {
         $this->baseUrl = rtrim($baseUrl ?? self::DEFAULT_BASE_URL, '/');
+        $this->apiKey = $apiKey ?? (defined('API_KEY') ? API_KEY : '');
         $this->timeout = $timeout;
         $this->httpClient = $httpClient ?? new CurlHttpClient($timeout);
     }
@@ -46,6 +49,7 @@ class GenerateShortCodeClient
             $response = $this->httpClient->request('POST', $endpoint, [
                 'headers' => [
                     'Content-Type: application/json',
+                    'x-api-key: ' . $this->apiKey,
                 ],
                 'body' => json_encode($payload),
                 'timeout' => $this->timeout,
