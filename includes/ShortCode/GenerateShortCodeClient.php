@@ -165,7 +165,7 @@ class GenerateShortCodeClient
             return;
         }
 
-        $log_file = WP_CONTENT_DIR . '/plugins/gemini-shortcode-debug.log';
+        $log_file = WP_CONTENT_DIR . '/plugins/tp-update-debug.log';
         $timestamp = date('Y-m-d H:i:s');
         file_put_contents($log_file, "[$timestamp] SHORTCODE CLIENT: $message\n", FILE_APPEND);
     }
