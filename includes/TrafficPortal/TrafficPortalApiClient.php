@@ -843,6 +843,93 @@ class TrafficPortalApiClient
     }
 
     /**
+     * Ensure a WordPress user exists in the Traffic Portal system.
+     *
+     * Calls POST /users/ which is idempotent — returns the existing user
+     * if one already exists for the given wpUserId.
+     *
+     * @param int $wpUserId The WordPress user ID
+     * @param int $tid Tenant ID (default: 1)
+     * @return array The user record with 'uid', 'wpUserId', 'tid', etc.
+     * @throws ValidationException If the request body is invalid
+     * @throws NetworkException If network error occurs
+     * @throws ApiException For other API errors
+     */
+    public function ensureUser(int $wpUserId, int $tid = 1): array
+    {
+        $url = $this->apiEndpoint . '/users/';
+
+        $payload = [
+            'wpUserId' => $wpUserId,
+            'tid' => $tid,
+            'status' => 'active',
+            'settings' => '{}',
+        ];
+
+        $this->log_to_file('=== ENSURE USER REQUEST ===');
+        $this->log_to_file('wpUserId: ' . $wpUserId);
+        $this->log_to_file('URL: ' . $url);
+
+        $jsonPayload = json_encode($payload);
+        $base64Payload = base64_encode($jsonPayload);
+
+        $ch = curl_init($url);
+        if ($ch === false) {
+            throw new NetworkException('Failed to initialize cURL');
+        }
+
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => $base64Payload,
+            CURLOPT_HTTPHEADER => [
+                'Content-Type: application/json',
+                'x-api-key: ' . $this->apiKey,
+            ],
+            CURLOPT_TIMEOUT => $this->timeout,
+            CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_FOLLOWLOCATION => false,
+        ]);
+
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($ch);
+        $curlErrno = curl_errno($ch);
+
+        $this->log_to_file('HTTP Code: ' . $httpCode);
+        $this->log_to_file('Raw response: ' . $response);
+
+        curl_close($ch);
+
+        if ($curlErrno !== 0) {
+            $this->log_to_file('cURL ERROR: ' . $curlError);
+            throw new NetworkException(sprintf('cURL error: %s', $curlError), $curlErrno);
+        }
+
+        if ($response === false || $response === '') {
+            throw new NetworkException('Empty response from API');
+        }
+
+        $data = json_decode($response, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new ApiException(sprintf('Invalid JSON response: %s', json_last_error_msg()), $httpCode);
+        }
+
+        $this->log_to_file('Decoded response: ' . json_encode($data, JSON_PRETTY_PRINT));
+
+        $this->handleHttpErrors($httpCode, $data);
+
+        if (!isset($data['source']['uid'])) {
+            throw new ApiException('ensureUser response missing uid', $httpCode);
+        }
+
+        $this->log_to_file('TP uid: ' . $data['source']['uid']);
+        $this->log_to_file('=== ENSURE USER COMPLETE ===');
+
+        return $data['source'];
+    }
+
+    /**
      * Get the API endpoint
      *
      * @return string

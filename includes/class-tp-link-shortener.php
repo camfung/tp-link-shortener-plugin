@@ -118,15 +118,49 @@ class TP_Link_Shortener {
     }
 
     /**
-     * Get user ID for API calls
+     * Get the Traffic Portal uid for API calls.
+     *
+     * For logged-in users, resolves the WP user ID to a TP uid via
+     * the POST /users/ endpoint (idempotent — creates if missing).
+     * The TP uid is cached in user meta to avoid repeated API calls.
      */
     public static function get_user_id(): int {
-        if (is_user_logged_in()) {
-            return (int) get_current_user_id();
+        if (!is_user_logged_in()) {
+            $uid = get_option('tp_link_shortener_user_id', '-1');
+            return (int) $uid;
         }
 
-        $uid = get_option('tp_link_shortener_user_id', '-1');
-        return (int) $uid;
+        $wp_user_id = (int) get_current_user_id();
+
+        // Check cached TP uid in user meta
+        $tp_uid = get_user_meta($wp_user_id, 'tp_uid', true);
+        if (!empty($tp_uid)) {
+            return (int) $tp_uid;
+        }
+
+        // No cached uid — resolve via API
+        try {
+            $api_endpoint = self::get_api_endpoint();
+            $api_key = self::get_api_key();
+
+            if (empty($api_key)) {
+                error_log('TP Link Shortener: Cannot resolve TP uid — API_KEY not configured');
+                return $wp_user_id; // fallback to WP ID
+            }
+
+            $client = new \TrafficPortal\TrafficPortalApiClient($api_endpoint, $api_key);
+            $user = $client->ensureUser($wp_user_id);
+
+            $tp_uid = (int) $user['uid'];
+            update_user_meta($wp_user_id, 'tp_uid', $tp_uid);
+
+            error_log("TP Link Shortener: Resolved WP user {$wp_user_id} -> TP uid {$tp_uid}");
+            return $tp_uid;
+
+        } catch (\Exception $e) {
+            error_log('TP Link Shortener: ensureUser failed for WP user ' . $wp_user_id . ': ' . $e->getMessage());
+            return $wp_user_id; // fallback to WP ID
+        }
     }
 
     /**
