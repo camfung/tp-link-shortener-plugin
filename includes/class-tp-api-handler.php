@@ -1020,6 +1020,14 @@ class TP_API_Handler {
                     'default'           => 50,
                     'sanitize_callback' => 'absint',
                 ),
+                'offset' => array(
+                    'default'           => 0,
+                    'sanitize_callback' => 'absint',
+                ),
+                'search' => array(
+                    'default'           => '',
+                    'sanitize_callback' => 'sanitize_text_field',
+                ),
             ),
         ));
     }
@@ -1074,22 +1082,40 @@ class TP_API_Handler {
         $spl->seek(PHP_INT_MAX);
         $total = $spl->key();
 
+        $offset = (int) $request->get_param('offset');
+        $search = $request->get_param('search');
+
         if ($mode === 'head') {
-            $start = 0;
+            $start = $offset;
         } else {
-            $start = max(0, $total - $n);
+            $start = max(0, $total - $n - $offset);
         }
 
         $lines = array();
         $spl->seek($start);
         $count = 0;
-        while (!$spl->eof() && $count < $n) {
-            $line = rtrim($spl->current(), "\r\n");
-            if ($line !== '' || !$spl->eof()) {
-                $lines[] = $line;
-                $count++;
+
+        if (!empty($search)) {
+            // Search mode: scan up to 100k lines for matches
+            $scanned = 0;
+            while (!$spl->eof() && $count < $n && $scanned < 100000) {
+                $line = rtrim($spl->current(), "\r\n");
+                if ($line !== '' && stripos($line, $search) !== false) {
+                    $lines[] = $line;
+                    $count++;
+                }
+                $scanned++;
+                $spl->next();
             }
-            $spl->next();
+        } else {
+            while (!$spl->eof() && $count < $n) {
+                $line = rtrim($spl->current(), "\r\n");
+                if ($line !== '' || !$spl->eof()) {
+                    $lines[] = $line;
+                    $count++;
+                }
+                $spl->next();
+            }
         }
 
         return new \WP_REST_Response(array(
