@@ -878,12 +878,14 @@ class TrafficPortalApiClient
             throw new NetworkException('Failed to initialize cURL');
         }
 
+        $this->log_to_file('Base64 payload: ' . $base64Payload);
+
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_POST => true,
             CURLOPT_POSTFIELDS => $base64Payload,
             CURLOPT_HTTPHEADER => [
-                'Content-Type: application/json',
+                'Content-Type: text/plain',
                 'x-api-key: ' . $this->apiKey,
             ],
             CURLOPT_TIMEOUT => $this->timeout,
