@@ -1,195 +1,253 @@
-# Feature Landscape: TerrWallet Integration
+# Feature Landscape: Stress Testing & Bug Regression Suite
 
-**Domain:** Wallet transaction integration into existing usage dashboard
-**Researched:** 2026-03-10
-**Overall Confidence:** HIGH (TeraWallet API is documented, existing dashboard patterns are well-understood from codebase analysis)
+**Domain:** Automated testing -- stress testing (bulk link creation + usage generation) and Jira bug regression
+**Researched:** 2026-03-22
+**Overall Confidence:** HIGH (existing Playwright + pytest infrastructure in the repo, well-understood patterns from 11 existing e2e test files)
 
 ---
 
 ## Context
 
-This research covers the **v2.2 TerrWallet Integration milestone** -- adding wallet transaction data from the TeraWallet (WooCommerce Wallet) plugin into the existing `[tp_usage_dashboard]` table as an "Other Services" column.
+This research covers the **v2.3 Stress Test and Bug Regression milestone** -- validating plugin reliability through bulk link creation, usage generation via HTTP traffic, and regression tests for 8 Jira bugs.
 
-**Current state (no wallet data):**
-- The usage dashboard table has 4 columns: Date, Hits, Cost, Balance
-- Data comes from Traffic Portal API via `ajax_get_usage_summary` AJAX handler
-- Each row is a daily record: `{ date, totalHits, hitCost, balance }`
-- The PHP handler validates/reshapes data in `validate_usage_summary_response()`
-- JS renders rows via `renderRows()` and summary cards via `renderSummaryCards()`
+**Existing test infrastructure (confirmed from codebase):**
+- Python/Playwright e2e tests in `tests/e2e/` (11 test files)
+- `conftest.py` with session-scoped auth, `.env`-driven config (BASE_URL, credentials)
+- Existing fixtures: `auth_context`, `page`, `client_links_page`, `usage_dashboard_page`
+- PHPUnit tests in `tests/Unit/` and `tests/Integration/`
+- Vitest for JS unit tests (`vitest.config.js`, `url-validator.test.js`)
+- `.env.test` with `TP_API_ENDPOINT` and `API_KEY` for direct API calls
 
-**TeraWallet API (confirmed from official GitHub wiki):**
-- `GET /wp-json/wc/v3/wallet/?email={email}` -- returns all transactions for a user
-- Auth: WooCommerce REST API consumer key/secret (Basic Auth or query params)
-- Response: array of `{ transaction_id, user_id, date, type, amount, balance, details, currency, blog_id }`
-- Pagination via `per_page` and `page` query params
-- `GET /wp-json/wc/v3/wallet/balance/?email={email}` -- returns current balance
-
-**What we are building:**
-- An "Other Services" column in the table showing credit transaction amounts
-- Tooltip on hover showing the transaction `details` text
-- Only `type: "credit"` transactions shown (wallet top-ups, not debits)
-- PHP adapter to merge wallet data with existing usage data by date
+**Target:** 50 links created via Playwright UI, each hit multiple times via HTTP to produce usage records, then verify usage dashboard shows correct data. Plus 8 regression tests for specific Jira bugs.
 
 ---
 
-## Table Stakes (Must Have)
+## Table Stakes
 
-Features that are required for the milestone to deliver value. Missing any of these means the integration is incomplete or misleading.
+Features that are required for this milestone. Missing = milestone incomplete.
 
 | Feature | Why Expected | Complexity | Dependencies |
-|---------|--------------|------------|--------------|
-| **PHP client for TeraWallet REST API** | Need a server-side client to call `/wp-json/wc/v3/wallet/` with WooCommerce consumer key/secret auth. Cannot call from browser (CORS + secret exposure). Must use `wp_remote_get()` with Basic Auth header. | MEDIUM | Depends on: WooCommerce consumer key/secret stored in `wp-config.php` or plugin settings. Needs the WordPress user's email to pass as the `email` query param. |
-| **AJAX handler for wallet transactions** | Either a new `tp_get_wallet_transactions` AJAX action, or extend the existing `ajax_get_usage_summary` to also fetch wallet data. The browser needs the merged data in a single response to avoid multiple AJAX calls and client-side merge complexity. | MEDIUM | Depends on: PHP client (above). Recommend extending existing handler rather than adding a new one -- one AJAX call returns both usage data and wallet data merged by date. |
-| **Date-keyed merge adapter** | Wallet transactions are per-transaction (multiple per day possible), usage data is per-day. Must aggregate wallet credits by date, then merge into the daily records array. Days with only wallet activity (no usage) should still appear as rows. Days with only usage (no wallet) show empty Other Services cell. | MEDIUM | Depends on: both data sources fetched. The merge must happen server-side in PHP to keep JS rendering simple. Output: each day record gains an `otherServices` field (array of `{ amount, description }`). |
-| **"Other Services" table column** | New column between Cost and Balance columns showing the sum of credit amounts for that day. Format: `+$X.XX` in green text. If no transactions for a day, show `--` or leave empty. | LOW | Depends on: merged data from adapter. Requires updating `renderRows()` in JS, the `<thead>` in PHP template, column width CSS, and mobile card layout `data-label`. |
-| **Tooltip with transaction descriptions** | Hover over the Other Services cell shows the `details` text from the transaction(s). Multiple transactions on the same day should show each description on its own line. Use Bootstrap 5 tooltip (already loaded). | LOW | Depends on: Other Services column rendering. Bootstrap 5 tooltips initialized via `data-bs-toggle="tooltip"`. Multi-line via `data-bs-html="true"` with `<br>` separators. |
-| **Filter to credit transactions only** | Only show `type: "credit"` transactions. Debits (charges, purchases) are not "Other Services" -- they represent the user spending wallet balance, which is already tracked in the Cost/Balance columns from the usage API. Showing debits would double-count. | LOW | Depends on: PHP client filtering response. Simple `array_filter` on the API response. |
-| **Skeleton and error handling for wallet data** | Wallet API call may fail independently of usage API. Must handle: wallet API timeout, auth failure, empty response. Should not block usage data from rendering -- show usage data normally, show "N/A" or "--" in Other Services column if wallet fetch fails. | MEDIUM | Depends on: error handling in the AJAX handler. Use try/catch around wallet call, set a flag if wallet data unavailable, and pass it to JS so the column renders gracefully. |
-| **Column width rebalancing** | Current columns: Date 25%, Hits 30%, Cost 20%, Balance 25%. Adding a 5th column requires rebalancing. Suggested: Date 20%, Hits 25%, Other Services 15%, Cost 15%, Balance 25%. The Other Services column is narrow (just `+$X.XX`). | LOW | Depends on: CSS changes in `usage-dashboard.css`. Must also update mobile card layout breakpoint styles. |
-| **Summary card for Other Services total** | Add a 4th summary stat card showing the total Other Services credits for the period. Icon: `fa-hand-holding-dollar`. Label: "Other Services". Secondary: number of transactions. Completes the at-a-glance view. | LOW | Depends on: merged data. Update `renderSummaryCards()` in JS. Use integer-cent accumulation (same pattern as existing `totalCostCents`). |
-| **Mobile card layout for new column** | The table converts to card layout below 768px. The new Other Services field needs a `data-label="Other Services"` attribute and appropriate styling in the mobile card view. Tooltip must work on tap (not just hover). | LOW | Depends on: column rendering. Bootstrap 5 tooltips already work on tap on mobile. Just add the `data-label` attribute and verify card layout spacing. |
+|---------|--------------|------------|-------------|
+| Bulk link creation script (50 links) | Core stress test requirement per PROJECT.md | Med | `client_links_page` fixture, Add Link modal |
+| Unique keyword generation per link | Links need unique tpKeys to avoid collisions | Low | Timestamp/UUID-based naming pattern |
+| Usage generation via HTTP hits | Must produce real usage records for dashboard verification | Med | Created links must resolve (active status), HTTP client |
+| Usage dashboard data verification | Must confirm dashboard correctly reports stress test traffic | Med | `usage_dashboard_page` fixture, AJAX data fetch |
+| Test data cleanup strategy | 50 links pollute the test account if not managed | Low | Either dedicated test user or naming convention for manual cleanup |
+| Regression test: TP-22 | Bug must be covered to prevent recurrence | Low-Med | Depends on bug specifics (needs Jira lookup) |
+| Regression test: TP-25 | Bug must be covered to prevent recurrence | Low-Med | Depends on bug specifics (needs Jira lookup) |
+| Regression test: TP-29 | Bug must be covered to prevent recurrence | Low-Med | Depends on bug specifics (needs Jira lookup) |
+| Regression test: TP-34 | Bug must be covered to prevent recurrence | Low-Med | Depends on bug specifics (needs Jira lookup) |
+| Regression test: TP-41 | Bug must be covered to prevent recurrence | Low-Med | Depends on bug specifics (needs Jira lookup) |
+| Regression test: TP-46 | Bug must be covered to prevent recurrence | Low-Med | Depends on bug specifics (needs Jira lookup) |
+| Regression test: TP-71 | Bug must be covered to prevent recurrence | Low-Med | Depends on bug specifics (needs Jira lookup) |
+| Regression test: TP-94 | Umbrella ticket -- may need sub-task extraction | Med | Sub-task analysis from Jira |
 
 ---
 
-## Differentiators (Above and Beyond)
+## Feature Details
 
-Features that would make the integration notably polished. Worth building if time allows, but the milestone succeeds without them.
+### 1. Bulk Link Creation Script (Stress Test)
 
-| Feature | Value Proposition | Complexity | Dependencies |
-|---------|-------------------|------------|--------------|
-| **Expandable row detail for transaction descriptions** | Instead of (or in addition to) tooltips, clicking a row with Other Services data expands an inline detail section showing each transaction's full description, amount, and time. Better for days with many transactions. | MEDIUM | Depends on: basic column rendering. Requires new JS for row expansion, CSS for detail panel. Similar pattern exists in many dashboard frameworks. |
-| **Color-coded amount badges** | Show the Other Services amount as a small green badge/pill (`+$10.00`) to visually distinguish it from the cost column (which shows charges). Gives immediate visual signal that this is money coming in, not going out. | LOW | Depends on: basic column rendering. CSS class `.tp-ud-credit-badge` with green background. |
-| **Wallet transactions in chart** | Add a third series to the area chart showing Other Services credits as vertical bars (mixed chart: area + bar). Provides visual context for when top-ups happened relative to usage patterns. | HIGH | Depends on: merged data with daily Other Services totals. Chart.js supports mixed chart types but requires careful axis configuration. Risk of visual clutter if transactions are sparse. |
-| **Transaction type icons** | Show different icons for different transaction types: shopping cart for purchases (`#1279`), globe for admin console visits, gift for promotional credits. Parse the `details` string to determine type. | LOW | Depends on: basic column rendering. Simple string matching on `details` field. Font Awesome icons already available. |
-| **Server-side caching of wallet data** | Cache wallet transactions in a WordPress transient (keyed by user + date range, 5-min TTL). The TeraWallet API paginates, so multiple calls may be needed for users with many transactions. Caching avoids repeated multi-page fetches. | MEDIUM | Depends on: PHP client. Use `set_transient()` / `get_transient()`. Must invalidate when user triggers a wallet action (top-up). |
-| **"Other Services" sort column** | Make the Other Services column header sortable, sorting by total credit amount per day. Days with no credits sort as 0. | LOW | Depends on: merged data including `otherServicesTotal` numeric field per day. Add `data-sort="otherServicesTotal"` to the `<th>`. Extend `getSortedData()` in JS. |
+**What it does:** Automates creation of 50 short links through the Playwright UI by repeatedly opening the "Add a link" modal, filling the form, and submitting.
+
+**Expected behavior pattern:**
+- Login once (reuse `auth_context` session fixture)
+- Navigate to client links page
+- Loop 50 times:
+  1. Click "Add a link" button (`#tp-cl-add-link-btn`)
+  2. Fill destination URL (can be a fixed URL like `https://example.com` or varied)
+  3. Fill custom keyword with unique value (e.g., `stress-test-001` through `stress-test-050`)
+  4. Submit the form
+  5. Wait for success snackbar confirmation
+  6. Close modal or wait for auto-close
+- Collect created link URLs for the usage generation phase
+- Assert all 50 links appear in the table (may need pagination check)
+
+**Complexity:** Medium -- the modal interaction is well-understood from existing `TestAddLinkModal` and `TestEditModal` tests. The challenge is reliable iteration without flaky failures on 50 repetitions.
+
+**Key considerations:**
+- Rate limiting: The API may throttle rapid creation. Add small delays between creations (0.5-1s).
+- Shortcode generation: The `/generate-short-code/{tier}` API has known issues (BUG doc shows 500 errors). Using custom keywords bypasses this.
+- Form field IDs: `#tp-custom-key` for keyword, destination URL input, `#tp-submit-btn` for save.
+- Success detection: Watch for snackbar with "successfully" text.
+- Failure handling: Log which links fail, continue creating remaining links, assert minimum success threshold.
+
+### 2. Usage Generation via HTTP Hits
+
+**What it does:** Sends HTTP GET requests to each of the 50 created short links to generate real click/usage records in the backend.
+
+**Expected behavior pattern:**
+- For each created link URL (e.g., `https://dev.trfc.link/stress-test-001`):
+  1. Send N HTTP GET requests (follow redirects to confirm link works)
+  2. Vary request count per link for realistic distribution (e.g., 1-10 hits each)
+  3. Space requests to avoid triggering rate limits or DDoS protection
+- Total expected hits: 50 links x ~5 avg hits = ~250 HTTP requests
+- Do NOT use Playwright for this -- use `requests` or `httpx` library for speed
+- Record expected hit counts per link for later verification
+
+**Complexity:** Medium -- straightforward HTTP calls, but needs to handle redirects, timeouts, and potential rate limiting. Also needs to account for async processing lag (usage records may not appear immediately).
+
+**Key considerations:**
+- Redirect behavior: Short links redirect (301/302) to destination. Follow redirects to confirm the link works, but the click is recorded on the initial request.
+- Timing: Usage records may take seconds to minutes to appear in the API. Build in a wait period before verification.
+- Concurrency: Can use `asyncio`/`httpx.AsyncClient` to parallelize hits, but be careful about overwhelming the server.
+- User-Agent: Vary or set a test User-Agent so test traffic is identifiable.
+
+### 3. Usage Dashboard Verification
+
+**What it does:** After stress test traffic is generated, navigates to the usage dashboard and verifies the data is correctly displayed.
+
+**Expected behavior pattern:**
+- Navigate to `/usage-dashboard/`
+- Wait for skeleton to disappear and content to load
+- Set date range to include today (the stress test date)
+- Verify:
+  1. Summary strip shows non-zero hit count
+  2. Table has a row for today's date with hits >= expected count
+  3. Chart renders data points for the date range
+  4. Hit cost values are non-negative
+  5. Balance reflects usage deductions
+- Compare displayed data against known generated traffic counts
+
+**Complexity:** Medium -- builds on existing `test_usage_dashboard.py` patterns. The tricky part is timing (data availability) and exact count matching (usage might include pre-existing traffic).
+
+**Key considerations:**
+- Data lag: The Traffic Portal API may have processing delays. May need retry logic or generous timeouts.
+- Pre-existing data: The test user may have existing usage. Verify incremental increase rather than exact counts.
+- Date filtering: Use today's date range to isolate stress test data.
+
+### 4. Jira Bug Regression Tests
+
+**What it does:** Automated tests that verify each of the 8 Jira bugs remains fixed. Each test reproduces the original bug scenario and asserts the correct (fixed) behavior.
+
+**Expected behavior pattern per regression test:**
+1. Set up preconditions (navigate to relevant page, create test data if needed)
+2. Reproduce the exact steps that triggered the original bug
+3. Assert the FIXED behavior (not the buggy behavior)
+4. Include the Jira ticket ID in the test name and docstring for traceability
+
+**Bug ticket details -- LOW confidence (need Jira lookup to confirm specifics):**
+
+| Ticket | Likely Area | Test Approach |
+|--------|-------------|---------------|
+| TP-22 | Unknown -- needs Jira lookup | Playwright e2e or API-level test |
+| TP-25 | Unknown -- needs Jira lookup | Playwright e2e or API-level test |
+| TP-29 | Unknown -- needs Jira lookup | Playwright e2e or API-level test |
+| TP-34 | Unknown -- needs Jira lookup | Playwright e2e or API-level test |
+| TP-41 | Unknown -- needs Jira lookup | Playwright e2e or API-level test |
+| TP-46 | Unknown -- needs Jira lookup | Playwright e2e or API-level test |
+| TP-71 | Unknown -- needs Jira lookup | Playwright e2e or API-level test |
+| TP-94 | Umbrella ticket (per STATE.md) | May decompose into multiple tests |
+
+**Note:** TP-94 is flagged as an umbrella ticket in STATE.md. It likely needs sub-task extraction before regression tests can be written. This is a research gap that must be resolved during the implementation phase by reading the actual Jira tickets.
+
+**Existing regression test example:** `test_edit_empty_keyword.py` (for TP-103) shows the established pattern -- reproduce the bug steps, assert correct behavior, reference ticket ID in docstring.
 
 ---
 
-## Anti-Features (Explicitly Do NOT Build)
+## Differentiators
 
-Features that seem logical but would add complexity, confusion, or scope creep.
+Features that add value beyond the minimum requirements.
+
+| Feature | Value Proposition | Complexity | Notes |
+|---------|-------------------|------------|-------|
+| Test result reporting with timing data | Shows how long each link creation takes, identifies performance degradation | Low | Log timestamps, compute avg/p95/max |
+| Screenshot capture on failure | Enables debugging without re-running -- Playwright supports this natively | Low | `page.screenshot()` in pytest failure hooks |
+| Parallel link creation (batched) | Speeds up 50-link creation from ~5min to ~1min using multiple browser contexts | High | Complex state management, may hit API limits |
+| CSV/JSON test data export | Persist created link IDs and hit counts for post-hoc analysis | Low | Write to `tests/e2e/results/` directory |
+| Configurable link count | Allow N links instead of hardcoded 50 via env var or CLI arg | Low | `TP_STRESS_LINK_COUNT` env var, default 50 |
+| Pre-test cleanup | Delete any leftover stress test links before starting | Med | Requires API delete endpoint or UI deletion |
+| Link creation via API bypass | Skip UI for speed -- create links directly via Traffic Portal API | Med | Faster but doesn't test UI flow |
+
+---
+
+## Anti-Features
+
+Features to explicitly NOT build.
 
 | Anti-Feature | Why Avoid | What to Do Instead |
 |--------------|-----------|-------------------|
-| **Show debit transactions** | Debits represent wallet spending (purchases, usage charges). The Cost column already shows daily charges from the Traffic Portal API. Showing debits in Other Services would double-count costs and confuse users about where money went. The milestone scope explicitly states "only credits." | Filter to `type: "credit"` only. If debit visibility is needed later, it belongs in a dedicated wallet transaction history page, not this column. |
-| **Client-side wallet API calls** | Calling `/wp-json/wc/v3/wallet/` from the browser exposes WooCommerce consumer key/secret. Even with read-only keys, this is a security anti-pattern. The existing dashboard already proxies all API calls through WordPress AJAX. | Fetch wallet data server-side in the PHP AJAX handler. Return merged data to the browser in the existing response format. |
-| **Separate AJAX call for wallet data** | Making two AJAX calls (one for usage, one for wallet) and merging client-side adds complexity: race conditions, partial failure states, two loading indicators, client-side date merge logic. | Merge server-side in PHP. Return a single unified response from `ajax_get_usage_summary`. JS stays simple -- it renders whatever `days[]` array it receives. |
-| **Real-time wallet balance sync** | Polling or WebSocket connection to detect wallet balance changes in real-time. This is a management dashboard, not a trading platform. Users check it occasionally, not continuously. | The balance shown is from the last data fetch. The existing refresh/date-apply flow re-fetches both usage and wallet data. |
-| **Wallet top-up button in the dashboard** | Adding a "Top Up Wallet" action button in the usage dashboard. This crosses the boundary between viewing data and taking financial actions. The wallet top-up flow is handled by the WooCommerce storefront (TeraWallet provides its own wallet page). | Keep the dashboard read-only. Link to the WooCommerce wallet page if needed. |
-| **Custom date filtering for wallet only** | Separate date pickers for wallet transactions vs usage data. The whole point of the merge is seeing both data streams aligned on the same date axis. | Use the existing date range filter. It applies to both data sources. |
-| **Parse transaction details into structured fields** | The `details` field is a free-text string (e.g., "Balance credited for visiting TrafficPortal administrative console. +$1.00"). Parsing it into structured fields (source, action, amount) would be fragile and break when the text format changes. | Show the raw `details` text in the tooltip. It is already human-readable. |
+| Load testing / concurrent users | This is stress testing a single user flow, not load testing the infrastructure. Load testing requires different tools (k6, Locust) and is out of scope. | Stick to sequential single-user stress test |
+| Automated Jira ticket status updates | Adds coupling to Jira API, fragile, not needed for test suite | Reference ticket IDs in test names/docstrings only |
+| Browser-based usage generation | Using Playwright to visit each link 5x is extremely slow and wasteful | Use `requests`/`httpx` for HTTP hits (no browser needed) |
+| Cross-browser stress testing | Running 50-link creation in Firefox/WebKit too adds no value for this milestone | Chromium only (already the default in conftest.py) |
+| Production environment testing | Stress testing on prod could impact real users and billing | Always target dev environment (`trafficportal.dev`) |
+| Retry-until-pass test patterns | Flaky test masking -- retries hide real failures | Fix the root cause of flakiness, use explicit waits |
+| Link deletion after test | Deleting stress test links removes evidence for manual verification | Use naming convention (`stress-test-*`) for easy filtering/cleanup later |
 
 ---
 
 ## Feature Dependencies
 
 ```
-WC consumer key config --> PHP TeraWallet client (MEDIUM)
-                              |
-                              +--> AJAX handler extension (MEDIUM)
-                              |       |
-                              |       +--> Date-keyed merge adapter (MEDIUM)
-                              |               |
-                              |               +--> "Other Services" column (LOW)
-                              |               |       |
-                              |               |       +--> Tooltip descriptions (LOW)
-                              |               |       +--> Column width rebalancing (LOW)
-                              |               |       +--> Mobile card layout (LOW)
-                              |               |       +--> Sort column (LOW, differentiator)
-                              |               |
-                              |               +--> Summary card (LOW)
-                              |
-                              +--> Error handling / graceful degradation (MEDIUM)
+Authentication (existing) --> Bulk Link Creation --> Usage Generation --> Dashboard Verification
+                                |                        |
+                                v                        v
+                           Link URLs collected     Hit counts recorded
+                                                        |
+                                                        v
+                                                  Dashboard Verification
+                                                  (compare expected vs actual)
 
-Expandable row detail (MEDIUM, differentiator) -- independent of tooltip
-Wallet data in chart (HIGH, differentiator) -- depends on merge adapter
-Server-side caching (MEDIUM, differentiator) -- depends on PHP client
+Jira Bug Research (ticket lookup) --> Individual Regression Tests (independent of stress test)
 ```
 
-**Critical path:** PHP client --> AJAX handler --> Merge adapter --> Column rendering. Everything else branches from the merge adapter output.
+**Critical path:** Link creation MUST complete before usage generation. Usage generation MUST complete (with processing delay) before dashboard verification.
 
-**Critical coupling:** The merge adapter and AJAX handler extension are the riskiest pieces. The adapter must handle: (a) days with only usage data, (b) days with only wallet data, (c) days with both, (d) multiple wallet transactions on the same day. Getting this wrong corrupts the entire table.
+**Independent:** Regression tests for Jira bugs are completely independent of the stress test and can be built in parallel.
 
 ---
 
 ## MVP Recommendation
 
-**Build in this order (each builds on previous):**
+**Phase 1 -- Stress Test Pipeline (sequential, must be ordered):**
+1. Bulk link creation script (50 links with unique keywords)
+2. Usage generation script (HTTP hits to each created link)
+3. Usage dashboard verification test
 
-1. **PHP TeraWallet client** -- `wp_remote_get()` to `/wp-json/wc/v3/wallet/` with Basic Auth. Filter to credits only. Handle pagination if needed.
-2. **Date-keyed merge adapter** -- PHP function that takes usage `days[]` array and wallet transactions array, groups wallet by date, merges into unified `days[]` with `otherServices` field.
-3. **AJAX handler extension** -- Extend `ajax_get_usage_summary` to call both APIs, merge, return unified response. Graceful degradation if wallet call fails.
-4. **Column rendering** -- Update template `<thead>`, JS `renderRows()`, CSS column widths. Add Bootstrap tooltip for descriptions.
-5. **Summary card** -- Add 4th card to `renderSummaryCards()`.
-6. **Mobile layout** -- Verify card layout with new column, add `data-label`.
+**Phase 2 -- Bug Regression Suite (independent, can be parallelized):**
+4. Research all 8 Jira tickets (read ticket details from Jira)
+5. Write regression tests for each bug
 
-**Defer to future:**
-- Chart integration (HIGH complexity, low value for sparse transaction data)
-- Server-side caching (good optimization but not blocking for initial release)
-- Expandable row detail (tooltip is sufficient for MVP)
-- Sort by Other Services (can add later without data changes)
-
-**Rationale:** The MVP gives users the core value -- seeing wallet credits alongside their daily usage data -- with minimal JS changes. The heavy lifting is in PHP (API client + merge adapter). The JS changes are additive (one new column, one new card) and follow existing patterns exactly.
+**Defer:**
+- Parallel link creation: High complexity, low necessity for 50 links
+- API-bypass link creation: Doesn't test the UI path which is what we want to stress
+- Test data export: Nice-to-have, can add later if needed
+- Pre-test cleanup: Use naming convention instead
 
 ---
 
-## Complexity Estimates
+## File Organization Recommendation
 
-| Feature | Complexity | Effort | Risk |
-|---------|-----------|--------|------|
-| PHP TeraWallet client | MEDIUM | 2-3 hours | MEDIUM -- WC auth may need debugging |
-| Date-keyed merge adapter | MEDIUM | 2-3 hours | MEDIUM -- edge cases (no overlap, multi-transaction days) |
-| AJAX handler extension | MEDIUM | 1-2 hours | LOW -- extends existing pattern |
-| Error handling / graceful degradation | MEDIUM | 1-2 hours | LOW -- isolated try/catch |
-| "Other Services" column + tooltip | LOW | 1-2 hours | LOW -- follows existing renderRows() pattern |
-| Column width rebalancing | LOW | 30 min | LOW -- CSS only |
-| Summary card | LOW | 30 min | LOW -- follows existing buildStatCard() pattern |
-| Mobile card layout | LOW | 30 min | LOW -- add data-label + verify |
-| Integration tests | MEDIUM | 2-3 hours | LOW -- test merge logic with known inputs |
-| E2E tests | MEDIUM | 2-3 hours | MEDIUM -- needs real or mocked wallet data |
-
-**Total estimated effort:** 14-18 hours for the full MVP.
-
----
-
-## Data Flow (Reference)
+Based on existing test structure in `tests/e2e/`:
 
 ```
-Browser                  WordPress (PHP)                  External APIs
--------                  ---------------                  -------------
-                                                          Traffic Portal API
-loadData() -->  admin-ajax.php                            GET /user-activity-summary/{uid}
-   AJAX POST       |                                           |
-   action=         +-- ajax_get_usage_summary()                |
-   tp_get_usage_       |                                       |
-   summary             +-- $this->client->getUserActivitySummary()
-                       |       returns: { source: [{ date, totalHits, hitCost, balance }] }
-                       |
-                       +-- $this->wallet_client->getTransactions($email)
-                       |       calls: GET /wp-json/wc/v3/wallet/?email=X
-                       |       returns: [{ transaction_id, date, type, amount, details, ... }]
-                       |
-                       +-- $this->merge_usage_with_wallet($usage_days, $wallet_txns)
-                       |       filters credits only
-                       |       groups by date
-                       |       merges into days[] with otherServices field
-                       |
-                       +-- wp_send_json_success({ days: [...] })
-                               each day now has:
-                               { date, totalHits, hitCost, balance,
-                                 otherServices: [{ amount, description }],
-                                 otherServicesTotal: 10.00 }
+tests/e2e/
+  conftest.py                           # Existing -- add stress test fixtures
+  test_stress_link_creation.py          # 50-link creation test
+  test_stress_usage_generation.py       # HTTP hit generation
+  test_stress_dashboard_verification.py # Dashboard data validation
+  test_regression_tp22.py              # One file per bug ticket
+  test_regression_tp25.py
+  test_regression_tp29.py
+  test_regression_tp34.py
+  test_regression_tp41.py
+  test_regression_tp46.py
+  test_regression_tp71.py
+  test_regression_tp94.py              # May have multiple test classes
 ```
+
+**Alternative:** Group regression tests into a single file `test_regression_bugs.py` with one class per ticket. This is simpler for 8 bugs but makes it harder to run individual ticket tests.
+
+**Recommendation:** One file per ticket because it matches the existing pattern (`test_edit_empty_keyword.py` for TP-103) and allows `pytest -k tp22` filtering.
 
 ---
 
 ## Sources
 
-- [TeraWallet API V3 Documentation -- GitHub Wiki](https://github.com/malsubrata/woo-wallet/wiki/API-V3) -- HIGH confidence, official plugin docs
-- [WooCommerce REST API Authentication -- Official Docs](https://woocommerce.github.io/woocommerce-rest-api-docs/) -- HIGH confidence
-- [TeraWallet WordPress Plugin -- WordPress.org](https://wordpress.org/plugins/woo-wallet/) -- HIGH confidence
-- [TeraWallet GitHub Repository -- malsubrata/woo-wallet](https://github.com/malsubrata/woo-wallet) -- HIGH confidence
-- Codebase analysis: `class-tp-api-handler.php` (1700+ lines, `ajax_get_usage_summary` at line 1573, `validate_usage_summary_response` at line 1647), `usage-dashboard.js` (770 lines, `renderRows` at line 313, `renderSummaryCards` at line 424), `usage-dashboard-template.php` (159 lines), `usage-dashboard.css` (759 lines), `class-tp-usage-dashboard-shortcode.php` (123 lines)
-- `docs/API-REQUIREMENTS-V2.md` -- internal document specifying future "Other Services" and wallet data shapes (sections 3 and 4)
-- `.planning/PROJECT.md` -- milestone v2.2 scope definition confirming "Other Services" column with credit amounts and tooltip descriptions
+- Codebase analysis: `tests/e2e/conftest.py`, `test_client_links.py`, `test_usage_dashboard.py`, `test_edit_empty_keyword.py`
+- Project requirements: `.planning/PROJECT.md` (v2.3 milestone definition)
+- Project state: `.planning/STATE.md` (TP-94 umbrella ticket note)
+- Bug documentation: `docs/BUG-shortcode-generation-failing.md` (shortcode API 500 issues)
+- API scripts: `get-links.sh`, `get-usage.sh` (API endpoint patterns)
+- Confidence: HIGH for stress test patterns (well-understood from codebase). LOW for individual Jira bug details (tickets not yet read from Jira).

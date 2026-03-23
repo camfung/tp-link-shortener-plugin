@@ -1,688 +1,607 @@
-# Architecture Research: TerrWallet Integration
+# Architecture Research
 
-**Domain:** Integrating WooCommerce wallet (TeraWallet) data into existing usage dashboard
-**Researched:** 2026-03-10
-**Confidence:** HIGH -- based on direct codebase inspection of all existing files, TeraWallet API V3 docs, and WooCommerce REST API authentication docs
+**Domain:** Stress testing and bug regression test suite for WordPress link shortener plugin
+**Researched:** 2026-03-22
+**Confidence:** HIGH -- based on direct inspection of existing test infrastructure, plugin architecture, and API surface
+
+## Existing Architecture (Context for New Work)
+
+### System Overview
+
+```
+                    EXISTING SYSTEM
+ ┌──────────────────────────────────────────────────────┐
+ │  WordPress (trafficportal.dev)                       │
+ │  ┌──────────────────────────────────────────────┐    │
+ │  │  Plugin: tp-link-shortener-plugin             │    │
+ │  │  ┌──────────────┐  ┌──────────────────────┐  │    │
+ │  │  │ Shortcodes   │  │  TP_API_Handler      │  │    │
+ │  │  │ [tp_client_  │  │  (AJAX + REST)       │  │    │
+ │  │  │  links]      │  │  - create link       │  │    │
+ │  │  │ [tp_usage_   │  │  - toggle status     │  │    │
+ │  │  │  dashboard]  │  │  - get map items     │  │    │
+ │  │  └──────┬───────┘  └──────────┬───────────┘  │    │
+ │  └─────────┼─────────────────────┼──────────────┘    │
+ └────────────┼─────────────────────┼───────────────────┘
+              │ renders HTML/JS     │ wp_ajax_ hooks
+              ▼                     ▼
+         Browser (user)     External APIs
+                            ├── TrafficPortalApiClient (trpl.link)
+                            ├── GenerateShortCodeClient
+                            ├── SnapCaptureClient
+                            └── TerrWalletClient
+
+              EXISTING TEST INFRASTRUCTURE
+ ┌──────────────────────────────────────────────────────┐
+ │  tests/                                              │
+ │  ├── e2e/          Python + Playwright (pytest)      │
+ │  │   ├── conftest.py     (auth, fixtures, .env)      │
+ │  │   ├── test_client_links*.py                       │
+ │  │   └── test_usage_dashboard*.py                    │
+ │  ├── Unit/         PHP + PHPUnit                     │
+ │  │   └── *Test.php                                   │
+ │  ├── Integration/  PHP + PHPUnit (real API calls)    │
+ │  │   └── *IntegrationTest.php                        │
+ │  └── (JS: vitest via package.json)                   │
+ └──────────────────────────────────────────────────────┘
+```
+
+### Existing Test Patterns (What New Tests Must Follow)
+
+| Pattern | How It Works | Source |
+|---------|-------------|--------|
+| Session-scoped auth | `conftest.py` logs in once via WordPress login form, reuses cookies for all tests | `conftest.py:42-63` |
+| Page fixtures | `client_links_page` and `usage_dashboard_page` navigate + wait for container selector | `conftest.py:76-92` |
+| Env-based config | `TP_BASE_URL`, `TP_TEST_USER`, `TP_TEST_PASS` from `.env` file or env vars | `conftest.py:23-39` |
+| Deployment checks | Tests auto-skip if expected DOM elements are missing (version detection) | `test_usage_dashboard.py:28-45` |
+| Class-based grouping | Related tests grouped in classes (e.g., `TestPageLoad`, `TestTable`) | `test_client_links.py` |
+| Playwright sync API | All tests use synchronous Playwright API (not async) | All existing tests |
+
+### Component Responsibilities
+
+| Component | Responsibility | Technology |
+|-----------|----------------|------------|
+| `conftest.py` | Session-scoped auth, page fixtures, env loading | pytest + Playwright sync API |
+| `TP_API_Handler` | AJAX/REST endpoints proxying to external APIs | PHP, WordPress hooks |
+| `TrafficPortalApiClient` | HTTP client for trpl.link API | PHP (custom HTTP) |
+| Shortcode classes | Render dashboard HTML + enqueue JS/CSS assets | PHP (WordPress shortcode API) |
+| Frontend JS | AJAX calls, DOM manipulation, Chart.js rendering | Vanilla JS + Bootstrap 5 |
 
 ---
 
-## Existing Architecture (Current State)
+## New Architecture: Stress Tests + Bug Regression
 
-### Usage Dashboard Data Flow
+### What Gets Added
 
 ```
-Browser                    WordPress                  External APIs
--------                    ---------                  -------------
-
-usage-dashboard.js         admin-ajax.php
-    |                          |
-    | [1] loadData()           |
-    | POST action=             |
-    |  tp_get_usage_summary    |
-    | { nonce, start_date,     |
-    |   end_date }             |
-    |------------------------->|
-    |                          |
-    |                     TP_API_Handler
-    |                     ::ajax_get_usage_summary()
-    |                          |
-    |                     [2] $uid = TP_Link_Shortener::get_user_id()
-    |                         (server-side, DATA-02 security)
-    |                          |
-    |                     [3] $this->client->getUserActivitySummary($uid, $start, $end)
-    |                         GET /user-activity-summary/{uid}?start_date=...&end_date=...
-    |                          |------------------------------------>  Traffic Portal API
-    |                          |<------------------------------------  { source: [{ date, totalHits, hitCost, balance }] }
-    |                          |
-    |                     [4] validate_usage_summary_response($raw)
-    |                         -> { days: [{ date, totalHits, hitCost, balance }] }
-    |                          |
-    |                     [5] wp_send_json_success($validated)
-    |<-------------------------|
-    |                          |
-    | [6] state.data = response.data.days
-    |     renderSummaryCards()
-    |     renderChart()
-    |     renderTable()
-    v
+ tests/
+ ├── e2e/                         (EXISTING directory)
+ │   ├── conftest.py              (MODIFY: add stress fixtures + markers)
+ │   ├── test_client_links.py     (EXISTING - no change)
+ │   ├── test_usage_dashboard*.py (EXISTING - no change)
+ │   │
+ │   ├── test_stress_link_creation.py    (NEW: create 50 links via UI)
+ │   ├── test_stress_usage_generation.py (NEW: HTTP hits to short URLs)
+ │   ├── test_stress_dashboard_verify.py (NEW: verify dashboard data)
+ │   ├── stress_data.json               (NEW: generated, gitignored)
+ │   │
+ │   └── regression/                     (NEW: subdirectory)
+ │       ├── __init__.py
+ │       ├── conftest.py                 (optional regression-specific fixtures)
+ │       ├── test_tp22.py
+ │       ├── test_tp25.py
+ │       ├── test_tp29.py
+ │       ├── test_tp34.py
+ │       ├── test_tp41.py
+ │       ├── test_tp46.py
+ │       ├── test_tp71.py
+ │       └── test_tp94.py
+ │
+ ├── e2e/run_stress.sh            (NEW: orchestrator script)
+ └── (existing Unit/, Integration/ -- no changes)
 ```
 
-### Key Architectural Facts
+### Component Boundaries
 
-1. **Single AJAX endpoint:** JS calls `tp_get_usage_summary`, PHP fetches from external API, validates, returns.
-2. **Server-side UID:** UID determined server-side via `TP_Link_Shortener::get_user_id()` (returns WP user ID for logged-in users). Never sent from client.
-3. **Data shape:** Each day record has `{ date, totalHits, hitCost, balance }`. The JS sorts/paginates this array client-side.
-4. **Validation layer:** `validate_usage_summary_response()` strips unexpected fields, type-casts, sanitizes.
-5. **Error handling:** Typed exceptions (NetworkException, ApiException) caught and surfaced differently for admins vs regular users.
+| Component | Responsibility | New vs Modified | Communicates With |
+|-----------|---------------|-----------------|-------------------|
+| `conftest.py` | Add stress fixtures, pytest markers, shared helpers | MODIFIED | All test files |
+| `test_stress_link_creation.py` | Create 50 short links via Client Links UI | NEW | WP AJAX (`tp_create_link`), conftest auth |
+| `test_stress_usage_generation.py` | HTTP GET each short URL to generate usage records | NEW | External redirect service (trpl.link) |
+| `test_stress_dashboard_verify.py` | Assert usage dashboard shows correct totals | NEW | Usage Dashboard page, conftest auth |
+| `stress_data.json` | Ephemeral data bridge between stress phases | NEW (generated) | Written by creation, read by usage+verify |
+| `regression/test_tp*.py` | Per-bug test cases for all 8 Jira tickets | NEW (8 files) | Various plugin pages + AJAX endpoints |
+| `run_stress.sh` | Sequential runner for 3 stress phases with wait | NEW | pytest CLI |
 
 ---
 
-## TerrWallet API (Data Source to Integrate)
+## Data Flow
 
-### Endpoint Details (from TeraWallet API V3 docs)
-
-**Get Wallet Transactions:**
-- URL: `GET /wp-json/wc/v3/wallet/?email={email}`
-- Auth: WooCommerce REST API (consumer_key + consumer_secret via HTTP Basic Auth)
-- Params: `email` (required), `per_page` (optional), `page` (optional)
-- Response: Array of transaction objects:
-
-```json
-[
-  {
-    "transaction_id": 123,
-    "user_id": 45,
-    "date": "2026-03-09T14:30:00",
-    "type": "credit",
-    "amount": "25.00",
-    "balance": "150.00",
-    "details": "Wallet top-up via PayPal",
-    "currency": "USD",
-    "blog_id": 1
-  }
-]
-```
-
-**Get Wallet Balance:**
-- URL: `GET /wp-json/wc/v3/wallet/balance/?email={email}`
-- Response: Balance value
-
-### Key Differences from Traffic Portal API
-
-| Aspect | Traffic Portal API | TerrWallet API |
-|--------|-------------------|----------------|
-| Location | External (AWS Lambda) | Local (same WordPress site) |
-| Auth | x-api-key header | WC REST API consumer_key/secret |
-| Identifier | UID (int) | Email (string) |
-| Data shape | Daily aggregates (date, totalHits, hitCost, balance) | Individual transactions (date, type, amount, details) |
-| Date format | `YYYY-MM-DD` | ISO datetime `YYYY-MM-DDTHH:MM:SS` |
-
----
-
-## Recommended Architecture: Server-Side Merge
-
-### Decision: Merge in PHP, NOT in JavaScript
-
-**Recommendation:** Add a new AJAX handler that fetches wallet data server-side and returns it pre-merged with usage data. Do NOT make two separate AJAX calls from JS and merge client-side.
-
-**Rationale:**
-
-1. **Auth secrets stay server-side.** WC REST API consumer_key/secret must never be exposed to the browser. A server-side merge keeps these credentials in PHP only.
-
-2. **Single loading state.** One AJAX call = one skeleton/loading/error/content state transition. Two parallel AJAX calls from JS require complex coordination (both must succeed, partial failure handling, two loading spinners or one that waits for both).
-
-3. **Consistent data shape.** The adapter can normalize TerrWallet's transaction-level data into daily aggregates before sending to JS. The JS render functions already expect per-day records -- they need no changes to their core rendering logic.
-
-4. **Follows existing pattern.** The current flow is: JS calls one AJAX action, PHP fetches external data, validates, returns. Adding a second data source fits this pattern -- PHP becomes the aggregation layer.
-
-5. **Same-server optimization.** Since TerrWallet runs on the same WordPress instance, PHP can call the REST endpoint via `wp_remote_get()` to localhost, or potentially even call TeraWallet PHP functions directly. Either way, the latency is negligible compared to a cross-origin AJAX call from the browser.
-
-### Data Flow With TerrWallet Integration
+### Stress Test Flow
 
 ```
-Browser                    WordPress                  APIs
--------                    ---------                  ----
+1. LINK CREATION (test_stress_link_creation.py)
+   ┌─────────────────────────────────────────────────────┐
+   │  For i in range(50):                                │
+   │    Navigate to Client Links page                    │
+   │    Click "Add Link" button                          │
+   │    Fill destination URL (https://example.com/N)     │
+   │    Submit via modal form --> AJAX tp_create_link     │
+   │    Assert link appears in table                     │
+   │    Store {tpKey, destination, short_url}             │
+   │                                                     │
+   │  Write all created links to stress_data.json        │
+   └──────────────────────┬──────────────────────────────┘
+                          │
+                          ▼ outputs stress_data.json
 
-usage-dashboard.js         admin-ajax.php
-    |                          |
-    | [1] loadData()           |
-    | POST action=             |
-    |  tp_get_usage_summary    |
-    | { nonce, start_date,     |  (UNCHANGED from current)
-    |   end_date }             |
-    |------------------------->|
-    |                          |
-    |                     TP_API_Handler
-    |                     ::ajax_get_usage_summary()
-    |                          |
-    |                     [2] $uid = TP_Link_Shortener::get_user_id()
-    |                          |
-    |                     [3] Fetch usage data (EXISTING)
-    |                         $this->client->getUserActivitySummary(...)
-    |                          |------------------------------------>  Traffic Portal API
-    |                          |<------------------------------------  { source: [...days] }
-    |                          |
-    |                     [4] Fetch wallet data (NEW)
-    |                         $this->wallet_client->getTransactions($email, ...)
-    |                          |---> GET /wp-json/wc/v3/wallet/?email=...
-    |                          |<--- [{ transaction_id, date, type, amount, details }]
-    |                          |     (local HTTP call, ~50ms)
-    |                          |
-    |                     [5] Merge wallet into usage (NEW)
-    |                         $merged = $this->merge_wallet_data($usage_days, $wallet_txns)
-    |                         -> adds 'otherServices' field to matching date records
-    |                          |
-    |                     [6] wp_send_json_success($merged)
-    |<-------------------------|
-    |                          |
-    | [7] state.data = response.data.days
-    |     renderSummaryCards()     (MODIFIED: show wallet total)
-    |     renderChart()            (UNCHANGED)
-    |     renderTable()            (MODIFIED: render otherServices column)
-    v
+2. USAGE GENERATION (test_stress_usage_generation.py)
+   ┌─────────────────────────────────────────────────────┐
+   │  Load links from stress_data.json                   │
+   │  For each link:                                     │
+   │    HTTP GET https://trpl.link/{tpKey}  (N times)    │
+   │    Use allow_redirects=False (only need redirect    │
+   │    to be logged, not followed)                      │
+   │    Use ThreadPoolExecutor for parallelism            │
+   │  Record total expected hits                         │
+   └──────────────────────┬──────────────────────────────┘
+                          │
+                          ▼ usage records exist in backend DB
+
+3. DASHBOARD VERIFICATION (test_stress_dashboard_verify.py)
+   ┌─────────────────────────────────────────────────────┐
+   │  Navigate to /usage-dashboard/                      │
+   │  Set date range to include today                    │
+   │  Poll with retries until data propagates            │
+   │  Assert total hits >= expected count                │
+   │  Assert chart renders data points                   │
+   │  Assert table rows show today's activity            │
+   └─────────────────────────────────────────────────────┘
+```
+
+### Bug Regression Flow (Per Bug)
+
+```
+   ┌──────────────────────────────────────┐
+   │  Setup: reproduce preconditions      │
+   │    (navigate to page, create data)   │
+   │    ↓                                 │
+   │  Action: trigger the bug scenario    │
+   │    (click, submit, filter, etc.)     │
+   │    ↓                                 │
+   │  Assert: bug behavior does NOT occur │
+   │  Assert: correct behavior occurs     │
+   │    ↓                                 │
+   │  Teardown: clean up if needed        │
+   └──────────────────────────────────────┘
 ```
 
 ---
 
-## New Components
+## Architectural Patterns
 
-### Component 1: TerrWalletClient (NEW PHP Class)
+### Pattern 1: File-Based State Between Sequential Stress Phases
 
-**File:** `includes/TerrWallet/TerrWalletClient.php`
+**What:** Stress tests have 3 phases (create, generate usage, verify) that must run in order and share data (the list of created links).
+**When to use:** When test phases produce output consumed by later phases and run as separate pytest invocations.
+**Trade-offs:** Adds coupling between tests but reflects real sequential workflow. File is visible for debugging.
 
-**Responsibility:** Fetch wallet transactions from the WooCommerce REST API. Handles authentication, HTTP transport, error handling. Does NOT merge or adapt data -- that happens in the adapter.
+```python
+# test_stress_link_creation.py
+import json
+from pathlib import Path
 
-```php
-namespace TerrWallet;
+STRESS_DATA_FILE = Path(__file__).parent / "stress_data.json"
 
-class TerrWalletClient {
-    private string $siteUrl;
-    private string $consumerKey;
-    private string $consumerSecret;
-    private int $timeout;
+class TestStressLinkCreation:
+    """Create 50 short links via the Client Links UI."""
 
-    public function __construct(
-        string $siteUrl,
-        string $consumerKey,
-        string $consumerSecret,
-        int $timeout = 10
-    ) { ... }
+    def test_create_50_links(self, client_links_page: Page):
+        created_links = []
+        for i in range(50):
+            url = f"https://example.com/stress-test-{i}"
+            # ... open modal, fill form, submit via UI ...
+            tp_key = self._extract_created_key(client_links_page)
+            created_links.append({"tpKey": tp_key, "url": url})
 
-    /**
-     * Get wallet transactions for a user by email.
-     * @return array Raw transaction array from API
-     * @throws TerrWalletException on HTTP or parse errors
-     */
-    public function getTransactions(string $email, int $perPage = 100, int $page = 1): array
-    {
-        $url = $this->siteUrl . '/wp-json/wc/v3/wallet/?' . http_build_query([
-            'email'    => $email,
-            'per_page' => $perPage,
-            'page'     => $page,
-        ]);
-
-        $response = wp_remote_get($url, [
-            'headers' => [
-                'Authorization' => 'Basic ' . base64_encode(
-                    $this->consumerKey . ':' . $this->consumerSecret
-                ),
-            ],
-            'timeout' => $this->timeout,
-            'sslverify' => false,  // Same-server, skip SSL verification
-        ]);
-
-        // Handle errors, decode JSON, return array
-    }
-
-    /**
-     * Get current wallet balance for a user.
-     */
-    public function getBalance(string $email): float { ... }
-}
+        STRESS_DATA_FILE.write_text(json.dumps(created_links, indent=2))
+        assert len(created_links) == 50
 ```
 
-**Why `wp_remote_get()` instead of cURL:** The existing `TrafficPortalApiClient` uses cURL because it talks to an external AWS Lambda. For same-server requests, WordPress's `wp_remote_get()` is preferred because: (a) it respects WordPress's HTTP transport configuration, (b) it handles SSL/proxy settings automatically, (c) it is more testable (can be filtered with `pre_http_request`).
-
-**Auth credential storage:** Consumer key/secret should be stored as WordPress constants in `wp-config.php`, following the existing pattern for `API_KEY`:
-
-```php
-define('TERRWALLET_CONSUMER_KEY', 'ck_...');
-define('TERRWALLET_CONSUMER_SECRET', 'cs_...');
+```python
+# test_stress_usage_generation.py
+class TestStressUsageGeneration:
+    def test_hit_all_links(self, stress_links):
+        """Hit each created link to generate usage records."""
+        for link in stress_links:
+            requests.get(f"https://trpl.link/{link['tpKey']}",
+                        allow_redirects=False, timeout=10)
 ```
 
-### Component 2: TerrWalletAdapter (NEW PHP Class)
+**Why file-based over pytest session scope:** Stress phases run as separate pytest invocations (via `run_stress.sh`) because phase 2 uses raw HTTP (not Playwright) and phase 3 needs a wait period. Separate invocations cannot share pytest fixtures.
 
-**File:** `includes/TerrWallet/TerrWalletAdapter.php`
+### Pattern 2: HTTP-Based Usage Generation (Not Playwright)
 
-**Responsibility:** Transform raw wallet transactions into daily aggregates and merge with existing usage day records. This is pure data transformation -- no I/O.
+**What:** Usage generation uses Python `requests` or `httpx` for hitting short URLs, not Playwright browser navigation.
+**When to use:** When testing backend behavior (usage recording) not frontend rendering.
+**Trade-offs:** Much faster (no browser overhead), can run concurrent requests, but does not test browser-based redirect UX.
 
-```php
-namespace TerrWallet;
+```python
+import requests
+from concurrent.futures import ThreadPoolExecutor
 
-class TerrWalletAdapter {
+def hit_link(url: str, count: int = 3):
+    """Hit a short URL to generate usage records."""
+    for _ in range(count):
+        requests.get(url, allow_redirects=False, timeout=10)
 
-    /**
-     * Aggregate wallet transactions by date.
-     * Groups credit transactions by date, sums amounts, collects descriptions.
-     *
-     * Input: raw transaction array from TerrWalletClient
-     * Output: associative array keyed by date (YYYY-MM-DD)
-     *   [
-     *     '2026-03-09' => [
-     *       'amount' => 25.00,
-     *       'descriptions' => ['Wallet top-up via PayPal']
-     *     ]
-     *   ]
-     */
-    public function aggregateByDate(array $transactions): array { ... }
-
-    /**
-     * Merge wallet daily aggregates into usage day records.
-     * Adds 'otherServices' field to each day record.
-     *
-     * Input:
-     *   $usageDays: [{ date, totalHits, hitCost, balance }]
-     *   $walletByDate: output of aggregateByDate()
-     * Output:
-     *   [{ date, totalHits, hitCost, balance, otherServices: { amount, descriptions } | null }]
-     */
-    public function mergeIntoUsageDays(array $usageDays, array $walletByDate): array { ... }
-}
+# Parallel for speed: 50 links x 3 hits = 150 requests in ~15 seconds
+with ThreadPoolExecutor(max_workers=10) as pool:
+    for link in links:
+        pool.submit(hit_link, f"https://trpl.link/{link['tpKey']}")
 ```
 
-**Why a separate adapter class:** The merge logic is non-trivial (date matching, filtering credits only, aggregating multiple transactions per day, handling timezone differences). Putting this in a dedicated class makes it independently testable with unit tests. The `TP_API_Handler` stays focused on AJAX orchestration.
+**Why `allow_redirects=False`:** We only need the TP backend to log the redirect. Following the redirect to the destination wastes time and bandwidth. The 301/302 response is sufficient to create a `usage_record`.
 
-### Component 3: TerrWalletException (NEW PHP Class)
+### Pattern 3: Regression Tests as Isolated Scenarios
 
-**File:** `includes/TerrWallet/Exception/TerrWalletException.php`
+**What:** Each Jira bug gets an independent test file and class. No shared state between bugs.
+**When to use:** Always for regression tests -- bugs are independent failure modes.
+**Trade-offs:** Some setup duplication, but total isolation means one failing test cannot cascade.
 
-Follows the existing exception pattern (see `TrafficPortal/Exception/`, `SnapCapture/Exception/`).
+```python
+# tests/e2e/regression/test_tp22.py
+"""Regression test for TP-22: [bug title from Jira]."""
 
-### Component 4: No New JS Files
+class TestTP22:
+    """TP-22: [descriptive bug title]
 
-The existing `usage-dashboard.js` is modified, not replaced. No new JavaScript files are needed.
+    Original bug: [what went wrong]
+    Fix: [what was changed]
+    Regression test: [what this test verifies]
+    """
+
+    def test_bug_does_not_reproduce(self, client_links_page: Page):
+        # Setup preconditions that triggered the bug
+        # Perform the action that caused the bug
+        # Assert the correct behavior (not the buggy behavior)
+        pass
+```
+
+### Pattern 4: Retry-Based Dashboard Verification
+
+**What:** After usage generation, poll the dashboard with retries instead of hardcoded sleep.
+**When to use:** Whenever verifying backend-processed data in a UI after triggering backend writes.
+**Trade-offs:** More code, but eliminates flaky tests from timing issues.
+
+```python
+def test_dashboard_shows_stress_data(self, usage_dashboard_page: Page):
+    """Verify dashboard reflects usage from stress test."""
+    page = usage_dashboard_page
+    expected_hits = 150  # 50 links x 3 hits
+
+    for attempt in range(12):  # max ~60 seconds
+        page.reload()
+        page.wait_for_selector(".tp-ud-container", timeout=10_000)
+        page.wait_for_selector("#tp-ud-skeleton", state="hidden", timeout=25_000)
+
+        total_el = page.locator("#tp-ud-total-hits")
+        if total_el.is_visible():
+            total = int(total_el.text_content().replace(",", ""))
+            if total >= expected_hits:
+                break
+        time.sleep(5)
+    else:
+        pytest.fail(f"Dashboard shows {total} hits after 60s, expected >= {expected_hits}")
+```
 
 ---
 
-## Modified Components
+## Recommended Project Structure
 
-### Modified 1: TP_API_Handler::ajax_get_usage_summary() (PHP)
-
-**Current:** Fetches usage data, validates, returns.
-**After:** Fetches usage data AND wallet data, merges, validates, returns.
-
-```php
-public function ajax_get_usage_summary(): void {
-    // ... existing nonce check, login check, date validation ...
-
-    try {
-        // EXISTING: Fetch usage data from Traffic Portal API
-        $raw = $this->client->getUserActivitySummary($uid, $start_date, $end_date);
-        $validated = $this->validate_usage_summary_response($raw);
-
-        // NEW: Fetch and merge wallet data
-        if ($this->wallet_client) {
-            $email = $this->get_user_email();
-            $wallet_txns = $this->wallet_client->getTransactions($email);
-            $wallet_by_date = $this->wallet_adapter->aggregateByDate($wallet_txns);
-            $validated['days'] = $this->wallet_adapter->mergeIntoUsageDays(
-                $validated['days'],
-                $wallet_by_date
-            );
-        }
-
-        wp_send_json_success($validated);
-
-    } catch (TerrWalletException $e) {
-        // NEW: Wallet errors are non-fatal -- return usage data without wallet
-        $this->log_to_file('Wallet error (non-fatal): ' . $e->getMessage());
-        wp_send_json_success($validated);  // Usage data still sent
-    }
-    // ... existing catch blocks for NetworkException, ApiException ...
-}
+```
+tests/
+├── e2e/
+│   ├── conftest.py                        # MODIFY: add stress_links fixture, markers
+│   ├── .env                               # Credentials (gitignored, existing)
+│   ├── stress_data.json                   # GENERATED: by stress creation test
+│   ├── run_stress.sh                      # NEW: orchestrates 3 stress phases
+│   │
+│   ├── test_client_links.py               # existing -- no change
+│   ├── test_client_links_auth.py          # existing -- no change
+│   ├── test_edit_empty_keyword.py         # existing -- no change
+│   ├── test_mobile_responsive.py          # existing -- no change
+│   ├── test_uid_server_side.py            # existing -- no change
+│   ├── test_usage_dashboard.py            # existing -- no change
+│   ├── test_usage_dashboard_*.py          # existing -- no change
+│   │
+│   ├── test_stress_link_creation.py       # NEW: Phase 1 - create 50 links
+│   ├── test_stress_usage_generation.py    # NEW: Phase 2 - HTTP hits
+│   ├── test_stress_dashboard_verify.py    # NEW: Phase 3 - verify dashboard
+│   │
+│   └── regression/                        # NEW: subdirectory for bug tests
+│       ├── __init__.py
+│       ├── conftest.py                    # Regression-specific fixtures (optional)
+│       ├── test_tp22.py
+│       ├── test_tp25.py
+│       ├── test_tp29.py
+│       ├── test_tp34.py
+│       ├── test_tp41.py
+│       ├── test_tp46.py
+│       ├── test_tp71.py
+│       └── test_tp94.py
+│
+├── Unit/          # existing PHP unit tests -- no change
+└── Integration/   # existing PHP integration tests -- no change
 ```
 
-**Critical design decision: Wallet errors are non-fatal.** If the TerrWallet API fails but Traffic Portal succeeds, the dashboard still shows usage data -- just without the "Other Services" column. This prevents a wallet outage from breaking the entire dashboard.
+### Structure Rationale
 
-### Modified 2: TP_API_Handler::__construct() (PHP)
-
-**Current:** Initializes `$this->client`, `$this->snapcapture_client`, `$this->shortcode_client`.
-**After:** Also initializes `$this->wallet_client` and `$this->wallet_adapter`.
-
-```php
-public function __construct() {
-    $this->init_client();
-    $this->init_wallet_client();  // NEW
-    $this->register_ajax_handlers();
-    add_action('rest_api_init', array($this, 'register_rest_routes'));
-}
-
-private function init_wallet_client(): void {
-    if (!defined('TERRWALLET_CONSUMER_KEY') || !defined('TERRWALLET_CONSUMER_SECRET')) {
-        $this->log_to_file('TerrWallet: Consumer key/secret not configured');
-        return;  // Wallet features disabled gracefully
-    }
-
-    $this->wallet_client = new \TerrWallet\TerrWalletClient(
-        home_url(),
-        TERRWALLET_CONSUMER_KEY,
-        TERRWALLET_CONSUMER_SECRET
-    );
-    $this->wallet_adapter = new \TerrWallet\TerrWalletAdapter();
-}
-```
-
-### Modified 3: validate_usage_summary_response() (PHP)
-
-**Current:** Returns `{ days: [{ date, totalHits, hitCost, balance }] }`.
-**After:** Returns `{ days: [{ date, totalHits, hitCost, balance, otherServices }] }`.
-
-The `otherServices` field is `null` for days with no wallet activity, or `{ amount: float, descriptions: string[] }` for days with transactions. The validation function passes through this field after type-checking.
-
-### Modified 4: usage-dashboard.js -- renderRows() (JS)
-
-**Current:** Renders 4 columns: Date, Hits, Cost, Balance.
-**After:** Renders 5 columns: Date, Hits, Cost, Other Services, Balance.
-
-```javascript
-// In renderRows(), add after the Cost <td>:
-var otherHtml = '-';
-if (day.otherServices && day.otherServices.amount) {
-    var tooltipText = day.otherServices.descriptions.join(', ');
-    otherHtml = '<span class="tp-ud-other-services" ' +
-        'data-bs-toggle="tooltip" data-bs-placement="top" ' +
-        'title="' + tooltipText + '">' +
-        formatCurrency(day.otherServices.amount) +
-    '</span>';
-}
-'<td class="tp-ud-col-other" data-label="Other Services">' + otherHtml + '</td>' +
-```
-
-### Modified 5: usage-dashboard.js -- renderSummaryCards() (JS)
-
-**Current:** Shows 3 cards: Total Hits, Total Cost, Balance.
-**After:** Shows 4 cards: Total Hits, Total Cost, Other Services, Balance.
-
-The "Other Services" card aggregates `otherServices.amount` across all days.
-
-### Modified 6: usage-dashboard-template.php (HTML)
-
-**Current:** Table header has 4 `<th>` columns.
-**After:** Table header has 5 `<th>` columns with "Other Services" between Cost and Balance.
-
-### Modified 7: usage-dashboard.css (CSS)
-
-Column widths adjusted for the 5th column. Tooltip styles for "Other Services" amounts.
-
-### Modified 8: includes/autoload.php
-
-Add autoloading for `TerrWallet\*` namespace, following the existing pattern for `TrafficPortal\*` and `SnapCapture\*`.
+- **Stress tests at `e2e/` root:** They use the same fixtures (auth, page navigation) as existing E2E tests. Same directory keeps fixture inheritance simple.
+- **`stress_data.json`:** Ephemeral coupling file between stress phases. Gitignored. Created by creation test, consumed by usage + verification tests. Human-readable for debugging.
+- **`regression/` subdirectory:** Separates regression tests from feature E2E tests. Allows running `pytest tests/e2e/regression/ -v` independently.
+- **One file per bug:** Enables running a single regression (`pytest tests/e2e/regression/test_tp22.py -v`) and maps 1:1 to Jira tickets for traceability.
+- **`run_stress.sh` in `e2e/`:** Keeps orchestration close to the tests it orchestrates.
 
 ---
 
-## Component Boundaries
+## Conftest Modifications
 
-| Component | Responsibility | Communicates With |
-|-----------|---------------|-------------------|
-| `TerrWalletClient` | HTTP transport to WC REST API. Auth, request, parse, throw on error. | WooCommerce REST API (local) |
-| `TerrWalletAdapter` | Pure data transformation. Aggregate transactions by date, merge into usage records. | Nothing (receives/returns arrays) |
-| `TerrWalletException` | Typed exception for wallet API errors. | Thrown by Client, caught by Handler |
-| `TP_API_Handler` (modified) | Orchestrates: fetch usage, fetch wallet, merge, validate, return. Catches wallet errors non-fatally. | Client, Adapter, existing TrafficPortalApiClient |
-| `usage-dashboard.js` (modified) | Renders the `otherServices` field in table and summary. Tooltip for descriptions. | Receives merged data via AJAX |
-| `usage-dashboard-template.php` (modified) | Adds 5th column header. | Static HTML |
+### New Additions to `conftest.py`
+
+```python
+# Add to existing conftest.py
+import json
+
+STRESS_DATA_FILE = Path(__file__).parent / "stress_data.json"
+
+@pytest.fixture()
+def stress_links():
+    """Load the list of links created by the stress creation test."""
+    if not STRESS_DATA_FILE.exists():
+        pytest.skip("Run test_stress_link_creation.py first to generate stress data")
+    return json.loads(STRESS_DATA_FILE.read_text())
+```
+
+No other conftest changes needed. The existing `auth_context`, `page`, `client_links_page`, and `usage_dashboard_page` fixtures are sufficient for all new tests.
+
+### Regression Subdirectory Conftest
+
+```python
+# tests/e2e/regression/conftest.py
+# Inherits all fixtures from parent conftest.py automatically.
+# Add regression-specific fixtures here if needed.
+
+import pytest
+
+# Example: fixture that navigates to a specific page state
+@pytest.fixture()
+def client_links_with_data(client_links_page):
+    """Wait for table data to load (not just container)."""
+    page = client_links_page
+    page.wait_for_selector("#tp-cl-loading", state="hidden", timeout=15_000)
+    return page
+```
 
 ---
 
-## New vs. Modified Files Summary
+## Integration Points
 
-### New Files
+### External Services
 
-| File | Purpose | Lines (est.) |
-|------|---------|-------------|
-| `includes/TerrWallet/TerrWalletClient.php` | HTTP client for WC REST API wallet endpoint | ~120 |
-| `includes/TerrWallet/TerrWalletAdapter.php` | Data transformation: aggregate + merge | ~80 |
-| `includes/TerrWallet/Exception/TerrWalletException.php` | Exception class | ~15 |
+| Service | Integration Pattern | Notes |
+|---------|---------------------|-------|
+| trpl.link (redirect) | HTTP GET with `allow_redirects=False` for usage generation | Each GET creates a `usage_record` in the backend DB |
+| WordPress AJAX | Playwright form submission triggers `tp_create_link` | Same auth cookies as existing tests |
+| TP API (`/user-activity-summary/{uid}`) | Indirectly via usage dashboard page AJAX | Dashboard verification checks rendered output, not raw API |
+| TP API (`/items/user/{uid}`) | Indirectly via client links page AJAX | Stress creation verifies links appear in paginated table |
 
-### Modified Files
+### Internal Boundaries
+
+| Boundary | Communication | Notes |
+|----------|---------------|-------|
+| Stress create --> Usage gen | `stress_data.json` file | Sequential; creation must complete before usage gen |
+| Usage gen --> Dashboard verify | Implicit (backend DB state) | Needs retry/polling for data propagation delay |
+| All regression tests | Independent (no cross-test state) | Can run in any order |
+| `regression/conftest.py` --> parent `conftest.py` | pytest fixture inheritance | Automatic via pytest's conftest chain |
+
+---
+
+## Execution Strategy
+
+### Running Stress Tests (Sequential -- Order Matters)
+
+```bash
+#!/bin/bash
+# tests/e2e/run_stress.sh
+set -e
+
+echo "=== Phase 1: Creating 50 links ==="
+pytest tests/e2e/test_stress_link_creation.py -v
+
+echo "=== Phase 2: Generating usage (HTTP hits) ==="
+pytest tests/e2e/test_stress_usage_generation.py -v
+
+echo "=== Phase 3: Waiting for backend propagation ==="
+sleep 30
+
+echo "=== Phase 3: Verifying dashboard ==="
+pytest tests/e2e/test_stress_dashboard_verify.py -v
+
+echo "=== Stress test complete ==="
+```
+
+### Running Regression Tests (Independent -- Any Order)
+
+```bash
+# All regression tests
+pytest tests/e2e/regression/ -v
+
+# Single bug regression
+pytest tests/e2e/regression/test_tp22.py -v
+```
+
+### Running Everything Except Stress (Default CI/Dev)
+
+```bash
+# Exclude stress tests (which create real data and are slow)
+pytest tests/e2e/ -m "not stress" --ignore=tests/e2e/test_stress_* -v
+```
+
+### Pytest Markers (Add to conftest.py or pyproject.toml)
+
+```ini
+# pyproject.toml or pytest.ini
+[tool:pytest]
+markers =
+    stress: Stress tests that create bulk data (run with run_stress.sh)
+    regression: Bug regression tests (safe to run anytime)
+```
+
+---
+
+## No Plugin Code Changes Required
+
+The stress tests and regression tests are **purely test-side additions**. They exercise existing plugin functionality through:
+
+- The browser (Playwright for UI interactions)
+- HTTP (Python `requests` for usage generation)
+
+No PHP changes, no JavaScript changes, no template changes. The only modified file in the existing codebase is `conftest.py` (adding a fixture).
+
+If a bug regression test reveals the fix is not yet in place, that is a separate code fix task -- not part of the test architecture.
+
+---
+
+## Anti-Patterns
+
+### Anti-Pattern 1: Using Playwright for Usage Generation
+
+**What people do:** Navigate Playwright browser to each short URL to generate clicks.
+**Why it's wrong:** 50 links x 3+ hits = 150+ browser navigations. Takes 5+ minutes vs 15 seconds with HTTP. Browser follows redirects, loading destination pages unnecessarily.
+**Do this instead:** Use Python `requests` with `allow_redirects=False` and `ThreadPoolExecutor` for parallel hits.
+
+### Anti-Pattern 2: Shared Mutable State Between Regression Tests
+
+**What people do:** One regression test creates data that another regression test depends on.
+**Why it's wrong:** Tests become order-dependent. Failing test A causes test B to fail for the wrong reason.
+**Do this instead:** Each regression test sets up its own preconditions. Use per-test fixtures.
+
+### Anti-Pattern 3: Hardcoded Sleep Instead of Polling
+
+**What people do:** `time.sleep(60)` before dashboard verification.
+**Why it's wrong:** Too short = flaky. Too long = slow. Backend processing time varies.
+**Do this instead:** Poll the dashboard with retries (reload page, check value, retry after 5s, up to N attempts). Use Playwright's `expect().to_contain_text()` with timeout where possible.
+
+### Anti-Pattern 4: Including Stress Tests in Default Test Runs
+
+**What people do:** No markers or naming convention to exclude stress tests from `pytest tests/e2e/`.
+**Why it's wrong:** Stress tests create 50 real links and generate real API traffic. Running on every test pass pollutes the dev environment and takes minutes.
+**Do this instead:** Use pytest markers (`@pytest.mark.stress`) and filename convention (`test_stress_*`) to exclude from default runs.
+
+### Anti-Pattern 5: Single Monolithic Regression Test File
+
+**What people do:** Put all 8 bug regressions in one `test_regression.py` file.
+**Why it's wrong:** Cannot run individual bug regressions. Harder to trace failures back to specific Jira tickets. File grows unbounded as bugs are added.
+**Do this instead:** One file per Jira ticket (`test_tp22.py`). Each file has a docstring linking to the Jira ticket and describing the original bug.
+
+---
+
+## Dependencies and Build Order
+
+```
+conftest.py modifications (fixtures + markers)
+    │
+    ├──► test_stress_link_creation.py
+    │         │
+    │         ▼ produces stress_data.json
+    │    test_stress_usage_generation.py
+    │         │
+    │         ▼ usage records in backend
+    │    test_stress_dashboard_verify.py
+    │
+    ├──► run_stress.sh (orchestrates above 3)
+    │
+    └──► regression/ directory
+              │
+              ├── conftest.py (inherits parent)
+              ├── test_tp22.py  ─┐
+              ├── test_tp25.py   │
+              ├── test_tp29.py   │
+              ├── test_tp34.py   ├── all independent, any order
+              ├── test_tp41.py   │
+              ├── test_tp46.py   │
+              ├── test_tp71.py   │
+              └── test_tp94.py  ─┘
+```
+
+**Recommended build order:**
+
+1. **Conftest updates** -- add `stress_links` fixture, pytest markers. Foundation for everything.
+2. **Stress: link creation** -- depends on conftest. Most complex test (UI automation for 50 links).
+3. **Stress: usage generation** -- depends on link creation output. Simpler (just HTTP hits).
+4. **Stress: dashboard verification** -- depends on usage generation. Verifies end-to-end.
+5. **`run_stress.sh`** -- orchestrates phases 2-4. Simple bash script, build after phases are working.
+6. **Regression tests** -- independent of stress tests. Can be built in parallel with stress work. Priority by bug severity. Each bug test is independent, so they can be built in any order.
+
+**Phase ordering rationale:**
+- Conftest first because all tests depend on it.
+- Stress creation before usage generation because it produces the data file.
+- Regression tests are fully independent from stress tests and each other -- build in any order based on Jira priority.
+- The shell runner is last because it just calls the other tests.
+
+---
+
+## New vs Modified Files Summary
+
+### New Files (9-10 files)
+
+| File | Purpose | Est. Lines |
+|------|---------|-----------|
+| `tests/e2e/test_stress_link_creation.py` | Create 50 links via Client Links UI | ~120 |
+| `tests/e2e/test_stress_usage_generation.py` | HTTP hits to generate usage records | ~60 |
+| `tests/e2e/test_stress_dashboard_verify.py` | Verify dashboard shows correct data | ~80 |
+| `tests/e2e/run_stress.sh` | Sequential runner for 3 stress phases | ~20 |
+| `tests/e2e/regression/__init__.py` | Package marker | 0 |
+| `tests/e2e/regression/conftest.py` | Regression-specific fixtures (optional) | ~20 |
+| `tests/e2e/regression/test_tp22.py` | Bug regression test | ~40-80 |
+| `tests/e2e/regression/test_tp25.py` | Bug regression test | ~40-80 |
+| `tests/e2e/regression/test_tp29.py` | Bug regression test | ~40-80 |
+| `tests/e2e/regression/test_tp34.py` | Bug regression test | ~40-80 |
+| `tests/e2e/regression/test_tp41.py` | Bug regression test | ~40-80 |
+| `tests/e2e/regression/test_tp46.py` | Bug regression test | ~40-80 |
+| `tests/e2e/regression/test_tp71.py` | Bug regression test | ~40-80 |
+| `tests/e2e/regression/test_tp94.py` | Bug regression test (umbrella -- may be larger) | ~60-120 |
+
+### Modified Files (1 file)
 
 | File | Changes | Scope |
 |------|---------|-------|
-| `includes/class-tp-api-handler.php` | Add `init_wallet_client()`, modify `ajax_get_usage_summary()` to fetch/merge wallet data, add wallet error handling | ~40 lines added |
-| `includes/autoload.php` | Add TerrWallet namespace mapping | ~3 lines |
-| `assets/js/usage-dashboard.js` | Add "Other Services" column rendering in `renderRows()`, add wallet sum in `renderSummaryCards()`, Bootstrap tooltip init | ~30 lines added |
-| `templates/usage-dashboard-template.php` | Add 5th `<th>` column, update skeleton | ~5 lines |
-| `assets/css/usage-dashboard.css` | Column width adjustment, tooltip styling | ~15 lines |
+| `tests/e2e/conftest.py` | Add `stress_links` fixture, `STRESS_DATA_FILE` constant | ~10 lines added |
 
 ### Files NOT Modified
 
 | File | Why Not |
 |------|---------|
-| `TrafficPortalApiClient.php` | Wallet is a separate data source; TP client unchanged |
-| `class-tp-usage-dashboard-shortcode.php` | No new assets to enqueue (Bootstrap tooltips already loaded) |
-| `class-tp-link-shortener.php` | No new top-level components; wallet client is internal to API handler |
-
----
-
-## Patterns to Follow
-
-### Pattern 1: Non-Fatal Secondary Data Source
-
-The wallet data is secondary to usage data. If the wallet API fails, the dashboard must still work with usage data alone. This means:
-
-- Catch `TerrWalletException` separately from `NetworkException`/`ApiException`
-- On wallet failure, log the error but still return `wp_send_json_success($validated)` with usage-only data
-- The JS must handle `otherServices` being absent from all records (render "-" or hide column)
-
-```php
-// PHP: wallet errors are non-fatal
-try {
-    $wallet_txns = $this->wallet_client->getTransactions($email);
-    $wallet_by_date = $this->wallet_adapter->aggregateByDate($wallet_txns);
-    $validated['days'] = $this->wallet_adapter->mergeIntoUsageDays($validated['days'], $wallet_by_date);
-} catch (TerrWalletException $e) {
-    $this->log_to_file('Wallet error (non-fatal): ' . $e->getMessage());
-    // $validated['days'] unchanged -- usage-only data
-}
-```
-
-### Pattern 2: Adapter Separation (Transform vs. Transport)
-
-The `TerrWalletClient` handles I/O (HTTP requests). The `TerrWalletAdapter` handles data transformation (aggregation, merging). These are separate classes because:
-
-- Client is hard to unit test (needs HTTP mocking). Adapter is trivially testable with plain arrays.
-- Client changes if the API changes. Adapter changes if the data model changes. Different reasons to change.
-- This matches the existing SnapCapture pattern where `SnapCaptureClient` handles HTTP and DTOs handle data shaping.
-
-### Pattern 3: Credential Storage via WordPress Constants
-
-Follow the existing pattern (`API_KEY`, `SNAPCAPTURE_API_KEY`) -- store WC REST API credentials in `wp-config.php`:
-
-```php
-define('TERRWALLET_CONSUMER_KEY', 'ck_...');
-define('TERRWALLET_CONSUMER_SECRET', 'cs_...');
-```
-
-The `init_wallet_client()` method gracefully degrades if these are not defined (wallet features silently disabled).
-
----
-
-## Anti-Patterns to Avoid
-
-### Anti-Pattern 1: Two Separate AJAX Calls from JavaScript
-
-**What:** Adding a second AJAX endpoint `tp_get_wallet_data` and calling it from JS alongside `tp_get_usage_summary`, then merging in JS.
-
-**Why bad:** (a) Exposes WC auth complexity to the client layer, (b) requires coordinating two async calls (Promise.all / jQuery.when), (c) two loading states to manage, (d) two error states to handle, (e) the merge logic in JS duplicates what PHP can do more cleanly.
-
-**Instead:** Single AJAX call, server-side merge.
-
-### Anti-Pattern 2: Calling TeraWallet PHP Functions Directly
-
-**What:** Bypassing the REST API and calling TeraWallet's internal PHP functions (e.g., `woo_wallet()->wallet->get_transactions()`).
-
-**Why bad:** (a) Couples this plugin to TeraWallet's internal API which can change without notice, (b) the REST API is the documented, stable interface, (c) direct function calls skip TeraWallet's own validation and access control.
-
-**Instead:** Use the documented REST API via `wp_remote_get()`.
-
-### Anti-Pattern 3: Storing Consumer Key/Secret in Database
-
-**What:** Using `get_option('terrwallet_consumer_key')` or a settings page.
-
-**Why bad:** (a) API secrets in the database are exposed to any admin user, database backups, and SQL injection, (b) the existing codebase stores all API keys as `wp-config.php` constants.
-
-**Instead:** `define()` constants in `wp-config.php`. Consistent with existing `API_KEY` and `SNAPCAPTURE_API_KEY` patterns.
-
-### Anti-Pattern 4: Filtering Transactions Client-Side
-
-**What:** Sending all wallet transactions to JS and filtering by date range in JavaScript.
-
-**Why bad:** (a) Wallet may have hundreds of transactions, (b) unnecessary data transfer, (c) the PHP adapter can filter by date range before merge.
-
-**Instead:** The adapter's `aggregateByDate()` accepts a date range parameter and discards transactions outside the range.
-
----
-
-## Build Order (Dependency-Driven)
-
-### Phase 1: TerrWalletClient (PHP -- no UI changes)
-
-Build the HTTP client in isolation. Can be tested with integration tests against the real local API.
-
-**Step 1.1:** Create `includes/TerrWallet/TerrWalletClient.php` with `getTransactions()` and `getBalance()`
-**Step 1.2:** Create `includes/TerrWallet/Exception/TerrWalletException.php`
-**Step 1.3:** Add namespace to `includes/autoload.php`
-**Step 1.4:** Add `TERRWALLET_CONSUMER_KEY` / `TERRWALLET_CONSUMER_SECRET` constants to wp-config
-**Step 1.5:** Integration test: `TerrWalletClient->getTransactions('user@email.com')` returns valid data
-
-**Dependencies:** None. Can be built without touching existing code.
-
-### Phase 2: TerrWalletAdapter (PHP -- no UI changes)
-
-Build the data transformation layer. Purely unit-testable with mock data.
-
-**Step 2.1:** Create `includes/TerrWallet/TerrWalletAdapter.php` with `aggregateByDate()` and `mergeIntoUsageDays()`
-**Step 2.2:** Unit tests with fixture data: verify date matching, credit-only filtering, multi-transaction-per-day aggregation, empty wallet graceful handling
-
-**Dependencies:** None. Can be built in parallel with Phase 1.
-
-### Phase 3: Wire Into AJAX Handler (PHP -- backend integration)
-
-Connect the client and adapter into the existing AJAX flow.
-
-**Step 3.1:** Add `$wallet_client` and `$wallet_adapter` properties to `TP_API_Handler`
-**Step 3.2:** Add `init_wallet_client()` method, call from constructor
-**Step 3.3:** Modify `ajax_get_usage_summary()` to fetch wallet data and merge
-**Step 3.4:** Add non-fatal error handling for wallet failures
-**Step 3.5:** Integration test: AJAX call returns merged data with `otherServices` field
-
-**Dependencies:** Phase 1 and Phase 2 complete.
-
-### Phase 4: Dashboard UI (JS/HTML/CSS -- frontend)
-
-Add the "Other Services" column to the dashboard display.
-
-**Step 4.1:** Add 5th `<th>` column to `usage-dashboard-template.php`
-**Step 4.2:** Update `renderRows()` in `usage-dashboard.js` to render `otherServices` with tooltip
-**Step 4.3:** Update `renderSummaryCards()` to include wallet total
-**Step 4.4:** Update `usage-dashboard.css` for column widths and tooltip styling
-**Step 4.5:** Initialize Bootstrap tooltips on render
-**Step 4.6:** Update skeleton loading template for 5 columns
-
-**Dependencies:** Phase 3 complete (needs merged data from backend).
-
-### Phase 5: E2E Tests
-
-**Step 5.1:** Test with real wallet data on trafficportal.dev
-**Step 5.2:** Test wallet API unavailable scenario (dashboard still works)
-**Step 5.3:** Test date range filtering includes correct wallet transactions
-**Step 5.4:** Test tooltip displays correct descriptions
-
-**Dependencies:** Phase 4 complete.
-
-**Phase ordering rationale:**
-- Phases 1 and 2 have zero dependencies and can be built in parallel. They produce independently testable components.
-- Phase 3 depends on both 1 and 2 but requires no UI changes -- backend can be tested via direct AJAX calls.
-- Phase 4 is UI-only and depends on Phase 3's data shape being finalized.
-- This ordering means any phase can be shipped independently without breaking the existing dashboard.
-
----
-
-## Data Shape: Before and After
-
-### Current Response (from ajax_get_usage_summary)
-
-```json
-{
-  "success": true,
-  "data": {
-    "days": [
-      {
-        "date": "2026-03-09",
-        "totalHits": 142,
-        "hitCost": 1.42,
-        "balance": 48.58
-      }
-    ]
-  }
-}
-```
-
-### After Integration
-
-```json
-{
-  "success": true,
-  "data": {
-    "days": [
-      {
-        "date": "2026-03-09",
-        "totalHits": 142,
-        "hitCost": 1.42,
-        "balance": 48.58,
-        "otherServices": {
-          "amount": 25.00,
-          "descriptions": ["Wallet top-up via PayPal"]
-        }
-      },
-      {
-        "date": "2026-03-08",
-        "totalHits": 98,
-        "hitCost": 0.98,
-        "balance": 50.00,
-        "otherServices": null
-      }
-    ]
-  }
-}
-```
-
-The `otherServices` field is `null` when no wallet transactions exist for that date. JS checks `day.otherServices && day.otherServices.amount` before rendering.
-
----
-
-## User Identity Mapping
-
-The Traffic Portal API uses `uid` (integer, from `TP_Link_Shortener::get_user_id()`).
-The TerrWallet API uses `email` (string, the WP user's email).
-
-Both are resolved server-side:
-
-```php
-$uid = TP_Link_Shortener::get_user_id();           // For Traffic Portal
-$user = wp_get_current_user();
-$email = $user->user_email;                          // For TerrWallet
-```
-
-No new identity mapping infrastructure is needed. Both identifiers come from the same WordPress user session.
-
----
-
-## Scalability Considerations
-
-| Concern | At 10 txns/month | At 100 txns/month | At 1000 txns/month |
-|---------|-----------------|-------------------|---------------------|
-| API payload size | ~1 KB | ~10 KB | ~100 KB |
-| PHP merge time | <1ms | <5ms | <20ms |
-| Total AJAX latency | +50ms (local HTTP) | +80ms | +150ms |
-| JS rendering impact | None | None | Minimal |
-
-The TerrWallet REST API call is local (same server), so network latency is minimal. The adapter's `aggregateByDate()` is O(n) where n = number of transactions. For 1000+ transactions per month, consider adding `per_page` pagination and date filtering in the API query params to reduce payload size.
+| Any PHP in `includes/` | Tests exercise existing functionality, no plugin changes |
+| Any JS in `assets/` | UI is tested as-is |
+| Any template in `templates/` | No UI changes |
+| `phpunit.xml` | PHP test suites unchanged |
+| `package.json` | No new JS test dependencies |
 
 ---
 
 ## Sources
 
-- Direct inspection: `includes/class-tp-api-handler.php` -- `ajax_get_usage_summary()`, `validate_usage_summary_response()`, constructor, AJAX registration (HIGH confidence)
-- Direct inspection: `includes/TrafficPortal/TrafficPortalApiClient.php` -- `getUserActivitySummary()` method (HIGH confidence)
-- Direct inspection: `assets/js/usage-dashboard.js` -- `loadData()`, `renderRows()`, `renderSummaryCards()`, state management (HIGH confidence)
-- Direct inspection: `templates/usage-dashboard-template.php` -- table structure, column headers (HIGH confidence)
-- Direct inspection: `includes/class-tp-usage-dashboard-shortcode.php` -- asset enqueuing, localize script (HIGH confidence)
-- Direct inspection: `includes/class-tp-link-shortener.php` -- `get_user_id()`, `get_api_endpoint()` patterns (HIGH confidence)
-- TeraWallet API V3 docs: https://github.com/malsubrata/woo-wallet/wiki/API-V3 (HIGH confidence)
-- WooCommerce REST API authentication: https://woocommerce.github.io/woocommerce-rest-api-docs/#authentication (HIGH confidence)
-- WooCommerce REST API docs: https://developer.woocommerce.com/docs/apis/rest-api/ (HIGH confidence)
+- Direct inspection: `tests/e2e/conftest.py` -- auth pattern, fixtures, env loading (HIGH confidence)
+- Direct inspection: `tests/e2e/test_client_links.py` -- test class structure, assertion patterns (HIGH confidence)
+- Direct inspection: `tests/e2e/test_usage_dashboard.py` -- deployment check pattern, selector patterns (HIGH confidence)
+- Direct inspection: `tests/e2e/test_usage_dashboard_date_filtering.py` -- date filtering test patterns (HIGH confidence)
+- Direct inspection: `includes/class-tp-api-handler.php` -- AJAX handlers, link creation flow (HIGH confidence)
+- Direct inspection: `phpunit.xml` -- PHP test configuration, env vars (HIGH confidence)
+- Project context: `.planning/PROJECT.md` -- 8 Jira bug IDs, stress test requirements (HIGH confidence)
+- Project state: `.planning/STATE.md` -- current milestone scope (HIGH confidence)
 
 ---
-
-*Architecture research for: TerrWallet Integration (v2.2)*
-*Researched: 2026-03-10*
+*Architecture research for: v2.3 Stress Test and Bug Regression Suite*
+*Researched: 2026-03-22*

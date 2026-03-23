@@ -1,476 +1,393 @@
-# Domain Pitfalls: TerrWallet Integration (v2.2)
+# Domain Pitfalls: Stress Testing & Bug Regression Suite (v2.3)
 
-**Domain:** Integrating WooCommerce Wallet (TeraWallet) API into existing WordPress plugin usage dashboard
-**Researched:** 2026-03-10
-**Confidence:** HIGH for architecture/integration pitfalls (based on codebase inspection + WC REST API docs); MEDIUM for TeraWallet-specific behaviors (based on GitHub wiki + community reports)
+**Domain:** Adding stress tests (50 link creation, bulk usage generation) and Jira bug regression tests to existing WordPress link shortener plugin
+**Researched:** 2026-03-22
+**Confidence:** HIGH for API throttling and test isolation (based on codebase inspection of existing rate limiting, API handler, and e2e test patterns); MEDIUM for Playwright-specific stress testing pitfalls (based on existing test suite patterns + known Playwright behaviors)
 
 ---
 
 ## Critical Pitfalls
 
-Mistakes that cause rewrites, data corruption, or security vulnerabilities.
+Mistakes that cause test suites to be unreliable, produce false results, or damage production data.
 
-### Pitfall 1: Loopback HTTP Request to Own Server for WC REST API
+### Pitfall 1: API Rate Limiting Kills Stress Test Mid-Run
 
 **What goes wrong:**
-The TerrWallet API lives at `trafficportal.dev/wp-json/wc/v3/wallet/`. The plugin also runs on `trafficportal.dev`. Making an HTTP request (via `wp_remote_get` or cURL) from the server to itself creates a loopback request. On many WordPress hosting environments (especially behind Cloudflare, reverse proxies, or Docker), loopback requests fail with cURL error 28 (timeout), get blocked by bot protection, or deadlock because PHP-FPM has no available workers to serve the request while it is also waiting for the response.
+The stress test creates 50 links in rapid succession via Playwright. Each link creation triggers `ajax_create_link` which calls the Traffic Portal Lambda API (`POST /items`). The API returns HTTP 429 when rate limits are exceeded -- the plugin already handles this via `RateLimitException` (see `includes/TrafficPortal/Exception/RateLimitException.php`). At 50 sequential link creations with no delay, the API will almost certainly start returning 429s after 10-20 requests, causing the stress test to fail partway through and report false negatives.
 
 **Why it happens:**
-The existing `TrafficPortalApiClient` uses cURL (`CurlHttpClient`) to call an external Lambda API on AWS. Developers naturally reach for the same pattern to call the WC REST API. But the WC REST API is local -- it is served by the same WordPress installation. An HTTP request from the server to itself is fundamentally different from an HTTP request to an external service.
+Developers write the stress test as a simple loop -- "click Add Link, fill form, submit, repeat 50 times" -- without accounting for the API's rate limiting on the `/items` endpoint. The API is hosted on AWS API Gateway which has default throttling of 10,000 requests/second at the account level, but custom per-route limits may be much lower (commonly 5-50 requests/second for write endpoints on dev environments).
 
 **Consequences:**
-- Timeout errors on shared hosting where PHP workers are limited
-- 403 errors behind Cloudflare (bot protection blocks server-to-server requests to own domain)
-- Doubled server load (each dashboard page load triggers a PHP request that spawns another PHP request)
-- SSL certificate verification failures when the server's internal IP does not match the domain's certificate
+- Test fails at link 15-25 with "rate limit exceeded" error, never completing the full 50
+- Intermittent failures: sometimes passes (low server load), sometimes fails (high load)
+- False conclusion that the plugin is broken when the API is just throttling correctly
+- If the test retries without backoff, it worsens the throttling window
 
 **Prevention:**
-Do NOT make HTTP requests to the local WC REST API. Instead, use WordPress's internal REST API dispatch mechanism:
+Add a configurable delay between link creations. Start with 1-2 seconds between each creation. Use exponential backoff if a 429 is detected:
 
-```php
-// BAD: HTTP loopback request
-$response = wp_remote_get('https://trafficportal.dev/wp-json/wc/v3/wallet/?email=' . $email, [
-    'headers' => ['Authorization' => 'Basic ' . base64_encode($key . ':' . $secret)]
-]);
+```python
+import time
 
-// GOOD: Internal REST API dispatch (no HTTP request, no loopback)
-$request = new \WP_REST_Request('GET', '/wc/v3/wallet');
-$request->set_query_params(['email' => $email]);
-$response = rest_do_request($request);
-$data = $response->get_data();
+LINK_CREATION_DELAY = float(os.getenv("TP_STRESS_DELAY", "1.5"))  # seconds
+
+for i in range(50):
+    create_link(page, destination=f"https://example.com/page-{i}", key=f"stress-{i}")
+    if i < 49:  # no delay after last one
+        time.sleep(LINK_CREATION_DELAY)
 ```
 
-Alternatively, use TeraWallet's PHP functions directly if available (e.g., `woo_wallet()->wallet->get_transactions()`), bypassing the REST API entirely.
+Also: check the response for 429 status and implement retry logic in the test itself, separate from the plugin's own error handling. The test should detect rate limiting and slow down, not just fail.
 
 **Detection:**
-- cURL error 28 in error logs when loading the usage dashboard
-- Dashboard works on local dev but fails on staging/production
-- `wp_remote_get` to own domain in the codebase
+- Test output shows "rate limit exceeded" or error_type "rate_limit" in responses
+- Test passes locally but fails in CI (different IP, different rate limit bucket)
+- Inconsistent number of links created across runs
 
-**Phase:** Must be addressed in Phase 1 (API client design). Getting this wrong requires a full rewrite of the client layer.
+**Phase:** Must be addressed in the stress test script design phase. Build the delay/backoff into the test from day one.
 
 ---
 
-### Pitfall 2: Date Format Mismatch Between APIs
+### Pitfall 2: Test Data Pollutes Production/Staging Environment
 
 **What goes wrong:**
-The usage API returns dates as `YYYY-MM-DD` (ISO date, no time component). The TeraWallet API returns dates as `YYYY-MM-DD HH:MM:SS` (MySQL datetime format with time component). When merging by date, a naive string comparison (`"2026-03-10" === "2026-03-10 14:30:22"`) fails. Every wallet transaction appears as an unmatched row in the merged data.
+The stress test creates 50 real links on the dev site (`trafficportal.dev`). The usage generation phase then hits each link multiple times, creating real usage records in the API's database. After the test completes, these 50 test links and hundreds of usage records remain in the system permanently. The test user's dashboard now shows 50 junk links mixed with legitimate data, pagination changes, charts look different, and the usage dashboard shows inflated costs/balance.
 
 **Why it happens:**
-The two APIs are maintained by different teams with different conventions. The usage API aggregates per-day and returns date-only strings. TeraWallet stores individual transactions with full timestamps. The developer writing the merge adapter assumes both APIs return the same date format because the PROJECT.md says "merge by date."
+The existing e2e test suite (see `tests/e2e/conftest.py`) uses a shared authenticated session against the live dev site. There is no test data isolation -- tests read from and write to the same database as manual testing. The existing tests are read-only (they verify UI elements exist) so this was never a problem before. The stress test is the first test that creates significant write data.
 
 **Consequences:**
-- Wallet transactions never align with usage rows -- "Other Services" column is always empty
-- Or worse: partial matches on some days, missing on others, creating an inconsistent UI
-- Sorting by date produces interleaved garbage if date strings and datetime strings are mixed
+- Test user's dashboard becomes unusable for manual QA (cluttered with stress test links)
+- Usage dashboard shows inflated balance/cost data from test traffic
+- Subsequent test runs conflict with previous test data (duplicate keys, wrong total counts)
+- No way to distinguish test data from real data after the fact
+- Running the stress test twice doubles the pollution
 
 **Prevention:**
-The adapter that merges the two datasets must normalize dates BEFORE matching:
+Use a deterministic naming convention for test data AND implement cleanup:
 
-```php
-// Normalize TeraWallet datetime to date-only for matching
-$walletDate = substr($transaction['date'], 0, 10); // "2026-03-10 14:30:22" -> "2026-03-10"
+```python
+STRESS_PREFIX = "stress-test-"  # all test links use this prefix
+
+# Cleanup: after test (or before next run), delete all links with this prefix
+# Option A: Use the API directly to delete test links
+# Option B: Use a dedicated test user that can be reset
+# Option C: Tag test links with metadata and filter them out
 ```
 
-Or more robustly:
-
-```php
-$walletDate = (new \DateTime($transaction['date']))->format('Y-m-d');
-```
-
-The merge key is always `Y-m-d`. Multiple wallet transactions on the same day should be summed before merging with the usage row for that date.
+Practical approach for this project: Since the API has `DELETE /items/{mid}` capability (or status toggle to "disabled"), store the MIDs of created links during the test and delete/disable them in a teardown fixture. At minimum, use a unique prefix per run (e.g., `stress-{timestamp}-{i}`) so old test data is identifiable.
 
 **Detection:**
-- "Other Services" column shows $0.00 for all rows despite wallet transactions existing
-- Unit test that creates wallet transactions and usage data on the same date fails to merge
+- Test user's link count keeps growing across test runs
+- Dashboard pagination changes unexpectedly between manual QA sessions
+- Usage dashboard shows costs that do not match manual testing
 
-**Phase:** Must be addressed in Phase 2 (merge adapter). Add unit tests with explicit date format assertions.
+**Phase:** Must be designed into the stress test from the start. Cleanup logic in teardown fixture.
 
 ---
 
-### Pitfall 3: WC REST API Authentication When Using Internal Dispatch
+### Pitfall 3: Shortcode Generation Exhaustion Under Stress
 
 **What goes wrong:**
-If you use `rest_do_request()` for internal dispatch, the request runs in the same PHP context as the AJAX handler. The WC REST API authentication layer (`WC_REST_Authentication`) expects either: (a) Basic Auth headers with consumer key/secret, or (b) an authenticated WordPress user with appropriate capabilities. Internal requests via `rest_do_request()` do not carry HTTP headers, so Basic Auth fails. But if the current user (from the AJAX session) does not have WooCommerce capabilities, the WC endpoint returns 401 Unauthorized.
+The plugin calls `/generate-short-code/{tier}` to auto-generate shortcodes when no custom key is provided. This API endpoint already has a known issue -- it returns 500 "Could not find available short code" (documented in `docs/BUG-shortcode-generation-failing.md`). Under stress testing with 50 links, this endpoint will be hammered 50 times. If it is already fragile, it will fail even more under load, and the stress test will produce 50 error results instead of 50 links.
 
 **Why it happens:**
-The AJAX handler runs as the logged-in WordPress user (the customer viewing their dashboard). WooCommerce REST API endpoints require either API key auth or a user with `manage_woocommerce` capability. Regular customers do not have this capability. The developer assumes that since the code runs on the server, authentication is not needed.
+The shortcode generation API has a finite pool of available codes per domain. The `dev.trfc.link` domain may have limited availability. Each call tries to find an unused code, and under rapid sequential calls, the API may be checking the same pool state before previous writes have propagated (race condition in the backend).
 
 **Consequences:**
-- 401 Unauthorized errors when fetching wallet data for regular users
-- Works fine when tested by admin users, fails for regular customers
-- Security review flags the workaround of granting customers `manage_woocommerce` capability
+- Stress test creates 0 links because every shortcode generation fails
+- Test appears to show a critical bug when it is actually an API capacity issue
+- Wastes test run time waiting for 50 API timeouts
 
 **Prevention:**
-Two approaches, in order of preference:
+For the stress test, always provide explicit custom keys rather than relying on auto-generation:
 
-1. **Bypass the REST API entirely** -- use TeraWallet's PHP functions directly:
-```php
-// Direct PHP call -- no REST API auth needed
-$user_id = get_current_user_id();
-$transactions = get_wallet_transactions([
-    'user_id' => $user_id,
-    'per_page' => -1,
-]);
+```python
+# BAD: Let the plugin auto-generate (hits fragile /generate-short-code API)
+create_link(page, destination=url)
+
+# GOOD: Provide deterministic custom keys
+create_link(page, destination=url, custom_key=f"stress-{run_id}-{i:03d}")
 ```
 
-2. **If REST API is required** -- temporarily elevate to an application-level context:
-```php
-// Create an internal request with proper auth context
-add_filter('woocommerce_rest_check_permissions', function($permission, $context, $object_id, $post_type) {
-    // Only allow for our specific internal call
-    if (doing_action('wp_ajax_tp_get_usage_summary')) {
-        return true;
-    }
-    return $permission;
-}, 10, 4);
-```
-
-The first approach (direct PHP) is strongly preferred. It avoids all REST API auth complexity and is faster.
+This also makes cleanup easier (predictable key names) and avoids the known shortcode generation bug entirely. The stress test's goal is to test link creation volume, not shortcode generation.
 
 **Detection:**
-- Works for admin, fails for customer -- the classic auth pitfall
-- 401 errors in AJAX responses when non-admin users load the dashboard
+- All or most link creations fail with "Could not find available short code"
+- Error logs show 500 responses from `/generate-short-code/fast`
 
-**Phase:** Must be addressed in Phase 1 (API client design). The auth approach determines the entire client architecture.
+**Phase:** Stress test script design. Use explicit keys.
 
 ---
 
-### Pitfall 4: User ID Mismatch Between APIs
+### Pitfall 4: Playwright Browser Resource Exhaustion During 50-Link Creation
 
 **What goes wrong:**
-The existing usage API uses a Traffic Portal `uid` (obtained via `TP_Link_Shortener::get_user_id()`, which returns the WordPress user ID). The TeraWallet API requires an email address (`?email={email}`) or a WordPress user ID depending on the endpoint. The internal `API_REFERENCE.md` wallet endpoints use `wpUserId`, but the WC REST API endpoint uses `email`. If the wrong identifier is passed, the wallet data returns empty or belongs to the wrong user.
+Creating 50 links via Playwright means 50 cycles of: open modal, fill form, submit, wait for response, close modal, verify table update. Each cycle keeps the browser context alive and accumulates DOM state. After 30-40 iterations, the browser tab's memory usage grows significantly (the client links table now has 30-40 rows of DOM elements), JavaScript event listeners pile up, and Playwright's page operations slow down or timeout.
 
 **Why it happens:**
-Three different identifier conventions exist in this system:
-- Traffic Portal API: `uid` (which happens to be the WP user ID)
-- TeraWallet REST API (wp-json): `email` parameter
-- Internal Lambda wallet proxy: `wpUserId` path parameter
-
-The developer may use the `uid` from the existing flow and pass it to an endpoint that expects email, or vice versa.
+The client links dashboard renders all links in a paginated table. As links are created, the table re-renders via AJAX. By link 30, the DOM has grown substantially. Additionally, Playwright's internal state tracking (for `expect()` assertions, network interception, etc.) grows with each action. The default Playwright timeout of 30 seconds may not be enough for later iterations when the page is sluggish.
 
 **Consequences:**
-- Empty wallet data (no user found for email/ID)
-- Wrong user's wallet data displayed (if ID/email mapping is wrong)
-- Security vulnerability: exposing another user's financial data
+- Test times out at link 35-40 with `TimeoutError: page.click`
+- Memory leak causes browser crash, losing all test state
+- Intermittent failures that are impossible to reproduce locally (different hardware)
 
 **Prevention:**
-Resolve the email from the WordPress user ID at the PHP layer, never from the frontend:
-
-```php
-$wp_user_id = get_current_user_id();
-$user = get_userdata($wp_user_id);
-$email = $user->user_email;
+1. Increase Playwright timeouts for the stress test specifically (not globally):
+```python
+page.set_default_timeout(60_000)  # 60s for stress test only
 ```
 
-If using TeraWallet PHP functions directly, use the WordPress user ID (which TeraWallet maps internally). If using the REST API, use the email parameter. Never accept the email from the frontend POST data.
+2. Consider refreshing the page every 10-15 link creations to clear accumulated DOM:
+```python
+if i > 0 and i % 15 == 0:
+    page.reload()
+    page.wait_for_selector(".tp-cl-container", timeout=10_000)
+```
+
+3. Do NOT assert on every single creation. Create all 50, then verify the total count once at the end. Per-creation assertions multiply the DOM queries by 50.
+
+4. Set a generous overall test timeout:
+```python
+@pytest.mark.timeout(600)  # 10 minutes for the full stress test
+def test_create_50_links(page):
+    ...
+```
 
 **Detection:**
-- Wallet data is empty for a user who definitely has transactions
-- Different users see the same wallet data
+- Tests pass for first 20 links, then start timing out
+- CI runner kills test due to memory limit
+- Local runs succeed but CI fails (CI has less memory)
 
-**Phase:** Phase 1 (API client). Server-side user resolution, never trust client-provided identity.
+**Phase:** Stress test script design. Build in page refresh cycles and appropriate timeouts.
 
 ---
 
 ## Moderate Pitfalls
 
-### Pitfall 5: Multiple Wallet Transactions Per Day Not Aggregated
+### Pitfall 5: Usage Generation Hits Wrong Links or Cached Redirects
 
 **What goes wrong:**
-The usage API returns one row per day. TeraWallet may have multiple transactions on the same day (e.g., a top-up at 9am and a charge at 3pm). If the merge adapter maps transactions 1:1 with usage rows, days with multiple transactions create duplicate rows or only show the first/last transaction.
+The usage generation phase sends HTTP requests to each created short link (e.g., `https://dev.trfc.link/stress-001`) to produce usage records. But if the short links redirect via 301 (permanent redirect), the HTTP client caches the redirect and never actually hits the Traffic Portal tracking endpoint on subsequent requests. Or if the domain is behind Cloudflare, Cloudflare caches the redirect response and the tracking API never sees the hits.
 
 **Prevention:**
-The adapter must aggregate wallet transactions by date BEFORE merging with usage data:
+Use `requests` with `allow_redirects=False` to ensure each request hits the tracking endpoint without following the redirect. This guarantees the API logs the hit:
 
-```php
-$walletByDate = [];
-foreach ($transactions as $tx) {
-    $date = substr($tx['date'], 0, 10);
-    if (!isset($walletByDate[$date])) {
-        $walletByDate[$date] = ['total' => 0, 'descriptions' => []];
-    }
-    if ($tx['type'] === 'credit') {
-        $walletByDate[$date]['total'] += (float) $tx['amount'];
-        $walletByDate[$date]['descriptions'][] = $tx['details'];
-    }
-}
+```python
+import requests
+
+for link_url in created_links:
+    for _ in range(hit_count):
+        resp = requests.get(link_url, allow_redirects=False)
+        assert resp.status_code in (301, 302), f"Expected redirect, got {resp.status_code}"
+        time.sleep(0.5)  # avoid overwhelming the tracking endpoint
 ```
 
-Then merge: for each usage row, look up `$walletByDate[$usageRow['date']]` and attach the aggregated amount + descriptions.
-
-**Phase:** Phase 2 (merge adapter). Unit test with 3+ transactions on a single day.
-
----
-
-### Pitfall 6: Wallet Transactions Exist on Dates With No Usage Data
-
-**What goes wrong:**
-A user might have wallet top-ups on days with zero link activity. The usage API returns NO row for days with zero hits. The wallet has a credit transaction on that day. If the merge only iterates usage rows and looks up wallet data, the wallet-only days are silently dropped.
-
-**Prevention:**
-The merge must be a full outer join by date, not a left join from usage data:
-
-```php
-// Collect all dates from both sources
-$allDates = array_unique(array_merge(
-    array_column($usageDays, 'date'),
-    array_keys($walletByDate)
-));
-sort($allDates);
-
-// Build merged rows for ALL dates
-foreach ($allDates as $date) {
-    $usage = $usageByDate[$date] ?? ['totalHits' => 0, 'hitCost' => 0, 'balance' => 0];
-    $wallet = $walletByDate[$date] ?? ['total' => 0, 'descriptions' => []];
-    // ... build merged row ...
-}
-```
-
-Decide at the product level: should days with ONLY wallet transactions (no usage) appear in the table? If yes, implement full outer join. If no, implement left join from usage and accept that some wallet data is invisible.
-
-**Phase:** Phase 2 (merge adapter). Requires a product decision documented before implementation.
-
----
-
-### Pitfall 7: Timezone Discrepancy Between APIs
-
-**What goes wrong:**
-The usage API stores dates in UTC (confirmed by existing `formatDateISO` using `getUTCFullYear()`). TeraWallet stores transaction dates in the WordPress site timezone (typically set in Settings > General). If the site timezone is `America/Toronto` (UTC-5), a wallet transaction at 11pm Toronto time on March 10 is stored as `2026-03-10 23:00:00` in the database but corresponds to `2026-03-11` in UTC. The merge puts this transaction on March 10 (based on its local timestamp) while the usage data has it affecting March 11 (based on UTC).
-
-**Why it happens:**
-WordPress's `current_time('mysql')` returns site-local time. TeraWallet uses this for transaction timestamps. The Lambda-based usage API operates in UTC. One-day-off mismatches appear for transactions near midnight in any non-UTC timezone.
-
-**Prevention:**
-Convert TeraWallet timestamps to UTC before extracting the date for merge:
-
-```php
-$siteTimezone = wp_timezone();
-$utcTimezone = new \DateTimeZone('UTC');
-
-$txDate = new \DateTime($transaction['date'], $siteTimezone);
-$txDate->setTimezone($utcTimezone);
-$mergeDate = $txDate->format('Y-m-d');
-```
-
-Alternatively, if the product decision is "merge by site-local date" (which may be more intuitive for users), convert the usage API dates from UTC to site timezone before merging. Be consistent -- pick one timezone for the merge key and document the decision.
+Also: disable Cloudflare caching for the test domain, or use a cache-busting query parameter if the API supports it.
 
 **Detection:**
-- Transactions near midnight appear on the "wrong" day in the table
-- Test passes in UTC-0 environments, fails in UTC-5
-
-**Phase:** Phase 2 (merge adapter). Add a unit test with a transaction at 11:30pm in a non-UTC timezone.
+- Usage dashboard shows 0 hits despite running the usage generation script
+- All requests return 200 (following redirect to destination) instead of 301/302
 
 ---
 
-### Pitfall 8: Performance Degradation From Sequential API Calls
+### Pitfall 6: Nonce Expiration During Long Stress Test Runs
 
 **What goes wrong:**
-The current `ajax_get_usage_summary()` makes one API call to the external Lambda. Adding the wallet data fetch makes it two sequential operations per dashboard load. If the wallet fetch takes 500ms (REST API dispatch + database query), the dashboard load time increases by 500ms. On slow database servers, this could be 1-2 seconds.
-
-**Why it happens:**
-PHP is single-threaded. The AJAX handler must complete both data fetches before returning to the browser. The developer adds the wallet fetch after the usage fetch in the same handler, making them sequential.
+WordPress AJAX nonces (`tp_link_shortener_nonce`) expire after 12-24 hours by default. A stress test creating 50 links with delays between each creation can run for several minutes. This is not long enough to expire the nonce. BUT if the test suite runs the stress test after a long setup phase, or if the authenticated session (from `conftest.py`'s `auth_context` with `scope="session"`) was created at the start of a multi-hour test suite run, the nonce embedded in the page's initial HTML may have expired by the time the stress test reaches it.
 
 **Prevention:**
-If using internal `rest_do_request()` or direct PHP calls, both happen in the same PHP process and are inherently sequential. Mitigation options:
+Reload the client links page before starting the stress test to get a fresh nonce:
 
-1. **Cache wallet data with transients** -- wallet transactions rarely change mid-session:
-```php
-$cache_key = 'tp_wallet_' . $user_id . '_' . $start_date . '_' . $end_date;
-$cached = get_transient($cache_key);
-if ($cached !== false) {
-    $wallet_data = $cached;
-} else {
-    $wallet_data = $this->fetch_wallet_transactions($user_id, $start_date, $end_date);
-    set_transient($cache_key, $wallet_data, 5 * MINUTE_IN_SECONDS);
-}
+```python
+@pytest.fixture()
+def stress_page(page: Page):
+    """Navigate to client links page with fresh nonce for stress testing."""
+    page.goto(f"{BASE_URL}{CLIENT_LINKS_PATH}")
+    page.wait_for_selector(".tp-cl-container", timeout=10_000)
+    return page
 ```
 
-2. **Separate AJAX endpoint** -- fetch wallet data in a parallel AJAX call from the browser:
-```javascript
-// Fire both requests simultaneously from the browser
-$.when(
-    $.ajax({ action: 'tp_get_usage_summary', ... }),
-    $.ajax({ action: 'tp_get_wallet_transactions', ... })
-).then(function(usageResp, walletResp) {
-    // Merge client-side
-});
-```
-
-Option 2 is more complex but faster. Option 1 is simpler and sufficient for v2.2.
-
-**Phase:** Phase 1 (architecture decision). Choose single-endpoint vs dual-endpoint before building.
-
----
-
-### Pitfall 9: Error Handling When One API Succeeds and the Other Fails
-
-**What goes wrong:**
-The usage API call succeeds, but the wallet data fetch fails (TeraWallet plugin deactivated, database error, permission denied). If the AJAX handler treats any failure as a total failure, the entire dashboard shows an error state -- even though 90% of the data (usage stats) is available.
-
-**Why it happens:**
-The existing `ajax_get_usage_summary()` has a try/catch that returns an error response on any exception. Adding the wallet fetch inside the same try block means a wallet failure kills the entire response.
-
-**Consequences:**
-- Dashboard shows "Error loading usage data" when only the wallet data is unavailable
-- Users cannot see their usage stats because of an unrelated wallet plugin issue
-- TeraWallet plugin deactivation breaks the usage dashboard entirely
-
-**Prevention:**
-Fetch wallet data in a separate try/catch. Return usage data even if wallet fails:
-
-```php
-// Always fetch usage data first
-$usage = $this->client->getUserActivitySummary($uid, $start_date, $end_date);
-$validated = $this->validate_usage_summary_response($usage);
-
-// Attempt wallet data -- failure is non-fatal
-$wallet_data = [];
-$wallet_error = null;
-try {
-    $wallet_data = $this->fetch_wallet_transactions($user_id, $start_date, $end_date);
-} catch (\Exception $e) {
-    $wallet_error = $e->getMessage();
-    $this->log_to_file('Wallet fetch failed (non-fatal): ' . $e->getMessage());
-}
-
-// Merge whatever we have
-$merged = $this->merge_usage_and_wallet($validated['days'], $wallet_data);
-
-wp_send_json_success([
-    'days' => $merged,
-    'wallet_available' => empty($wallet_error),
-    'wallet_error' => $wallet_error,
-]);
-```
-
-The frontend should render the table with empty "Other Services" cells if wallet data is unavailable, not show an error state.
+Also: if individual link creation fails with a nonce error, refresh the page and retry once before marking as failure.
 
 **Detection:**
-- Deactivate TeraWallet plugin -- dashboard should still work with empty Other Services column
-- Simulate wallet database timeout -- dashboard should degrade gracefully
-
-**Phase:** Phase 2 (merge adapter) and Phase 3 (frontend). Design the partial-failure response shape early.
+- AJAX responses return `{"success": false}` with no error message (WordPress nonce failure returns generic error)
+- First few links create successfully, then all subsequent ones fail
 
 ---
 
-### Pitfall 10: WC REST API Consumer Key/Secret Storage in wp_options
+### Pitfall 7: Regression Tests Tightly Coupled to Current UI State
 
 **What goes wrong:**
-If using the WC REST API with HTTP requests (despite Pitfall 1 recommending against it), the consumer key and secret must be stored somewhere. Storing them in `wp_options` as plaintext is a security risk. Storing them in plugin settings UI exposes them to any admin user. Hardcoding them in the plugin source means they are in version control.
-
-**Why it happens:**
-WooCommerce generates consumer key/secret pairs for REST API access. The developer needs to store these credentials for the plugin to authenticate. There is no standard WordPress pattern for storing third-party API credentials securely.
+Bug regression tests verify that specific Jira bugs (TP-22, TP-25, TP-29, etc.) are fixed. The temptation is to write these tests against exact CSS selectors, exact text content, or exact DOM structure as it exists today. When the UI is updated in a future milestone (e.g., v3.0 redesign), all 8 regression tests break even though the bugs remain fixed. The test suite becomes a maintenance burden that nobody wants to update.
 
 **Prevention:**
-If HTTP requests to the WC REST API are truly needed (which they should NOT be per Pitfall 1):
-- Store credentials in `wp-config.php` as constants: `define('TP_WC_CONSUMER_KEY', 'ck_xxx');`
-- Never store in the database or plugin settings
-- Never commit to version control
-- Use `wp_options` only if the value is encrypted
+Write regression tests that verify the behavior, not the implementation:
 
-But the real prevention is to avoid needing WC REST API credentials entirely by using direct PHP function calls (Pitfall 1 and Pitfall 3).
+```python
+# BAD: Coupled to exact DOM structure
+def test_tp22_edit_empty_keyword():
+    assert page.locator("#tp-cl-edit-modal .tp-cl-edit-keyword-input").input_value() != ""
 
-**Phase:** Phase 1 (API client design). If the direct PHP approach is used, this pitfall is eliminated entirely.
+# GOOD: Coupled to behavior
+def test_tp22_edit_preserves_keyword():
+    """TP-22: Editing a link should preserve the existing keyword, not blank it."""
+    # Click first link row to open edit
+    page.locator("[data-testid='link-row']").first.click()
+    # Wait for edit modal
+    modal = page.locator("[data-testid='edit-modal']")
+    modal.wait_for(state="visible")
+    # The keyword field should not be empty
+    keyword_input = modal.locator("input[name='keyword'], [data-testid='keyword-input']")
+    assert keyword_input.input_value().strip() != "", "TP-22 regression: keyword blanked on edit"
+```
+
+Use `data-testid` attributes where possible. Add them to the plugin's HTML if they do not exist. This decouples tests from CSS class names that may change.
+
+**Detection:**
+- Multiple regression tests fail after a CSS refactor even though no functionality changed
+- Tests use deeply nested CSS selectors (`.tp-cl-container > div:nth-child(3) > table > tbody > tr`)
+
+---
+
+### Pitfall 8: Flaky Tests from Race Conditions in AJAX-Heavy Dashboard
+
+**What goes wrong:**
+The client links dashboard loads data via AJAX (`wp_ajax_tp_get_links`). After creating a link, the table refreshes via AJAX. If the test immediately checks the table for the new link before the AJAX response arrives and the DOM updates, the assertion fails intermittently. This is the classic Playwright flakiness problem: the test runs faster than the UI updates.
+
+**Prevention:**
+After any action that triggers an AJAX call, wait for the specific result rather than using arbitrary `time.sleep()`:
+
+```python
+# BAD: Arbitrary sleep
+page.click("#submit-link")
+time.sleep(3)
+assert page.locator(".tp-cl-link").count() == expected_count
+
+# GOOD: Wait for network + DOM update
+with page.expect_response(lambda r: "tp_create_link" in r.url) as response_info:
+    page.click("#submit-link")
+response = response_info.value
+assert response.ok
+
+# Then wait for DOM to reflect the change
+page.wait_for_selector(f".tp-cl-link >> text=stress-{i}", timeout=10_000)
+```
+
+For the stress test specifically, avoid asserting after every single link creation. Instead, wait for the loading indicator to disappear:
+
+```python
+page.wait_for_selector("#tp-cl-loading", state="hidden", timeout=15_000)
+```
+
+This pattern already exists in the current test suite (see `test_client_links.py` line 73).
+
+**Detection:**
+- Test passes 8/10 times locally, fails 3/10 times in CI
+- Failures always show "expected count 5, got 4" or similar off-by-one timing issues
+- Adding `time.sleep(5)` "fixes" the test (but makes it slow and still occasionally fails)
+
+---
+
+### Pitfall 9: Usage Dashboard Verification Runs Before Data Propagates
+
+**What goes wrong:**
+After the stress test creates 50 links and the usage generation script hits each link multiple times, the test immediately navigates to `/usage-dashboard/` to verify the data. But usage data is aggregated asynchronously -- the Traffic Portal API may batch-process click records, or the usage summary API (`/user-activity-summary/{uid}`) may have eventual consistency with a delay of seconds to minutes. The dashboard shows stale or zero data, and the test fails.
+
+**Prevention:**
+Add a configurable wait period between usage generation and dashboard verification:
+
+```python
+USAGE_PROPAGATION_DELAY = int(os.getenv("TP_USAGE_DELAY", "30"))  # seconds
+
+# After usage generation completes
+time.sleep(USAGE_PROPAGATION_DELAY)
+
+# Then verify the dashboard
+page.goto(usage_dashboard_url)
+```
+
+Also: implement retry logic for the dashboard verification. Check the data, and if it shows zero, wait 10 seconds and refresh, up to 3 retries:
+
+```python
+for attempt in range(3):
+    page.goto(usage_dashboard_url)
+    page.wait_for_selector(".tp-ud-container", timeout=10_000)
+    # Check if data has loaded
+    if page.locator(".tp-ud-stat-value").first.inner_text() != "0":
+        break
+    time.sleep(10)
+```
+
+**Detection:**
+- Usage dashboard test always shows 0 hits even though usage generation completed
+- Test passes when run manually (human is slower, data has time to propagate)
 
 ---
 
 ## Minor Pitfalls
 
-### Pitfall 11: TeraWallet Pagination Not Handled
+### Pitfall 10: Test User Account Hits Usage/Balance Limits
 
 **What goes wrong:**
-The TeraWallet API supports `per_page` and `page` parameters. If a user has more transactions than the default `per_page` (typically 10), only the first page is returned. The adapter silently works with incomplete data, showing only some wallet transactions.
+The test user (`TP_TEST_USER` from `.env`) may have a wallet balance or usage quota. Creating 50 links and generating hundreds of usage hits consumes real balance. If the test user runs out of balance, link creation fails with a billing error, or the usage dashboard shows a negative balance that triggers UI edge cases not covered by the regression tests.
 
 **Prevention:**
-Either request all transactions by setting `per_page` to a high number, or implement pagination to fetch all pages:
-
-```php
-$page = 1;
-$all_transactions = [];
-do {
-    $response = $this->fetch_wallet_page($email, $page, 100);
-    $all_transactions = array_merge($all_transactions, $response);
-    $page++;
-} while (count($response) === 100);
-```
-
-For the date-filtered use case, consider filtering server-side if the API supports it, or filter client-side after fetching all transactions within the date range.
-
-**Phase:** Phase 1 (API client). Test with a user who has 50+ wallet transactions.
+- Use a dedicated test user with no balance constraints (admin or unlimited plan)
+- Or: top up the test user's wallet before each stress test run
+- Document the test user requirements in the test README
 
 ---
 
-### Pitfall 12: Wallet Amount Precision (String vs Float)
+### Pitfall 11: Regression Test for TP-22 (Edit Empty Keyword) Depends on Existing Links
 
 **What goes wrong:**
-The TeraWallet API returns amounts as strings with high precision: `"3.50000000"`. The usage API returns amounts as floats: `0.15`. JavaScript's floating-point arithmetic means `parseFloat("3.50000000") + 0.15` may not equal `3.65` exactly. If the merged data is used for balance calculations or displayed with inconsistent decimal places, users see "$3.50000000" or rounding errors.
+The regression test for TP-22 needs to click a link row to open the edit modal. If the test user has no links (e.g., after a database reset or on a fresh environment), the test fails with "no link rows found" rather than testing the actual bug fix.
 
 **Prevention:**
-Convert all amounts to cents (integers) for arithmetic, format to 2 decimal places for display only:
+Each regression test should set up its own preconditions. If TP-22's test needs an existing link, create one as part of the test's setup, then edit it:
 
-```php
-// PHP: normalize wallet amount to float with 2 decimal precision
-$amount = round((float) $transaction['amount'], 2);
+```python
+def test_tp22_edit_preserves_keyword(client_links_page):
+    # Ensure at least one link exists (create if needed)
+    ensure_link_exists(client_links_page, destination="https://example.com/tp22-test")
+    # Now test the edit flow
+    ...
 ```
-
-```javascript
-// JS: use the existing formatCurrency() which already rounds to cents
-formatCurrency(day.otherServices); // Already handles precision via Math.round(value * 100) / 100
-```
-
-The existing `formatCurrency()` in `usage-dashboard.js` already uses cent-snapping (`Math.round(value * 100) / 100`), so this is handled if the PHP layer delivers clean floats.
-
-**Phase:** Phase 1 (API client) for PHP normalization, Phase 3 (frontend) already handled by existing `formatCurrency()`.
 
 ---
 
-### Pitfall 13: TeraWallet Plugin Not Installed/Active
+### Pitfall 12: Hardcoded Selectors Break When Running Against Different Environments
 
 **What goes wrong:**
-The plugin assumes TeraWallet is installed and active. If a WordPress installation uses a different wallet plugin, or has no wallet plugin, calling TeraWallet PHP functions throws a fatal error ("Call to undefined function").
+Tests reference `https://trafficportal.dev` and CSS selectors like `.tp-cl-container` that are specific to the current deployment. If the test needs to run against a local Docker WordPress instance, a staging URL, or a different theme, paths and selectors may differ.
 
 **Prevention:**
-Check for TeraWallet availability before attempting to use it:
+The existing `conftest.py` already parameterizes `BASE_URL`, `CLIENT_LINKS_PATH`, etc. via environment variables. Extend this pattern to the stress test. Do not hardcode any URLs in the stress test scripts:
 
-```php
-private function is_terawallet_available(): bool {
-    return function_exists('woo_wallet') || class_exists('Woo_Wallet');
-}
+```python
+DOMAIN = os.getenv("TP_DOMAIN", "dev.trfc.link")  # for usage generation hits
 ```
-
-If unavailable, return empty wallet data (not an error). The "Other Services" column simply shows nothing.
-
-**Phase:** Phase 1 (API client). This check must be the first thing the wallet client does.
 
 ---
 
-### Pitfall 14: "Other Services" Column Tooltip Rendering With HTML Injection
+### Pitfall 13: Parallel Test Runs Cause Data Conflicts
 
 **What goes wrong:**
-Wallet transaction `details` field contains user-provided text (e.g., "Deposit from payment", "Usage charge"). If this text is rendered inside a tooltip without escaping, and a malicious description contains HTML or JavaScript, it creates an XSS vulnerability.
+If two developers or CI jobs run the stress test simultaneously against the same dev environment with the same test user, they create conflicting link keys (`stress-001` already exists from the other run). One run fails with "shortcode already taken" errors.
 
 **Prevention:**
-Escape all wallet descriptions before rendering in tooltips:
+Include a unique run identifier in all test data:
 
-```javascript
-// BAD: direct insertion
-tooltip.html(day.otherServicesDetails.join('<br>'));
+```python
+import uuid
+RUN_ID = os.getenv("TP_RUN_ID", uuid.uuid4().hex[:8])
 
-// GOOD: text content only, or escaped HTML
-var $tooltip = $('<div>');
-day.otherServicesDetails.forEach(function(desc) {
-    $tooltip.append($('<div>').text(desc));
-});
+# Link keys become: stress-a1b2c3d4-001
+custom_key = f"stress-{RUN_ID}-{i:03d}"
 ```
-
-In PHP, sanitize descriptions before sending to the frontend:
-
-```php
-$details = sanitize_text_field($transaction['details']);
-```
-
-**Phase:** Phase 3 (frontend rendering). Standard WordPress XSS prevention.
 
 ---
 
@@ -478,49 +395,27 @@ $details = sanitize_text_field($transaction['details']);
 
 | Phase Topic | Likely Pitfall | Mitigation |
 |-------------|---------------|------------|
-| API Client Design (Phase 1) | Loopback HTTP request to WC REST API (Pitfall 1) | Use direct PHP functions or `rest_do_request()`, never `wp_remote_get` to own server |
-| API Client Design (Phase 1) | WC REST API auth for non-admin users (Pitfall 3) | Bypass REST API entirely with direct TeraWallet PHP calls |
-| API Client Design (Phase 1) | User ID vs email mismatch (Pitfall 4) | Resolve email server-side from `get_current_user_id()`, never from POST data |
-| API Client Design (Phase 1) | TeraWallet not installed (Pitfall 13) | Feature-detect before calling; degrade gracefully |
-| API Client Design (Phase 1) | Pagination not handled (Pitfall 11) | Fetch all pages or set high `per_page` limit |
-| Merge Adapter (Phase 2) | Date format mismatch (Pitfall 2) | Normalize to `Y-m-d` before merge key comparison |
-| Merge Adapter (Phase 2) | Timezone discrepancy (Pitfall 7) | Convert TeraWallet dates to UTC (or decide on site-local) before extracting date |
-| Merge Adapter (Phase 2) | Multiple transactions per day (Pitfall 5) | Aggregate by date before merging |
-| Merge Adapter (Phase 2) | Wallet-only dates dropped (Pitfall 6) | Full outer join, not left join from usage data |
-| Merge Adapter (Phase 2) | One API fails, dashboard dies (Pitfall 9) | Separate try/catch; wallet failure is non-fatal |
-| Frontend (Phase 3) | XSS via tooltip descriptions (Pitfall 14) | Escape all user-provided text with `.text()` not `.html()` |
-| Frontend (Phase 3) | Amount precision display (Pitfall 12) | Existing `formatCurrency()` handles this; ensure PHP sends clean floats |
-
----
-
-## Decision Log: Key Architectural Choices That Prevent Pitfalls
-
-| Decision | Prevents Pitfall | Rationale |
-|----------|-----------------|-----------|
-| Use direct PHP calls, not HTTP requests, for wallet data | 1 (loopback), 3 (auth), 10 (credentials) | Same server, same process. No HTTP overhead, no auth complexity, no credential storage. |
-| Normalize all dates to `Y-m-d` before merge | 2 (format mismatch), 7 (timezone) | Single canonical date format for the merge key. |
-| Wallet fetch failure is non-fatal | 9 (partial failure) | Usage dashboard works even if TeraWallet is broken, deactivated, or uninstalled. |
-| Server-side user identity resolution | 4 (user ID mismatch) | `get_current_user_id()` in PHP, never from frontend. Consistent with existing DATA-02 pattern. |
-| Feature-detect TeraWallet before use | 13 (plugin not installed) | Plugin must work on WP installations without TeraWallet. |
+| Stress test script (50 link creation) | API rate limiting (Pitfall 1) | Add configurable delay between creations, exponential backoff on 429 |
+| Stress test script (50 link creation) | Shortcode generation failure (Pitfall 3) | Use explicit custom keys, not auto-generation |
+| Stress test script (50 link creation) | Browser resource exhaustion (Pitfall 4) | Refresh page every 15 links, increase timeouts |
+| Stress test script (50 link creation) | Test data pollution (Pitfall 2) | Deterministic key prefix, teardown cleanup fixture |
+| Usage generation script | Wrong redirect handling (Pitfall 5) | Use `allow_redirects=False`, add delay between hits |
+| Usage dashboard verification | Data propagation delay (Pitfall 9) | Configurable wait period, retry logic |
+| Jira bug regression tests | UI coupling (Pitfall 7) | Use `data-testid` attributes, test behavior not DOM |
+| Jira bug regression tests | AJAX race conditions (Pitfall 8) | Wait for network responses, not arbitrary sleep |
+| Jira bug regression tests | Missing preconditions (Pitfall 11) | Each test sets up its own data |
+| All tests | Parallel run conflicts (Pitfall 13) | Unique run ID in all test data |
+| All tests | Nonce expiration (Pitfall 6) | Fresh page load before long-running tests |
 
 ---
 
 ## Sources
 
-- Codebase inspection: `includes/class-tp-api-handler.php` lines 1573-1670 -- existing `ajax_get_usage_summary()` handler and `validate_usage_summary_response()` (HIGH confidence)
-- Codebase inspection: `assets/js/usage-dashboard.js` -- `loadData()`, `renderRows()`, `formatCurrency()`, `formatDateISO()` functions (HIGH confidence)
-- Codebase inspection: `includes/TrafficPortal/TrafficPortalApiClient.php` -- cURL-based HTTP client pattern (HIGH confidence)
-- Codebase inspection: `API_REFERENCE.md` lines 1812-1896 -- Wallet API endpoint documentation showing `wpUserId` path params and datetime format `"2025-12-03 11:51:47"` (HIGH confidence)
-- Codebase inspection: `docs/API-REQUIREMENTS-V2.md` -- usage API response shape `{ date: "YYYY-MM-DD", totalHits, hitCost, balance }` (HIGH confidence)
-- [TeraWallet API V3 wiki](https://github.com/malsubrata/woo-wallet/wiki/API-V3) -- REST API endpoints, `email` parameter, `per_page`/`page` pagination, transaction response shape (MEDIUM confidence)
-- [WooCommerce REST API Authentication docs](https://woocommerce.github.io/woocommerce-rest-api-docs/) -- consumer key/secret, Basic Auth, query string auth (HIGH confidence)
-- [WordPress loopback request issues](https://github.com/docker-library/wordpress/issues/493) -- cURL error 28 on self-requests, Cloudflare blocking (MEDIUM confidence)
-- [WordPress REST API loopback failures behind Cloudflare](https://lukapaunovic.com/2025/04/24/fix-wordpress-loopback-and-rest-api-403-errors-behind-cloudflare/) -- 403 errors on server-to-server requests (MEDIUM confidence)
-- [WooCommerce REST API auth issue #26847](https://github.com/woocommerce/woocommerce/issues/26847) -- `wp_get_current_user()` conflicts with WC auth (MEDIUM confidence)
-- [wp_timezone() reference](https://developer.wordpress.org/reference/functions/wp_timezone/) -- WordPress site timezone resolution (HIGH confidence)
-- [WordPress Transients API](https://developer.wordpress.org/apis/transients/) -- caching pattern for wallet data (HIGH confidence)
-
----
-
-*Pitfalls research for: TerrWallet Integration (v2.2 milestone)*
-*Researched: 2026-03-10*
+- Codebase inspection: `includes/TrafficPortal/Exception/RateLimitException.php` -- confirms 429 handling exists
+- Codebase inspection: `includes/class-tp-api-handler.php` lines 353-361 -- rate limit error flow
+- Codebase inspection: `tests/e2e/conftest.py` -- existing session-scoped auth pattern
+- Codebase inspection: `tests/e2e/test_client_links.py` -- existing wait patterns for AJAX
+- Codebase inspection: `docs/BUG-shortcode-generation-failing.md` -- known shortcode generation 500 errors
+- Codebase inspection: `tests/e2e/test_usage_dashboard.py` -- deployment detection pattern
+- Playwright documentation: timeout and resource management best practices (HIGH confidence, well-documented)
+- AWS API Gateway: default throttling behaviors for Lambda-backed APIs (MEDIUM confidence, varies by configuration)
