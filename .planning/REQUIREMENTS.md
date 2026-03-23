@@ -11,7 +11,7 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 - [ ] **INFRA-01**: Test suite installs httpx, pytest-asyncio, and pytest-xdist as new dependencies
 - [ ] **INFRA-02**: Conftest provides stress data fixture (session-scoped, writes/reads stress_data.json)
-- [ ] **INFRA-03**: Pytest markers distinguish stress tests from regression tests (@pytest.mark.stress, @pytest.mark.regression)
+- [ ] **INFRA-03**: Pytest markers (@pytest.mark.stress, @pytest.mark.regression_bugs) exclude these tests from the default test run — they only execute when explicitly selected (e.g. pytest -m stress or pytest -m regression_bugs)
 - [ ] **INFRA-04**: RUN_ID pattern isolates test data per run (unique prefix on link keywords)
 - [ ] **INFRA-05**: Cleanup fixture deletes stress-created links after test suite completes
 
