@@ -50,7 +50,7 @@
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 14: Test Infrastructure** - Install new dependencies, add pytest markers and fixtures, establish RUN_ID isolation pattern and cleanup strategy
+- [x] **Phase 14: Test Infrastructure** - Install new dependencies, add pytest markers and fixtures, establish RUN_ID isolation pattern and cleanup strategy (completed 2026-03-23)
 - [ ] **Phase 15: Stress Pipeline** - Create 50 links via Playwright, generate usage via httpx, and verify the usage dashboard reflects all traffic
 - [ ] **Phase 16: Bug Regression Suite** - Automated regression tests covering all 7 testable Jira bugs (TP-22, TP-25, TP-29, TP-34, TP-41, TP-71, TP-94)
 
@@ -290,6 +290,6 @@ Note: Phases 15 and 16 both depend on Phase 14 and can be developed in parallel 
 | 11. Backend Integration | v2.2 | Complete | 2026-03-10 | - |
 | 12. Dashboard UI | v2.2 | Complete | 2026-03-10 | - |
 | 13. E2E Tests and Validation | v2.2 | 0/1 | Planning | - |
-| 14. Test Infrastructure | v2.3 | 0/1 | Not started | - |
+| 14. Test Infrastructure | 1/1 | Complete   | 2026-03-23 | - |
 | 15. Stress Pipeline | v2.3 | 0/4 | Not started | - |
 | 16. Bug Regression Suite | v2.3 | 0/2 | Not started | - |
