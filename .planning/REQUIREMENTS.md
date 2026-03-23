@@ -97,35 +97,35 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INFRA-01 | — | Pending |
-| INFRA-02 | — | Pending |
-| INFRA-03 | — | Pending |
-| INFRA-04 | — | Pending |
-| INFRA-05 | — | Pending |
-| STRESS-01 | — | Pending |
-| STRESS-02 | — | Pending |
-| STRESS-03 | — | Pending |
-| USAGE-01 | — | Pending |
-| USAGE-02 | — | Pending |
-| USAGE-03 | — | Pending |
-| USAGE-04 | — | Pending |
-| VERIFY-01 | — | Pending |
-| VERIFY-02 | — | Pending |
-| VERIFY-03 | — | Pending |
-| VERIFY-04 | — | Pending |
-| REG-01 | — | Pending |
-| REG-02 | — | Pending |
-| REG-03 | — | Pending |
-| REG-04 | — | Pending |
-| REG-05 | — | Pending |
-| REG-06 | — | Pending |
-| REG-07 | — | Pending |
+| INFRA-01 | Phase 14 | Pending |
+| INFRA-02 | Phase 14 | Pending |
+| INFRA-03 | Phase 14 | Pending |
+| INFRA-04 | Phase 14 | Pending |
+| INFRA-05 | Phase 14 | Pending |
+| STRESS-01 | Phase 15 | Pending |
+| STRESS-02 | Phase 15 | Pending |
+| STRESS-03 | Phase 15 | Pending |
+| USAGE-01 | Phase 15 | Pending |
+| USAGE-02 | Phase 15 | Pending |
+| USAGE-03 | Phase 15 | Pending |
+| USAGE-04 | Phase 15 | Pending |
+| VERIFY-01 | Phase 15 | Pending |
+| VERIFY-02 | Phase 15 | Pending |
+| VERIFY-03 | Phase 15 | Pending |
+| VERIFY-04 | Phase 15 | Pending |
+| REG-01 | Phase 16 | Pending |
+| REG-02 | Phase 16 | Pending |
+| REG-03 | Phase 16 | Pending |
+| REG-04 | Phase 16 | Pending |
+| REG-05 | Phase 16 | Pending |
+| REG-06 | Phase 16 | Pending |
+| REG-07 | Phase 16 | Pending |
 
 **Coverage:**
 - v2.3 requirements: 23 total
-- Mapped to phases: 0
-- Unmapped: 23 ⚠️
+- Mapped to phases: 23/23
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-22*
-*Last updated: 2026-03-22 after initial definition*
+*Last updated: 2026-03-22 after roadmap creation*

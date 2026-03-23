@@ -5,6 +5,7 @@
 - [ ] **v1.0 Mobile Responsive** - Phases 1-4 (paused)
 - [ ] **v2.0 Usage Dashboard** - Phases 5-8 (current)
 - [ ] **v2.2 TerrWallet Integration** - Phases 9-13 (planned)
+- [ ] **v2.3 Stress Test and Bug Regression** - Phases 14-16 (planned)
 
 ## Phases
 
@@ -28,21 +29,30 @@
 
 </details>
 
-### v2.2 TerrWallet Integration (Phases 9-13)
-
-**Milestone Goal:** Integrate the TerrWallet (WooCommerce Wallet) API into the usage dashboard to show wallet credit transactions as an "Other Services" column alongside daily usage data.
-
-**Phase Numbering:**
-- Integer phases (9, 10, 11, 12, 13): Planned milestone work
-- Decimal phases (10.1, 10.2): Urgent insertions (marked with INSERTED)
-
-Decimal phases appear between their surrounding integers in numeric order.
+<details>
+<summary>v2.2 TerrWallet Integration (Phases 9-13)</summary>
 
 - [x] **Phase 9: Wallet Client** - PHP client that fetches wallet credit transactions via direct PHP calls or rest_do_request(), with pagination and error handling
 - [x] **Phase 10: Merge Adapter** - Pure data transformation that aggregates wallet transactions by date and merges them into usage day records via full outer join (completed 2026-03-10)
 - [x] **Phase 11: Backend Integration** - Wire wallet client and merge adapter into the existing AJAX handler with non-fatal error handling for graceful degradation (completed 2026-03-10)
 - [x] **Phase 12: Dashboard UI** - Add Other Services column to table with tooltip descriptions, and Other Services total card to summary strip (completed 2026-03-10)
 - [ ] **Phase 13: E2E Tests and Validation** - Integration tests, unit tests for merge edge cases, and E2E tests verifying the full feature with real wallet data
+
+</details>
+
+### v2.3 Stress Test and Bug Regression (Phases 14-16)
+
+**Milestone Goal:** Validate plugin reliability through stress testing (50 link creation + high-volume usage generation) and build regression tests for all 8 Jira bugs.
+
+**Phase Numbering:**
+- Integer phases (14, 15, 16): Planned milestone work
+- Decimal phases (14.1, 14.2): Urgent insertions (marked with INSERTED)
+
+Decimal phases appear between their surrounding integers in numeric order.
+
+- [ ] **Phase 14: Test Infrastructure** - Install new dependencies, add pytest markers and fixtures, establish RUN_ID isolation pattern and cleanup strategy
+- [ ] **Phase 15: Stress Pipeline** - Create 50 links via Playwright, generate usage via httpx, and verify the usage dashboard reflects all traffic
+- [ ] **Phase 16: Bug Regression Suite** - Automated regression tests covering all 7 testable Jira bugs (TP-22, TP-25, TP-29, TP-34, TP-41, TP-71, TP-94)
 
 ## Phase Details
 
@@ -138,6 +148,9 @@ Plans:
 
 </details>
 
+<details>
+<summary>v2.2 Phase Details (Phases 9-13)</summary>
+
 ### Phase 9: Wallet Client
 **Goal**: The plugin can fetch wallet credit transactions for the current user from the TerrWallet API, handling authentication, pagination, and errors -- without any UI changes or modifications to existing code
 **Depends on**: Phase 8 (v2.0 must be complete -- the usage dashboard must exist before extending it)
@@ -205,11 +218,62 @@ Plans:
 Plans:
 - [ ] 13-01-PLAN.md -- Update existing E2E tests for 5-column layout and create Other Services E2E tests
 
+</details>
+
+### Phase 14: Test Infrastructure
+**Goal**: The test suite has all dependencies, fixtures, markers, and isolation patterns needed to run stress and regression tests without interfering with existing tests or polluting the dev environment
+**Depends on**: Nothing (first phase in v2.3 milestone; builds on existing test infrastructure in tests/e2e/)
+**Requirements**: INFRA-01, INFRA-02, INFRA-03, INFRA-04, INFRA-05
+**Success Criteria** (what must be TRUE):
+  1. Running `pip install -r requirements.txt` installs httpx, pytest-asyncio, and pytest-xdist without version conflicts with the existing test dependencies
+  2. Running `pytest` with no markers executes only the existing test suite -- stress and regression tests are skipped unless explicitly selected with `-m stress` or `-m regression_bugs`
+  3. The `stress_links` fixture reads link data from `stress_data.json` and skips tests gracefully when the file does not exist
+  4. Each test run generates a unique RUN_ID prefix (e.g. `stress-abc123-001`) so that two concurrent runs create non-overlapping link keywords
+  5. After the stress test suite completes, a cleanup fixture deletes all links whose keywords match the current RUN_ID prefix from the dev environment
+**Plans**: TBD
+
+Plans:
+- [ ] 14-01: Dependencies, markers, and conftest fixtures
+
+### Phase 15: Stress Pipeline
+**Goal**: The test suite can create 50 short links through the UI, generate measurable usage traffic against each link, and verify the usage dashboard accurately reflects the generated activity
+**Depends on**: Phase 14
+**Requirements**: STRESS-01, STRESS-02, STRESS-03, USAGE-01, USAGE-02, USAGE-03, USAGE-04, VERIFY-01, VERIFY-02, VERIFY-03, VERIFY-04
+**Success Criteria** (what must be TRUE):
+  1. Running the stress creation test produces 50 short links in the dev environment, each with a unique keyword containing the RUN_ID prefix, and writes all link data (keyword, URL, MID) to stress_data.json
+  2. Running the usage generation test sends at least 5 HTTP requests per link (250+ total) with rate limiting, and all requests complete without 429 errors or timeouts
+  3. After usage generation, navigating to /usage-dashboard shows table rows and chart data points for the date range covering stress test activity -- hit counts are non-zero
+  4. The dashboard verification test uses retry polling (not hardcoded sleeps) to handle eventual consistency in usage data propagation
+  5. A shell script (`run_stress.sh`) orchestrates the three phases sequentially: creation, usage generation, then dashboard verification
+**Plans**: TBD
+
+Plans:
+- [ ] 15-01: Link creation test (Playwright UI, 50 links, stress_data.json output)
+- [ ] 15-02: Usage generation test (httpx async, rate limiting, backoff)
+- [ ] 15-03: Dashboard verification test (Playwright, retry polling, assertion)
+- [ ] 15-04: Stress orchestration script (run_stress.sh)
+
+### Phase 16: Bug Regression Suite
+**Goal**: Every testable Jira bug has an automated regression test that reproduces the original failure scenario and asserts the correct behavior, preventing silent re-introduction of fixed bugs
+**Depends on**: Phase 14
+**Requirements**: REG-01, REG-02, REG-03, REG-04, REG-05, REG-06, REG-07
+**Success Criteria** (what must be TRUE):
+  1. Running `pytest -m regression_bugs` executes all regression tests and produces a pass/fail result for each Jira ticket
+  2. Each regression test file contains a docstring referencing the Jira ticket ID and describing the original bug behavior
+  3. The TP-22 test verifies that accessing a non-existent key redirects to trafficportal.com instead of showing an error or blank page
+  4. The TP-94 umbrella ticket is decomposed into specific sub-test cases, each covering a distinct bug scenario from the ticket
+  5. All regression tests create their own preconditions inline and do not depend on pre-existing test data or other regression tests
+**Plans**: TBD
+
+Plans:
+- [ ] 16-01: Regression tests for redirect bugs (TP-22, TP-25, TP-29, TP-34)
+- [ ] 16-02: Regression tests for management and data bugs (TP-41, TP-71, TP-94)
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 9 -> 10 -> 11 -> 12 -> 13
-Note: Phases 9 and 10 have no dependency on each other and can be built in parallel.
+Phases execute in numeric order: 14 -> 15 -> 16
+Note: Phases 15 and 16 both depend on Phase 14 and can be developed in parallel after Phase 14 completes.
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -222,7 +286,10 @@ Note: Phases 9 and 10 have no dependency on each other and can be built in paral
 | 7. Chart Rendering | v2.0 | 0/0 | Not started | - |
 | 8. Date Filtering and API Doc | v2.0 | 0/0 | Not started | - |
 | 9. Wallet Client | v2.2 | 1/1 | Complete | 2026-03-10 |
-| 10. Merge Adapter | 1/1 | Complete   | 2026-03-10 | - |
-| 11. Backend Integration | v2.2 | Complete    | 2026-03-10 | - |
-| 12. Dashboard UI | v2.2 | Complete    | 2026-03-10 | - |
+| 10. Merge Adapter | v2.2 | 1/1 | Complete | 2026-03-10 |
+| 11. Backend Integration | v2.2 | Complete | 2026-03-10 | - |
+| 12. Dashboard UI | v2.2 | Complete | 2026-03-10 | - |
 | 13. E2E Tests and Validation | v2.2 | 0/1 | Planning | - |
+| 14. Test Infrastructure | v2.3 | 0/1 | Not started | - |
+| 15. Stress Pipeline | v2.3 | 0/4 | Not started | - |
+| 16. Bug Regression Suite | v2.3 | 0/2 | Not started | - |

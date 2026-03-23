@@ -32,7 +32,7 @@ Phases:
 
 ---
 
-## v2.2 — TerrWallet Integration (Current)
+## v2.2 — TerrWallet Integration
 
 **Status:** In progress
 **Started:** 2026-03-10
@@ -46,3 +46,18 @@ Phases:
 11. Backend Integration
 12. Dashboard UI
 13. E2E Tests and Validation
+
+---
+
+## v2.3 — Stress Test and Bug Regression
+
+**Status:** Planned
+**Started:** 2026-03-22
+**Phases:** 14-16
+**Goal:** Validate plugin reliability through stress testing (50 link creation + high-volume usage generation) and build regression tests for all 8 Jira bugs
+**Requirements:** 23 (INFRA, STRESS, USAGE, VERIFY, REG categories)
+
+Phases:
+14. Test Infrastructure
+15. Stress Pipeline
+16. Bug Regression Suite
