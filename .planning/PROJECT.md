@@ -8,15 +8,15 @@ A WordPress plugin (Traffic Portal) that provides link shortening, click trackin
 
 Users can track their link usage costs and account balance at a glance — daily stats with a chart and detailed table showing clicks, QR scans, costs, and running balance.
 
-## Current Milestone: v2.2 TerrWallet Integration
+## Current Milestone: v2.3 Stress Test and Bug Regression
 
-**Goal:** Integrate the TerrWallet (WooCommerce Wallet) API into the usage dashboard to show wallet transactions as an "Other Services" column alongside daily usage data.
+**Goal:** Validate plugin reliability through stress testing (50 link creation + high-volume usage generation) and build regression tests for all 8 Jira bugs.
 
 **Target features:**
-- PHP client for TerrWallet REST API (GET /wp-json/wc/v3/wallet/)
-- Adapter to merge wallet transaction data with existing Traffic Portal usage data
-- "Other Services" column in the usage dashboard table showing wallet top-up amounts with tooltip descriptions
-- Integration and E2E tests with real data verification
+- Python stress test script: Playwright-based creation of 50 short links
+- Usage generation: HTTP requests hitting each created link to produce usage records
+- Usage dashboard verification: Playwright test validating /usage-dashboard reports correct data after stress test
+- Jira bug regression suite: Automated tests covering all 8 TP project bugs (TP-22, TP-25, TP-29, TP-34, TP-41, TP-46, TP-71, TP-94)
 
 ## Requirements
 
@@ -35,10 +35,10 @@ Users can track their link usage costs and account balance at a glance — daily
 
 ### Active
 
-- [ ] TerrWallet API client for fetching wallet transactions
-- [ ] Adapter merging wallet data with existing usage data by date
-- [ ] "Other Services" column with amount display and tooltip descriptions
-- [ ] Integration tests and E2E tests with real wallet data
+- [ ] Stress test: create 50 short links via Playwright
+- [ ] Usage generation: hit each link multiple times to produce usage records
+- [ ] Usage dashboard verification test (/usage-dashboard)
+- [ ] Regression tests for all 8 Jira bugs (TP-22, TP-25, TP-29, TP-34, TP-41, TP-46, TP-71, TP-94)
 
 ### Out of Scope
 
@@ -78,4 +78,4 @@ Users can track their link usage costs and account balance at a glance — daily
 | Area chart matching TP-59 design | Yellow=clicks, green=QR scans, data point markers | — Pending |
 
 ---
-*Last updated: 2026-03-10 after v2.2 milestone initialization*
+*Last updated: 2026-03-22 after v2.3 milestone initialization*
