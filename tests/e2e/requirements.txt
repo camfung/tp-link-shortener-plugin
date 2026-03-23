@@ -1,0 +1,11 @@
+# E2E test dependencies
+# Existing (Playwright-based UI tests)
+# Note: pytest-playwright 0.7.x metadata says <9.0 but works fine with 9.x
+pytest>=8.0,<10.0
+pytest-playwright>=0.7,<1.0
+pytest-base-url>=2.1,<3.0
+
+# v2.3: Stress tests and regression suite
+httpx>=0.28,<1.0
+pytest-asyncio>=0.25,<1.0
+pytest-xdist>=3.5,<4.0

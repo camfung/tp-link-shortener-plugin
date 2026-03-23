@@ -10,3 +10,6 @@ tmp.*
 composer.lock
 SnapCaptureClient/
 SnapCaptureIntegrationTest.php
+
+# Stress test data
+tests/e2e/data/
