@@ -35,6 +35,10 @@ Requirements for this milestone. Each maps to roadmap phases.
 - [ ] **VERIFY-03**: Test confirms chart renders with non-zero data points for stress test period
 - [ ] **VERIFY-04**: Test accounts for eventual consistency with retry/polling for usage data to appear
 
+### Stress Test — Orchestration
+
+- [ ] **ORCH-01**: Single entry point shell script chains all three stress stages sequentially with shared RUN_ID and fails fast on any stage error
+
 ### Bug Regression Suite
 
 - [ ] **REG-01**: Regression test for TP-22 — empty and non-existent key default redirect (should redirect to trafficportal.com, not error/blank)
@@ -113,6 +117,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | VERIFY-02 | Phase 15 | Pending |
 | VERIFY-03 | Phase 15 | Pending |
 | VERIFY-04 | Phase 15 | Pending |
+| ORCH-01 | Phase 15 | Pending |
 | REG-01 | Phase 16 | Pending |
 | REG-02 | Phase 16 | Pending |
 | REG-03 | Phase 16 | Pending |
