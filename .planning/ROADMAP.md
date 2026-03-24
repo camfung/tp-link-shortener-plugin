@@ -263,11 +263,11 @@ Plans:
   3. The TP-22 test verifies that accessing a non-existent key redirects to trafficportal.com instead of showing an error or blank page
   4. The TP-94 umbrella ticket is decomposed into specific sub-test cases, each covering a distinct bug scenario from the ticket
   5. All regression tests create their own preconditions inline and do not depend on pre-existing test data or other regression tests
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 16-01: Regression tests for redirect bugs (TP-22, TP-25, TP-29, TP-34)
-- [ ] 16-02: Regression tests for management and data bugs (TP-41, TP-71, TP-94)
+- [ ] 16-01-PLAN.md -- Regression tests for redirect bugs (TP-22, TP-25, TP-29, TP-34)
+- [ ] 16-02-PLAN.md -- Regression tests for management and data bugs (TP-41, TP-71, TP-94)
 
 ## Progress
 
