@@ -245,13 +245,13 @@ Plans:
   3. After usage generation, navigating to /usage-dashboard shows table rows and chart data points for the date range covering stress test activity -- hit counts are non-zero
   4. The dashboard verification test uses retry polling (not hardcoded sleeps) to handle eventual consistency in usage data propagation
   5. A shell script (`run_stress.sh`) orchestrates the three phases sequentially: creation, usage generation, then dashboard verification
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 15-01: Link creation test (Playwright UI, 50 links, stress_data.json output)
-- [ ] 15-02: Usage generation test (httpx async, rate limiting, backoff)
-- [ ] 15-03: Dashboard verification test (Playwright, retry polling, assertion)
-- [ ] 15-04: Stress orchestration script (run_stress.sh)
+- [ ] 15-01-PLAN.md -- Link creation test (Playwright UI, 50 links, stress_data.json output)
+- [ ] 15-02-PLAN.md -- Usage generation test (httpx async, rate limiting, backoff)
+- [ ] 15-03-PLAN.md -- Dashboard verification test (Playwright, retry polling, assertion)
+- [ ] 15-04-PLAN.md -- Stress orchestration script (run_stress.sh)
 
 ### Phase 16: Bug Regression Suite
 **Goal**: Every testable Jira bug has an automated regression test that reproduces the original failure scenario and asserts the correct behavior, preventing silent re-introduction of fixed bugs
