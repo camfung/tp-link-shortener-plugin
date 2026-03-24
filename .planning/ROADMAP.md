@@ -248,9 +248,9 @@ Plans:
 **Plans**: 4 plans
 
 Plans:
-- [ ] 15-01-PLAN.md -- Link creation test (Playwright UI, 50 links, stress_data.json output)
-- [ ] 15-02-PLAN.md -- Usage generation test (httpx async, rate limiting, backoff)
-- [ ] 15-03-PLAN.md -- Dashboard verification test (Playwright, retry polling, assertion)
+- [x] 15-01-PLAN.md -- Link creation test (Playwright UI, 50 links, stress_data.json output)
+- [x] 15-02-PLAN.md -- Usage generation test (httpx async, rate limiting, backoff)
+- [x] 15-03-PLAN.md -- Dashboard verification test (Playwright, retry polling, assertion)
 - [ ] 15-04-PLAN.md -- Stress orchestration script (run_stress.sh)
 
 ### Phase 16: Bug Regression Suite

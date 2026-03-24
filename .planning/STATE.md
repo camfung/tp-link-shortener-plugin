@@ -10,25 +10,25 @@ See: .planning/PROJECT.md (updated 2026-03-22)
 ## Current Position
 
 Phase: 15 of 16 (Stress Pipeline)
-Plan: 2 of 4 in current phase (COMPLETE)
-Status: 15-02 complete -- ready for 15-03
-Last activity: 2026-03-23 -- Completed 15-02 generate usage traffic
+Plan: 3 of 4 in current phase (COMPLETE)
+Status: 15-03 complete -- ready for 15-04
+Last activity: 2026-03-23 -- Completed 15-03 verify dashboard
 
-Progress: [######░░░░] 58% (v2.3 phases: 1.5/3 phases complete)
+Progress: [#######░░░] 67% (v2.3 phases: 1.75/3 phases complete)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3 (v2.3)
+- Total plans completed: 4 (v2.3)
 - Average duration: 1.3min
-- Total execution time: 4min
+- Total execution time: 5min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 14-test-infrastructure | 1 | 2min | 2min |
-| 15-stress-pipeline | 2 | 2min | 1min |
+| 15-stress-pipeline | 3 | 3min | 1min |
 
 ## Accumulated Context
 
@@ -49,6 +49,8 @@ Recent decisions affecting current work:
 - [15-01]: 500ms inter-creation delay for form reset reliability
 - [15-02]: follow_redirects=False -- 301/302 alone registers usage, skip destination load
 - [15-02]: Realistic User-Agent header to avoid bot filtering on redirect service
+- [15-03]: Fixed selector IDs to match actual template (tp-ud-date-start not tp-ud-start-date)
+- [15-03]: Open custom date panel before filling date inputs (panel hidden by default)
 
 ### Pending Todos
 
@@ -64,5 +66,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-23
-Stopped at: Completed 15-02-PLAN.md (generate usage traffic)
+Stopped at: Completed 15-03-PLAN.md (verify dashboard)
 Resume file: None
