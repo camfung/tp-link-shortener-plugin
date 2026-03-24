@@ -5,29 +5,30 @@
 See: .planning/PROJECT.md (updated 2026-03-22)
 
 **Core value:** Users can track their link usage costs and account balance at a glance -- daily stats with a chart and detailed table showing clicks, QR scans, costs, and running balance.
-**Current focus:** Phase 14 - Test Infrastructure (v2.3 Stress Test and Bug Regression)
+**Current focus:** Phase 15 - Stress Pipeline (v2.3 Stress Test and Bug Regression)
 
 ## Current Position
 
-Phase: 14 of 16 (Test Infrastructure)
-Plan: 1 of 1 in current phase (COMPLETE)
-Status: Phase 14 complete -- ready for Phase 15 or 16
-Last activity: 2026-03-23 -- Completed 14-01 test infrastructure plan
+Phase: 15 of 16 (Stress Pipeline)
+Plan: 1 of 4 in current phase (COMPLETE)
+Status: 15-01 complete -- ready for 15-02
+Last activity: 2026-03-23 -- Completed 15-01 create links stress test
 
-Progress: [###░░░░░░░] 33% (v2.3 phases: 1/3 phases complete)
+Progress: [#####░░░░░] 50% (v2.3 phases: 1.25/3 phases complete)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 1 (v2.3)
-- Average duration: 2min
-- Total execution time: 2min
+- Total plans completed: 2 (v2.3)
+- Average duration: 1.5min
+- Total execution time: 3min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 14-test-infrastructure | 1 | 2min | 2min |
+| 15-stress-pipeline | 1 | 1min | 1min |
 
 ## Accumulated Context
 
@@ -44,6 +45,8 @@ Recent decisions affecting current work:
 - [v2.3 roadmap]: Phases 15 and 16 can run in parallel after Phase 14
 - [14-01]: Relaxed pytest pin to >=8.0 to resolve pytest-playwright 0.7.x metadata conflict
 - [14-01]: Cleanup script uses httpx sync client for CLI simplicity
+- [15-01]: expect_response filters by tp_create_link post_data to avoid validation AJAX
+- [15-01]: 500ms inter-creation delay for form reset reliability
 
 ### Pending Todos
 
@@ -59,5 +62,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-23
-Stopped at: Completed 14-01-PLAN.md (test infrastructure)
+Stopped at: Completed 15-01-PLAN.md (create links stress test)
 Resume file: None

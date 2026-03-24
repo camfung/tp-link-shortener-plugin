@@ -291,5 +291,5 @@ Note: Phases 15 and 16 both depend on Phase 14 and can be developed in parallel 
 | 12. Dashboard UI | v2.2 | Complete | 2026-03-10 | - |
 | 13. E2E Tests and Validation | v2.2 | 0/1 | Planning | - |
 | 14. Test Infrastructure | 1/1 | Complete   | 2026-03-23 | - |
-| 15. Stress Pipeline | v2.3 | 0/4 | Not started | - |
+| 15. Stress Pipeline | v2.3 | 1/4 | In progress | - |
 | 16. Bug Regression Suite | v2.3 | 0/2 | Not started | - |
