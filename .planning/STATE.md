@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-03-22)
 ## Current Position
 
 Phase: 16 of 16 (Bug Regression Suite)
-Plan: 1 of 2 in current phase (16-01 COMPLETE)
-Status: 16-01 redirect regression tests complete -- ready for 16-02
-Last activity: 2026-03-24 -- Completed 16-01 redirect regression tests
+Plan: 2 of 2 in current phase (16-02 COMPLETE)
+Status: Phase 16 complete -- all regression tests written
+Last activity: 2026-03-24 -- Completed 16-02 management/data regression tests
 
-Progress: [#########░] 90% (v2.3 phases: 16-01 of 16-02 complete)
+Progress: [##########] 100% (v2.3 phases: all complete)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 6 (v2.3)
-- Average duration: 1.7min
-- Total execution time: 10min
+- Total plans completed: 7 (v2.3)
+- Average duration: 2min
+- Total execution time: 14min
 
 **By Phase:**
 
@@ -29,7 +29,7 @@ Progress: [#########░] 90% (v2.3 phases: 16-01 of 16-02 complete)
 |-------|-------|-------|----------|
 | 14-test-infrastructure | 1 | 2min | 2min |
 | 15-stress-pipeline | 4 | 4min | 1min |
-| 16-bug-regression-suite | 1 | 4min | 4min |
+| 16-bug-regression-suite | 2 | 8min | 4min |
 
 ## Accumulated Context
 
@@ -57,6 +57,9 @@ Recent decisions affecting current work:
 - [16-01]: Assert 'trafficportal' (not 'trafficportal.com') in redirect Location for dev/prod compatibility
 - [16-01]: Root path 403 is acceptable behavior for short domain
 - [16-01]: Each test file reads SHORT_DOMAIN via os.getenv directly (avoids conftest import path issues)
+- [16-02]: TP-94 decomposed into 4 sub-bugs: response fields, duplicate keyword, dashboard visibility, empty destination
+- [16-02]: TP-41 uses pytest.skip for both missing API_KEY and missing /domains/info endpoint
+- [16-02]: TP-71 edit modal uses wait_for_function instead of time.sleep for destination field population
 
 ### Pending Todos
 
@@ -72,5 +75,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-24
-Stopped at: Completed 16-01-PLAN.md (redirect regression tests) -- ready for 16-02
+Stopped at: Completed 16-02-PLAN.md -- Phase 16 and v2.3 milestone complete
 Resume file: None

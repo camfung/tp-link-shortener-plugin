@@ -266,8 +266,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 16-01-PLAN.md -- Regression tests for redirect bugs (TP-22, TP-25, TP-29, TP-34)
-- [ ] 16-02-PLAN.md -- Regression tests for management and data bugs (TP-41, TP-71, TP-94)
+- [x] 16-01-PLAN.md -- Regression tests for redirect bugs (TP-22, TP-25, TP-29, TP-34)
+- [x] 16-02-PLAN.md -- Regression tests for management and data bugs (TP-41, TP-71, TP-94)
 
 ## Progress
 
@@ -292,4 +292,4 @@ Note: Phases 15 and 16 both depend on Phase 14 and can be developed in parallel 
 | 13. E2E Tests and Validation | v2.2 | 0/1 | Planning | - |
 | 14. Test Infrastructure | 1/1 | Complete   | 2026-03-23 | - |
 | 15. Stress Pipeline | 4/4 | Complete    | 2026-03-24 | - |
-| 16. Bug Regression Suite | 1/2 | In Progress|  | - |
+| 16. Bug Regression Suite | 2/2 | Complete   | 2026-03-24 | - |
