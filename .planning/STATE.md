@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-03-22)
 
 **Core value:** Users can track their link usage costs and account balance at a glance -- daily stats with a chart and detailed table showing clicks, QR scans, costs, and running balance.
-**Current focus:** Phase 15 - Stress Pipeline (v2.3 Stress Test and Bug Regression)
+**Current focus:** Phase 16 - Bug Regression Suite (v2.3 Stress Test and Bug Regression)
 
 ## Current Position
 
-Phase: 15 of 16 (Stress Pipeline) -- PHASE COMPLETE
-Plan: 4 of 4 in current phase (COMPLETE)
-Status: Phase 15 complete -- ready for Phase 16
-Last activity: 2026-03-23 -- Completed 15-04 stress pipeline orchestrator
+Phase: 16 of 16 (Bug Regression Suite)
+Plan: 1 of 2 in current phase (16-01 COMPLETE)
+Status: 16-01 redirect regression tests complete -- ready for 16-02
+Last activity: 2026-03-24 -- Completed 16-01 redirect regression tests
 
-Progress: [########░░] 83% (v2.3 phases: 2/3 phases complete)
+Progress: [#########░] 90% (v2.3 phases: 16-01 of 16-02 complete)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 5 (v2.3)
-- Average duration: 1.2min
-- Total execution time: 6min
+- Total plans completed: 6 (v2.3)
+- Average duration: 1.7min
+- Total execution time: 10min
 
 **By Phase:**
 
@@ -29,6 +29,7 @@ Progress: [########░░] 83% (v2.3 phases: 2/3 phases complete)
 |-------|-------|-------|----------|
 | 14-test-infrastructure | 1 | 2min | 2min |
 | 15-stress-pipeline | 4 | 4min | 1min |
+| 16-bug-regression-suite | 1 | 4min | 4min |
 
 ## Accumulated Context
 
@@ -53,6 +54,9 @@ Recent decisions affecting current work:
 - [15-03]: Open custom date panel before filling date inputs (panel hidden by default)
 - [15-04]: Subshell isolation per pytest stage to prevent directory accumulation
 - [15-04]: if-not pattern for granular per-stage failure messages
+- [16-01]: Assert 'trafficportal' (not 'trafficportal.com') in redirect Location for dev/prod compatibility
+- [16-01]: Root path 403 is acceptable behavior for short domain
+- [16-01]: Each test file reads SHORT_DOMAIN via os.getenv directly (avoids conftest import path issues)
 
 ### Pending Todos
 
@@ -67,6 +71,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-23
-Stopped at: Completed 15-04-PLAN.md (stress pipeline orchestrator) -- Phase 15 complete
+Last session: 2026-03-24
+Stopped at: Completed 16-01-PLAN.md (redirect regression tests) -- ready for 16-02
 Resume file: None

@@ -292,4 +292,4 @@ Note: Phases 15 and 16 both depend on Phase 14 and can be developed in parallel 
 | 13. E2E Tests and Validation | v2.2 | 0/1 | Planning | - |
 | 14. Test Infrastructure | 1/1 | Complete   | 2026-03-23 | - |
 | 15. Stress Pipeline | 4/4 | Complete    | 2026-03-24 | - |
-| 16. Bug Regression Suite | v2.3 | 0/2 | Not started | - |
+| 16. Bug Regression Suite | 1/2 | In Progress|  | - |
