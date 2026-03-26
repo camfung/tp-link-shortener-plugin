@@ -103,20 +103,20 @@ $domain = isset($atts['domain']) ? esc_attr($atts['domain']) : TP_Link_Shortener
 
                     <!-- Result Section (hidden initially) -->
                     <div id="tp-result-section" class="tp-result-panel mb-4 d-none">
-                        <!-- Try It Now Message (for non-logged-in users, shown after link creation) -->
-                        <?php if (!is_user_logged_in()): ?>
-                        <div id="tp-try-it-message" class="alert alert-info d-none mb-3 tp-try-it">
-                            <div id="tp-try-it-content" class="d-flex align-items-center gap-2">
-                                <i id="tp-try-it-icon" class="fas fa-hand-pointer fs-5"></i>
-                                <strong id="tp-try-it-text" class="text-uppercase"><?php esc_html_e('TRY IT NOW - CLICK THE LINK OR SCAN THE QR CODE', 'tp-link-shortener'); ?></strong>
-                            </div>
-                        </div>
-                        <?php endif; ?>
-
                         <div id="tp-result-grid" class="tp-result-grid">
                             <div id="tp-result-details" class="tp-result-details">
                                 <div id="tp-short-url-display" class="tp-short-url-display">
-                                    <label id="tp-short-url-label" class="form-label fw-semibold mb-2"><?php esc_html_e('Simple link', 'tp-link-shortener'); ?></label>
+                                    <div class="d-flex align-items-center gap-3 mb-2">
+                                        <label id="tp-short-url-label" class="form-label fw-semibold mb-0"><?php esc_html_e('Simple link', 'tp-link-shortener'); ?></label>
+                                        <?php if (!is_user_logged_in()): ?>
+                                        <div id="tp-try-it-message" class="alert alert-info d-none mb-0 py-1 px-3 tp-try-it">
+                                            <div id="tp-try-it-content" class="d-flex align-items-center gap-2">
+                                                <i id="tp-try-it-icon" class="fas fa-hand-pointer"></i>
+                                                <strong id="tp-try-it-text" class="text-uppercase"><?php esc_html_e('TRY IT NOW - CLICK THE LINK OR SCAN THE QR CODE', 'tp-link-shortener'); ?></strong>
+                                            </div>
+                                        </div>
+                                        <?php endif; ?>
+                                    </div>
                                     <div id="tp-short-url-row" class="tp-short-url-row">
                                         <i id="tp-short-url-copy-icon" class="far fa-copy"></i>
                                         <a
