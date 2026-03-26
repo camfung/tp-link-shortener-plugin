@@ -380,7 +380,7 @@ form .tp-plain-input:focus,
     background: #f8fbff;
     border: 1px solid #d7e8ff;
     border-radius: 1rem;
-    padding: 2rem 1rem 1.2rem;
+    padding: 1rem;
     box-shadow: 0 18px 38px -30px rgba(30, 79, 159, 0.65);
 }
 
