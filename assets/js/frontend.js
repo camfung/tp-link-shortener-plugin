@@ -715,6 +715,11 @@
                     TPDebug.error('update', 'TP Update: AJAX error', {xhr: xhr, status: status, error: error});
                     TPDebug.error('update', 'TP Update: Response text:', xhr.responseText);
 
+                    // Silently ignore 401 for anonymous users — not a real error
+                    if (xhr.status === 401 && !tpAjax.isLoggedIn) {
+                        return;
+                    }
+
                     let errorMessage = 'An error occurred while updating the link.';
                     try {
                         const errorData = JSON.parse(xhr.responseText);
