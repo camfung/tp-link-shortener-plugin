@@ -172,6 +172,7 @@ form .tp-plain-input:focus,
     align-items: center;
     border: 3px solid var(--tp-border);
     border-radius: 0.75rem;
+    overflow: hidden;
     background: linear-gradient(180deg, #f8fcff 0%, #eef5ff 100%);
     box-shadow: var(--tp-shadow);
 }
