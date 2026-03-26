@@ -46,6 +46,7 @@
 }
 
 .tp-save-link-reminder {
+    display: block;
     background: rgba(60, 122, 229, 0.12);
     color: var(--tp-primary-contrast);
     border: 1px dashed rgba(60, 122, 229, 0.4);
@@ -54,6 +55,12 @@
     text-align: center;
     letter-spacing: 0.05em;
     font-weight: 700;
+    cursor: pointer;
+}
+
+.tp-save-link-reminder:hover {
+    background: rgba(60, 122, 229, 0.2);
+    color: var(--tp-primary-contrast);
 }
 
 .tp-card {
