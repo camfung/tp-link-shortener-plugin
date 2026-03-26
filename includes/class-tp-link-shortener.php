@@ -126,8 +126,7 @@ class TP_Link_Shortener {
      */
     public static function get_user_id(): int {
         if (!is_user_logged_in()) {
-            $uid = get_option('tp_link_shortener_user_id', '-1');
-            return (int) $uid;
+            return -1;
         }
 
         $wp_user_id = (int) get_current_user_id();
