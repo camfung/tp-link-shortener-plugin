@@ -169,10 +169,9 @@ form .tp-plain-input:focus,
 
 .tp-input-visual {
     display: flex;
-    align-items: center;
+    align-items: stretch;
     border: 3px solid var(--tp-border);
     border-radius: 0.75rem;
-    overflow: hidden;
     background: linear-gradient(180deg, #f8fcff 0%, #eef5ff 100%);
     box-shadow: var(--tp-shadow);
 }
@@ -250,26 +249,23 @@ form .tp-plain-input:focus,
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    height: 100%;
     min-width: 56px;
     padding: 0.75rem 1rem;
     border: none;
     background: transparent;
     color: var(--tp-primary-contrast);
     font-size: 1.25rem;
-    border-top-left-radius: 0.625rem;
-    border-bottom-left-radius: 0.625rem;
+    border-radius: calc(0.75rem - 3px) 0 0 calc(0.75rem - 3px);
     transition: color 0.2s ease, background-color 0.2s ease;
 }
 
 
 .tp-submit-btn {
-    border-radius: 0 0.5rem 0.5rem 0;
+    border-radius: 0 calc(0.75rem - 3px) calc(0.75rem - 3px) 0;
     border-left: 1px solid rgba(43, 77, 236, 0.12);
     color: rgb(43, 77, 236);
     min-width: 56px;
     padding: 0.85rem 1rem;
-    align-self: stretch;
     background: linear-gradient(180deg, rgba(248, 252, 255, 0.95) 0%, #e5edff 100%);
 }
 
