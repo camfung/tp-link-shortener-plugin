@@ -1803,25 +1803,42 @@ class TP_API_Handler {
 
     /**
      * Get the current authoritative wallet balance for the logged-in user.
-     * Returns null if the wallet service is unavailable.
+     *
+     * Tries two paths:
+     *   1. WooWalletClient REST API (requires TP_WC_CONSUMER_KEY/SECRET)
+     *   2. Direct PHP via woo_wallet()->wallet->get_wallet_balance() (requires plugin active)
+     *
+     * Returns null if both are unavailable.
      */
     private function get_current_wallet_balance(): ?float {
-        if (!$this->woowallet_client) {
-            return null;
-        }
-
         $user = wp_get_current_user();
         if (!$user || !$user->ID) {
             return null;
         }
 
-        try {
-            $balanceDto = $this->woowallet_client->getBalance($user->user_email);
-            return (float) $balanceDto->balance;
-        } catch (\Exception $e) {
-            error_log('TP Link Shortener: Wallet balance unavailable: ' . $e->getMessage());
-            return null;
+        // Path 1: WooWallet REST API client
+        if ($this->woowallet_client) {
+            try {
+                $balanceDto = $this->woowallet_client->getBalance($user->user_email);
+                return (float) $balanceDto->balance;
+            } catch (\Exception $e) {
+                error_log('TP Link Shortener: WooWallet REST balance failed: ' . $e->getMessage());
+            }
         }
+
+        // Path 2: Direct PHP function (woo-wallet plugin active but REST creds not configured)
+        if (function_exists('woo_wallet')) {
+            try {
+                $balance = woo_wallet()->wallet->get_wallet_balance($user->ID, 'edit');
+                if (is_numeric($balance)) {
+                    return (float) $balance;
+                }
+            } catch (\Exception $e) {
+                error_log('TP Link Shortener: woo_wallet() balance failed: ' . $e->getMessage());
+            }
+        }
+
+        return null;
     }
 
     /**
