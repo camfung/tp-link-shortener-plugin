@@ -92,3 +92,20 @@ spl_autoload_register(function ($class) use ($includes_path) {
         require $file;
     }
 });
+
+// Register PSR-4 autoloader for WooWallet namespace
+spl_autoload_register(function ($class) use ($includes_path) {
+    $prefix = 'WooWallet\\';
+    $len = strlen($prefix);
+
+    if (strncmp($prefix, $class, $len) !== 0) {
+        return;
+    }
+
+    $relative_class = substr($class, $len);
+    $file = $includes_path . '/WooWallet/' . str_replace('\\', '/', $relative_class) . '.php';
+
+    if (file_exists($file)) {
+        require $file;
+    }
+});
