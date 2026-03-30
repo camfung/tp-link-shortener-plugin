@@ -1,11 +1,11 @@
 """
-Playwright e2e tests for Usage Dashboard: Other Services column, tooltips, and summary card.
+Playwright e2e tests for Usage Dashboard: Credits column, tooltips, and summary card.
 
 These tests verify:
-  - Other Services column header is visible and sortable
+  - Credits column header is visible and sortable
   - Cell values display in +$X.XX format (or $0.00 / dash for zero)
-  - Bootstrap tooltips appear on hover over Other Services amounts
-  - 4th summary card (Other Services) is visible with correct icon and value
+  - Bootstrap tooltips appear on hover over Credits amounts
+  - 4th summary card (Credits) is visible with correct icon and value
 
 Requires Phase 12 code deployed to dev site.
 
@@ -57,19 +57,19 @@ def _has_table_data(page: Page) -> bool:
 
 
 # -------------------------------------------------------------------
-# Other Services column
+# Credits column
 # -------------------------------------------------------------------
-class TestOtherServicesColumn:
-    """Verify the Other Services column renders correctly."""
+class TestCreditsColumn:
+    """Verify the Credits column renders correctly."""
 
-    def test_other_services_header_visible(self, page: Page):
-        """Other Services sortable header should be visible."""
+    def test_credits_header_visible(self, page: Page):
+        """Credits sortable header should be visible."""
         _wait_for_data(page)
         header = page.locator('th.tp-ud-sortable[data-sort="otherServices"]')
         expect(header).to_be_visible()
 
-    def test_other_services_header_is_sortable(self, page: Page):
-        """Clicking the Other Services header should activate sort."""
+    def test_credits_header_is_sortable(self, page: Page):
+        """Clicking the Credits header should activate sort."""
         _wait_for_data(page)
         if not _has_table_data(page):
             pytest.skip("No usage data for sort test")
@@ -86,8 +86,8 @@ class TestOtherServicesColumn:
         assert "fa-sort-up" in icon_classes or "fa-sort-down" in icon_classes, \
             f"Expected sort direction icon, got: {icon_classes}"
 
-    def test_other_services_cell_format(self, page: Page):
-        """Other Services cell should show +$X.XX, $0.00, or a dash."""
+    def test_credits_cell_format(self, page: Page):
+        """Credits cell should show +$X.XX, $0.00, or a dash."""
         _wait_for_data(page)
         if not _has_table_data(page):
             pytest.skip("No usage data")
@@ -103,10 +103,10 @@ class TestOtherServicesColumn:
         has_dash = cell_text == "-"
 
         assert has_amount or has_zero or has_dash, \
-            f"Other Services cell should show amount, zero, or dash. Got: {cell_text}"
+            f"Credits cell should show amount, zero, or dash. Got: {cell_text}"
 
-    def test_other_services_amounts_have_plus_prefix(self, page: Page):
-        """Non-zero Other Services amounts should start with +$."""
+    def test_credits_amounts_have_plus_prefix(self, page: Page):
+        """Non-zero Credits amounts should start with +$."""
         _wait_for_data(page)
         if not _has_table_data(page):
             pytest.skip("No usage data")
@@ -126,11 +126,11 @@ class TestOtherServicesColumn:
 # -------------------------------------------------------------------
 # Tooltips
 # -------------------------------------------------------------------
-class TestOtherServicesTooltip:
-    """Verify Bootstrap tooltips on Other Services amounts."""
+class TestCreditsTooltip:
+    """Verify Bootstrap tooltips on Credits amounts."""
 
     def test_tooltip_appears_on_hover(self, page: Page):
-        """Hovering over an Other Services amount should show a tooltip."""
+        """Hovering over a Credits amount should show a tooltip."""
         _wait_for_data(page)
         if not _has_table_data(page):
             pytest.skip("No usage data")
@@ -175,11 +175,11 @@ class TestOtherServicesTooltip:
 # -------------------------------------------------------------------
 # Summary card
 # -------------------------------------------------------------------
-class TestOtherServicesSummaryCard:
-    """Verify the 4th summary card for Other Services."""
+class TestCreditsSummaryCard:
+    """Verify the 4th summary card for Credits."""
 
     def test_fourth_summary_card_visible(self, page: Page):
-        """The 4th summary card (Other Services) should be visible."""
+        """The 4th summary card (Credits) should be visible."""
         _wait_for_data(page)
         if not _has_table_data(page):
             pytest.skip("No usage data")

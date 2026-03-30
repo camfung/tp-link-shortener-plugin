@@ -30,6 +30,11 @@ use ShortCode\Exception\NetworkException as ShortCodeNetworkException;
 use TerrWallet\TerrWalletClient;
 use TerrWallet\UsageMergeAdapter;
 use TerrWallet\Exception\TerrWalletException;
+use WooWallet\WooWalletClient;
+use WooWallet\Exception\WooWalletException;
+use WooWallet\Exception\AuthenticationException as WooWalletAuthException;
+use WooWallet\Exception\ValidationException as WooWalletValidationException;
+use WooWallet\Exception\ApiException as WooWalletApiException;
 
 class TP_API_Handler {
 
@@ -47,6 +52,11 @@ class TP_API_Handler {
      * AI Short Code Client instance
      */
     private $shortcode_client;
+
+    /**
+     * WooWallet Client instance
+     */
+    private ?WooWalletClient $woowallet_client = null;
 
     /**
      * Constructor
@@ -79,6 +89,9 @@ class TP_API_Handler {
 
         // Initialize SnapCapture client
         $this->init_snapcapture_client();
+
+        // Initialize WooWallet client
+        $this->init_woowallet_client();
     }
 
     /**
@@ -129,6 +142,22 @@ class TP_API_Handler {
     }
 
     /**
+     * Initialize WooWallet API client
+     */
+    private function init_woowallet_client() {
+        if (!defined('TP_WC_CONSUMER_KEY') || !defined('TP_WC_CONSUMER_SECRET')) {
+            error_log('TP Link Shortener: TP_WC_CONSUMER_KEY / TP_WC_CONSUMER_SECRET not defined. WooWallet client disabled.');
+            return;
+        }
+
+        $this->woowallet_client = new WooWalletClient(
+            site_url(),
+            TP_WC_CONSUMER_KEY,
+            TP_WC_CONSUMER_SECRET
+        );
+    }
+
+    /**
      * Register AJAX handlers
      */
     private function register_ajax_handlers() {
@@ -156,6 +185,16 @@ class TP_API_Handler {
         // Usage summary - logged-in users only
         add_action('wp_ajax_tp_get_usage_summary', array($this, 'ajax_get_usage_summary'));
         add_action('wp_ajax_nopriv_tp_get_usage_summary', array($this, 'ajax_require_login'));
+
+        // WooWallet endpoints - logged-in users only
+        add_action('wp_ajax_tp_wallet_balance', array($this, 'ajax_wallet_balance'));
+        add_action('wp_ajax_tp_wallet_transactions', array($this, 'ajax_wallet_transactions'));
+        add_action('wp_ajax_tp_wallet_credit', array($this, 'ajax_wallet_credit'));
+        add_action('wp_ajax_tp_wallet_debit', array($this, 'ajax_wallet_debit'));
+        add_action('wp_ajax_nopriv_tp_wallet_balance', array($this, 'ajax_require_login'));
+        add_action('wp_ajax_nopriv_tp_wallet_transactions', array($this, 'ajax_require_login'));
+        add_action('wp_ajax_nopriv_tp_wallet_credit', array($this, 'ajax_require_login'));
+        add_action('wp_ajax_nopriv_tp_wallet_debit', array($this, 'ajax_require_login'));
 
         // Client links endpoints for non-logged-in users (return 401)
         add_action('wp_ajax_nopriv_tp_get_user_map_items', array($this, 'ajax_require_login'));
@@ -1656,11 +1695,14 @@ class TP_API_Handler {
             $days = $validated['days'];
 
             // Wallet integration: merge credit transactions into usage days
+            $walletClient = null;
+            $walletMergeSucceeded = false;
+            $wpUserId = get_current_user_id();
             try {
                 $walletClient = new TerrWalletClient();
-                $wpUserId = get_current_user_id();
                 $transactions = $walletClient->getTransactions($wpUserId, $start_date, $end_date);
                 $days = UsageMergeAdapter::merge($days, $transactions);
+                $walletMergeSucceeded = true;
                 $this->log_to_file('Wallet data merged: ' . count($transactions) . ' transactions');
             } catch (TerrWalletException $e) {
                 error_log('TP Link Shortener: Wallet data unavailable: ' . $e->getMessage());
@@ -1671,10 +1713,39 @@ class TP_API_Handler {
                 }, $days);
             }
 
+            // Fetch authoritative current wallet balance
+            $currentWalletBalance = $this->get_current_wallet_balance();
+
+            // Compute running balances server-side only when wallet data is complete.
+            // Without credit history, reverse-computing from current balance would
+            // produce confidently wrong values -- fail closed instead.
+            if ($currentWalletBalance !== null && $walletMergeSucceeded) {
+                // Ensure ascending date order before forward walk
+                usort($days, static function (array $a, array $b): int {
+                    return strcmp($a['date'], $b['date']);
+                });
+                $days = $this->compute_running_balances($days, $currentWalletBalance, $uid, $wpUserId, $start_date, $end_date, $walletClient);
+            } else {
+                // Degraded: set balance to null so frontend shows '--'
+                foreach ($days as &$day) {
+                    $day['balance'] = null;
+                }
+                unset($day);
+            }
+
+            // Strip apiBalance from outgoing response
+            $days = array_map(function($day) {
+                unset($day['apiBalance']);
+                return $day;
+            }, $days);
+
             $this->log_to_file('Usage summary validated successfully: ' . count($days) . ' days');
             $this->log_to_file('=== GET USAGE SUMMARY REQUEST END ===');
 
-            wp_send_json_success(['days' => $days]);
+            wp_send_json_success([
+                'days' => $days,
+                'currentWalletBalance' => $currentWalletBalance,
+            ]);
 
         } catch (NetworkException $e) {
             $this->log_to_file('Network error: ' . $e->getMessage());
@@ -1697,7 +1768,11 @@ class TP_API_Handler {
      * Validate and reshape the usage summary API response.
      * Strips unexpected fields, checks types, normalizes format.
      * API returns: { message, success, source: [{ date, totalHits, hitCost, balance }] }
-     * Returns: { days: [{ date, totalHits, hitCost, balance }] }
+     * Returns: { days: [{ date, totalHits, hitCost, apiBalance }] }
+     *
+     * The API's balance field is a running cumulative usage cost (negative/debit).
+     * It is kept as apiBalance internally; the final display balance is computed
+     * downstream after wallet credit merging.
      */
     private function validate_usage_summary_response(array $raw): array {
         $source = $raw['source'] ?? [];
@@ -1708,20 +1783,166 @@ class TP_API_Handler {
 
         $days = [];
         foreach ($source as $record) {
-            // Only include records with required fields
-            if (!isset($record['date']) || !isset($record['totalHits'])) {
+            // Skip non-array records and records missing required fields
+            if (!is_array($record) || !isset($record['date']) || !isset($record['totalHits'])) {
                 continue;
             }
 
             $days[] = [
-                'date'      => sanitize_text_field($record['date']),
-                'totalHits' => (int) $record['totalHits'],
-                'hitCost'   => (float) ($record['hitCost'] ?? 0),
-                'balance'   => (float) ($record['balance'] ?? 0),
+                'date'       => sanitize_text_field($record['date']),
+                'totalHits'  => (int) $record['totalHits'],
+                'hitCost'    => (float) ($record['hitCost'] ?? 0),
+                'apiBalance' => isset($record['balance']) && is_numeric($record['balance'])
+                    ? (float) $record['balance']
+                    : null,
             ];
         }
 
         return ['days' => $days];
+    }
+
+    /**
+     * Get the current authoritative wallet balance for the logged-in user.
+     * Returns null if the wallet service is unavailable.
+     */
+    private function get_current_wallet_balance(): ?float {
+        if (!$this->woowallet_client) {
+            return null;
+        }
+
+        $user = wp_get_current_user();
+        if (!$user || !$user->ID) {
+            return null;
+        }
+
+        try {
+            $balanceDto = $this->woowallet_client->getBalance($user->user_email);
+            return (float) $balanceDto->balance;
+        } catch (\Exception $e) {
+            error_log('TP Link Shortener: Wallet balance unavailable: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Sum wallet credit amounts in integer cents.
+     *
+     * @param \TerrWallet\DTO\WalletTransaction[] $transactions
+     */
+    private function sum_wallet_credit_cents(array $transactions): int {
+        $cents = 0;
+        foreach ($transactions as $tx) {
+            $cents += (int) round($tx->amount * 100);
+        }
+        return $cents;
+    }
+
+    /**
+     * Sum hitCost values from validated days in integer cents.
+     *
+     * @param array<int, array{hitCost: float}> $days
+     */
+    private function sum_usage_cost_cents(array $days): int {
+        $cents = 0;
+        foreach ($days as $day) {
+            $cents += (int) round((float) $day['hitCost'] * 100);
+        }
+        return $cents;
+    }
+
+    /**
+     * Compute running balances for merged usage days.
+     *
+     * Uses the current wallet balance as the anchor, reverses through
+     * bridge-period transactions (if end_date < today) to find the
+     * opening balance, then walks forward to assign each row's balance.
+     *
+     * All arithmetic is in integer cents to avoid floating-point drift.
+     */
+    private function compute_running_balances(
+        array $days,
+        float $currentWalletBalance,
+        int $uid,
+        int $wpUserId,
+        string $startDate,
+        string $endDate,
+        ?TerrWalletClient $walletClient
+    ): array {
+        $today = gmdate('Y-m-d');
+        $currentBalanceCents = (int) round($currentWalletBalance * 100);
+
+        // Sum credits and costs within the selected range
+        $rangeCreditsCents = 0;
+        $rangeCostsCents = 0;
+        foreach ($days as $day) {
+            $rangeCreditsCents += (int) round((float) (($day['otherServices']['amount'] ?? 0.0)) * 100);
+            $rangeCostsCents += (int) round((float) $day['hitCost'] * 100);
+        }
+
+        // Compute balance at end of selected range
+        $balanceAtEndCents = $currentBalanceCents;
+
+        if ($endDate < $today) {
+            // Need bridge-period data between end_date+1 and today.
+            // Both sides (usage costs + wallet credits) are required for
+            // correct reversal. If either fails, return null balances.
+            $bridgeStart = date('Y-m-d', strtotime($endDate . ' +1 day'));
+            $bridgeComplete = true;
+
+            $bridgeCostsCents = 0;
+            $bridgeCreditsCents = 0;
+
+            try {
+                $bridgeUsageRaw = $this->client->getUserActivitySummary($uid, $bridgeStart, $today);
+                $bridgeUsage = $this->validate_usage_summary_response($bridgeUsageRaw)['days'];
+                $bridgeCostsCents = $this->sum_usage_cost_cents($bridgeUsage);
+            } catch (\Exception $e) {
+                $this->log_to_file('Bridge usage fetch failed: ' . $e->getMessage());
+                $bridgeComplete = false;
+            }
+
+            if ($walletClient && $bridgeComplete) {
+                try {
+                    $bridgeTransactions = $walletClient->getTransactions($wpUserId, $bridgeStart, $today);
+                    $bridgeCreditsCents = $this->sum_wallet_credit_cents($bridgeTransactions);
+                } catch (\Exception $e) {
+                    $this->log_to_file('Bridge wallet fetch failed: ' . $e->getMessage());
+                    $bridgeComplete = false;
+                }
+            } elseif (!$walletClient) {
+                $bridgeComplete = false;
+            }
+
+            if (!$bridgeComplete) {
+                // Cannot reverse from current balance -- return null balances
+                foreach ($days as &$day) {
+                    $day['balance'] = null;
+                }
+                unset($day);
+                return $days;
+            }
+
+            // Reverse from today to end_date
+            $balanceAtEndCents = $currentBalanceCents - $bridgeCreditsCents + $bridgeCostsCents;
+        }
+
+        // Compute opening balance by reversing the selected range
+        $openingBalanceCents = $balanceAtEndCents - $rangeCreditsCents + $rangeCostsCents;
+
+        // Walk forward in ascending date order, assigning running balance
+        $runningCents = $openingBalanceCents;
+        foreach ($days as &$day) {
+            $creditCents = (int) round((float) (($day['otherServices']['amount'] ?? 0.0)) * 100);
+            $costCents = (int) round((float) $day['hitCost'] * 100);
+
+            $runningCents += $creditCents;
+            $runningCents -= $costCents;
+
+            $day['balance'] = round($runningCents / 100, 2);
+        }
+        unset($day);
+
+        return $days;
     }
 
     /**
@@ -1777,4 +1998,154 @@ class TP_API_Handler {
     }
 
     // TEMP: Remove after milestone v2.2 complete
+
+    // ─── WooWallet AJAX Handlers ────────────────────────────────────────
+
+    /**
+     * Get wallet balance for the current logged-in user.
+     */
+    public function ajax_wallet_balance() {
+        check_ajax_referer('tp_link_shortener_nonce', 'nonce');
+
+        if (!$this->woowallet_client) {
+            wp_send_json_error(array('message' => 'Wallet service is not configured.'), 503);
+        }
+
+        $user = wp_get_current_user();
+        if (!$user || !$user->ID) {
+            wp_send_json_error(array('message' => 'Not logged in.'), 401);
+        }
+
+        try {
+            $balance = $this->woowallet_client->getBalance($user->user_email);
+            wp_send_json_success(array(
+                'balance' => $balance->balance,
+                'email'   => $balance->email,
+            ));
+        } catch (WooWalletAuthException $e) {
+            wp_send_json_error(array('message' => 'Authentication failed.'), 401);
+        } catch (WooWalletValidationException $e) {
+            wp_send_json_error(array('message' => $e->getMessage()), 400);
+        } catch (WooWalletException $e) {
+            error_log('WooWallet balance error: ' . $e->getMessage());
+            wp_send_json_error(array('message' => 'Could not retrieve wallet balance.'), 500);
+        }
+    }
+
+    /**
+     * Get wallet transactions for the current logged-in user.
+     */
+    public function ajax_wallet_transactions() {
+        check_ajax_referer('tp_link_shortener_nonce', 'nonce');
+
+        if (!$this->woowallet_client) {
+            wp_send_json_error(array('message' => 'Wallet service is not configured.'), 503);
+        }
+
+        $user = wp_get_current_user();
+        if (!$user || !$user->ID) {
+            wp_send_json_error(array('message' => 'Not logged in.'), 401);
+        }
+
+        $per_page = isset($_GET['per_page']) ? absint($_GET['per_page']) : 20;
+        $page     = isset($_GET['page']) ? absint($_GET['page']) : 1;
+
+        try {
+            $transactions = $this->woowallet_client->getTransactions($user->user_email, $per_page, $page);
+
+            $data = array_map(fn($t) => [
+                'transaction_id' => $t->transactionId,
+                'user_id'        => $t->userId,
+                'date'           => $t->date,
+                'type'           => $t->type,
+                'amount'         => $t->amount,
+                'balance'        => $t->balance,
+                'details'        => $t->details,
+                'currency'       => $t->currency,
+            ], $transactions);
+
+            wp_send_json_success(array(
+                'transactions' => $data,
+                'page'         => $page,
+                'per_page'     => $per_page,
+            ));
+        } catch (WooWalletAuthException $e) {
+            wp_send_json_error(array('message' => 'Authentication failed.'), 401);
+        } catch (WooWalletValidationException $e) {
+            wp_send_json_error(array('message' => $e->getMessage()), 400);
+        } catch (WooWalletException $e) {
+            error_log('WooWallet transactions error: ' . $e->getMessage());
+            wp_send_json_error(array('message' => 'Could not retrieve transactions.'), 500);
+        }
+    }
+
+    /**
+     * Credit the current user's wallet.
+     */
+    public function ajax_wallet_credit() {
+        check_ajax_referer('tp_link_shortener_nonce', 'nonce');
+
+        if (!$this->woowallet_client) {
+            wp_send_json_error(array('message' => 'Wallet service is not configured.'), 503);
+        }
+
+        $user = wp_get_current_user();
+        if (!$user || !$user->ID) {
+            wp_send_json_error(array('message' => 'Not logged in.'), 401);
+        }
+
+        $amount = isset($_POST['amount']) ? (float) $_POST['amount'] : 0.0;
+        $note   = isset($_POST['note']) ? sanitize_text_field($_POST['note']) : null;
+
+        if ($amount <= 0) {
+            wp_send_json_error(array('message' => 'Amount must be greater than zero.'), 400);
+        }
+
+        try {
+            $transaction_id = $this->woowallet_client->credit($user->user_email, $amount, $note);
+            wp_send_json_success(array('transaction_id' => $transaction_id));
+        } catch (WooWalletAuthException $e) {
+            wp_send_json_error(array('message' => 'Authentication failed.'), 401);
+        } catch (WooWalletValidationException $e) {
+            wp_send_json_error(array('message' => $e->getMessage()), 400);
+        } catch (WooWalletException $e) {
+            error_log('WooWallet credit error: ' . $e->getMessage());
+            wp_send_json_error(array('message' => 'Could not credit wallet.'), 500);
+        }
+    }
+
+    /**
+     * Debit the current user's wallet.
+     */
+    public function ajax_wallet_debit() {
+        check_ajax_referer('tp_link_shortener_nonce', 'nonce');
+
+        if (!$this->woowallet_client) {
+            wp_send_json_error(array('message' => 'Wallet service is not configured.'), 503);
+        }
+
+        $user = wp_get_current_user();
+        if (!$user || !$user->ID) {
+            wp_send_json_error(array('message' => 'Not logged in.'), 401);
+        }
+
+        $amount = isset($_POST['amount']) ? (float) $_POST['amount'] : 0.0;
+        $note   = isset($_POST['note']) ? sanitize_text_field($_POST['note']) : null;
+
+        if ($amount <= 0) {
+            wp_send_json_error(array('message' => 'Amount must be greater than zero.'), 400);
+        }
+
+        try {
+            $transaction_id = $this->woowallet_client->debit($user->user_email, $amount, $note);
+            wp_send_json_success(array('transaction_id' => $transaction_id));
+        } catch (WooWalletAuthException $e) {
+            wp_send_json_error(array('message' => 'Authentication failed.'), 401);
+        } catch (WooWalletValidationException $e) {
+            wp_send_json_error(array('message' => $e->getMessage()), 400);
+        } catch (WooWalletException $e) {
+            error_log('WooWallet debit error: ' . $e->getMessage());
+            wp_send_json_error(array('message' => 'Could not debit wallet.'), 500);
+        }
+    }
 }

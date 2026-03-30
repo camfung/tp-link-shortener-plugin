@@ -43,9 +43,9 @@ namespace Tests\Unit\TerrWallet {
         public function testNullOtherServicesOnWalletFailure(): void
         {
             $days = [
-                ['date' => '2025-01-01', 'totalHits' => 10, 'hitCost' => 0.50, 'balance' => 99.50],
-                ['date' => '2025-01-02', 'totalHits' => 20, 'hitCost' => 1.00, 'balance' => 98.50],
-                ['date' => '2025-01-03', 'totalHits' => 5,  'hitCost' => 0.25, 'balance' => 98.25],
+                ['date' => '2025-01-01', 'totalHits' => 10, 'hitCost' => 0.50, 'apiBalance' => 99.50],
+                ['date' => '2025-01-02', 'totalHits' => 20, 'hitCost' => 1.00, 'apiBalance' => 98.50],
+                ['date' => '2025-01-03', 'totalHits' => 5,  'hitCost' => 0.25, 'apiBalance' => 98.25],
             ];
 
             // Apply the same fallback logic as the catch block
@@ -68,8 +68,8 @@ namespace Tests\Unit\TerrWallet {
         public function testMergedDaysPreservedOnSuccess(): void
         {
             $usageDays = [
-                ['date' => '2025-02-01', 'totalHits' => 10, 'hitCost' => 0.50, 'balance' => 99.50],
-                ['date' => '2025-02-02', 'totalHits' => 20, 'hitCost' => 1.00, 'balance' => 98.50],
+                ['date' => '2025-02-01', 'totalHits' => 10, 'hitCost' => 0.50, 'apiBalance' => 99.50],
+                ['date' => '2025-02-02', 'totalHits' => 20, 'hitCost' => 1.00, 'apiBalance' => 98.50],
             ];
             $transactions = [
                 $this->makeTx('2025-02-01', 15.00, 'Top-up'),
@@ -129,7 +129,7 @@ namespace Tests\Unit\TerrWallet {
         public function testFallbackPreservesAllExistingDayFields(): void
         {
             $days = [
-                ['date' => '2025-03-15', 'totalHits' => 42, 'hitCost' => 2.10, 'balance' => 97.90],
+                ['date' => '2025-03-15', 'totalHits' => 42, 'hitCost' => 2.10, 'apiBalance' => 97.90],
             ];
 
             $result = array_map(function ($day) {
@@ -141,7 +141,7 @@ namespace Tests\Unit\TerrWallet {
             $this->assertSame('2025-03-15', $result[0]['date']);
             $this->assertSame(42, $result[0]['totalHits']);
             $this->assertSame(2.10, $result[0]['hitCost']);
-            $this->assertSame(97.90, $result[0]['balance']);
+            $this->assertSame(97.90, $result[0]['apiBalance']);
             $this->assertArrayHasKey('otherServices', $result[0]);
             $this->assertNull($result[0]['otherServices']);
         }

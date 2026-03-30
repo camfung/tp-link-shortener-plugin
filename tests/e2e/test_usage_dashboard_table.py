@@ -71,17 +71,17 @@ class TestTableRendering:
         assert table.is_visible() or empty.is_visible(), \
             "Neither table nor empty state visible after data load"
 
-    def test_table_has_five_column_headers(self, page: Page):
-        """Table should have 5 sortable column headers."""
+    def test_table_has_four_sortable_column_headers(self, page: Page):
+        """Table should have 4 sortable column headers (Balance is not sortable)."""
         _wait_for_data(page)
         headers = page.locator("#tp-ud-table thead th.tp-ud-sortable")
-        assert headers.count() == 5, \
-            f"Expected 5 sortable headers, found {headers.count()}"
+        assert headers.count() == 4, \
+            f"Expected 4 sortable headers, found {headers.count()}"
 
     def test_column_header_data_sort_values(self, page: Page):
         """Headers should have correct data-sort attributes."""
         _wait_for_data(page)
-        expected = ["date", "totalHits", "otherServices", "hitCost", "balance"]
+        expected = ["date", "totalHits", "otherServices", "hitCost"]
         headers = page.locator("#tp-ud-table thead th.tp-ud-sortable")
         actual = [headers.nth(i).get_attribute("data-sort") for i in range(headers.count())]
         assert actual == expected, f"Expected {expected}, got {actual}"
@@ -166,7 +166,7 @@ class TestTableRendering:
 class TestSortableColumns:
     """Verify that clicking column headers sorts client-side."""
 
-    @pytest.mark.parametrize("column", ["date", "totalHits", "hitCost", "balance", "otherServices"])
+    @pytest.mark.parametrize("column", ["date", "totalHits", "hitCost", "otherServices"])
     def test_sort_header_click_adds_active(self, page: Page, column: str):
         """Clicking a sortable header should add the active sort indicator."""
         _wait_for_data(page)

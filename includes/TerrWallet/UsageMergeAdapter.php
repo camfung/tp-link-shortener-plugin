@@ -19,11 +19,12 @@ class UsageMergeAdapter
      *
      * Performs a full outer join: days appearing in either source are included.
      * Usage-only days get otherServices: null. Wallet-only days get zero-filled
-     * usage fields. Multiple transactions on the same day are aggregated.
+     * usage fields with apiBalance: null (balance is computed downstream).
+     * Multiple transactions on the same day are aggregated.
      *
-     * @param array<int, array{date: string, totalHits: int, hitCost: float, balance: float}> $usageDays
+     * @param array<int, array{date: string, totalHits: int, hitCost: float, apiBalance: ?float}> $usageDays
      * @param WalletTransaction[] $walletTransactions
-     * @return array<int, array{date: string, totalHits: int, hitCost: float, balance: float, otherServices: ?array}>
+     * @return array<int, array{date: string, totalHits: int, hitCost: float, apiBalance: ?float, otherServices: ?array}>
      */
     public static function merge(array $usageDays, array $walletTransactions): array
     {
@@ -34,7 +35,7 @@ class UsageMergeAdapter
                 'date'          => $day['date'],
                 'totalHits'     => $day['totalHits'],
                 'hitCost'       => $day['hitCost'],
-                'balance'       => $day['balance'],
+                'apiBalance'    => $day['apiBalance'],
                 'otherServices' => null,
             ];
         }
@@ -49,7 +50,7 @@ class UsageMergeAdapter
                     'date'          => $dateKey,
                     'totalHits'     => 0,
                     'hitCost'       => 0.00,
-                    'balance'       => 0.00,
+                    'apiBalance'    => null,
                     'otherServices' => null,
                 ];
             }

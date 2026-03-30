@@ -43,7 +43,7 @@ if (!defined('ABSPATH')) {
                         <tr>
                             <th class="tp-ud-col-date"><?php esc_html_e('Date', 'tp-link-shortener'); ?></th>
                             <th class="tp-ud-col-hits"><?php esc_html_e('Hits', 'tp-link-shortener'); ?></th>
-                            <th class="tp-ud-col-other"><?php esc_html_e('Other Services', 'tp-link-shortener'); ?></th>
+                            <th class="tp-ud-col-other"><?php esc_html_e('Credits', 'tp-link-shortener'); ?></th>
                             <th class="tp-ud-col-cost"><?php esc_html_e('Cost', 'tp-link-shortener'); ?></th>
                             <th class="tp-ud-col-balance"><?php esc_html_e('Balance', 'tp-link-shortener'); ?></th>
                         </tr>
@@ -130,13 +130,13 @@ if (!defined('ABSPATH')) {
                                 <?php esc_html_e('Hits', 'tp-link-shortener'); ?> <i class="fas fa-sort tp-ud-sort-icon"></i>
                             </th>
                             <th class="tp-ud-col-other tp-ud-sortable" data-sort="otherServices">
-                                <?php esc_html_e('Other Services', 'tp-link-shortener'); ?> <i class="fas fa-sort tp-ud-sort-icon"></i>
+                                <?php esc_html_e('Credits', 'tp-link-shortener'); ?> <i class="fas fa-sort tp-ud-sort-icon"></i>
                             </th>
                             <th class="tp-ud-col-cost tp-ud-sortable" data-sort="hitCost">
                                 <?php esc_html_e('Cost', 'tp-link-shortener'); ?> <i class="fas fa-sort tp-ud-sort-icon"></i>
                             </th>
-                            <th class="tp-ud-col-balance tp-ud-sortable" data-sort="balance">
-                                <?php esc_html_e('Balance', 'tp-link-shortener'); ?> <i class="fas fa-sort tp-ud-sort-icon"></i>
+                            <th class="tp-ud-col-balance">
+                                <?php esc_html_e('Balance', 'tp-link-shortener'); ?>
                             </th>
                         </tr>
                     </thead>

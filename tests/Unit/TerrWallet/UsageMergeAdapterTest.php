@@ -40,7 +40,7 @@ namespace Tests\Unit\TerrWallet {
         public function testMergeUsageDayWithSingleTransaction(): void
         {
             $usageDays = [
-                ['date' => '2025-01-15', 'totalHits' => 42, 'hitCost' => 2.10, 'balance' => 97.90],
+                ['date' => '2025-01-15', 'totalHits' => 42, 'hitCost' => 2.10, 'apiBalance' => 97.90],
             ];
             $transactions = [
                 $this->makeTx('2025-01-15', 10.00, 'Top-up'),
@@ -52,7 +52,7 @@ namespace Tests\Unit\TerrWallet {
             $this->assertSame('2025-01-15', $result[0]['date']);
             $this->assertSame(42, $result[0]['totalHits']);
             $this->assertSame(2.10, $result[0]['hitCost']);
-            $this->assertSame(97.90, $result[0]['balance']);
+            $this->assertSame(97.90, $result[0]['apiBalance']);
             $this->assertNotNull($result[0]['otherServices']);
             $this->assertSame(10.00, $result[0]['otherServices']['amount']);
             $this->assertCount(1, $result[0]['otherServices']['items']);
@@ -66,7 +66,7 @@ namespace Tests\Unit\TerrWallet {
         public function testMergeMultipleTransactionsSameDay(): void
         {
             $usageDays = [
-                ['date' => '2025-02-10', 'totalHits' => 5, 'hitCost' => 0.25, 'balance' => 50.00],
+                ['date' => '2025-02-10', 'totalHits' => 5, 'hitCost' => 0.25, 'apiBalance' => 50.00],
             ];
             $transactions = [
                 $this->makeTx('2025-02-10', 15.50, 'Store purchase', 1),
@@ -87,7 +87,7 @@ namespace Tests\Unit\TerrWallet {
         /**
          * MERGE-03: Wallet-only day (no usage record) produces zero-filled usage fields.
          */
-        public function testWalletOnlyDayZeroFilled(): void
+        public function testWalletOnlyDayHasNullApiBalance(): void
         {
             $usageDays = [];
             $transactions = [
@@ -100,7 +100,7 @@ namespace Tests\Unit\TerrWallet {
             $this->assertSame('2025-03-01', $result[0]['date']);
             $this->assertSame(0, $result[0]['totalHits']);
             $this->assertSame(0.00, $result[0]['hitCost']);
-            $this->assertSame(0.00, $result[0]['balance']);
+            $this->assertNull($result[0]['apiBalance']);
             $this->assertNotNull($result[0]['otherServices']);
             $this->assertSame(25.00, $result[0]['otherServices']['amount']);
         }
@@ -111,8 +111,8 @@ namespace Tests\Unit\TerrWallet {
         public function testUsageOnlyDaysHaveNullOtherServices(): void
         {
             $usageDays = [
-                ['date' => '2025-01-01', 'totalHits' => 10, 'hitCost' => 0.50, 'balance' => 99.50],
-                ['date' => '2025-01-02', 'totalHits' => 20, 'hitCost' => 1.00, 'balance' => 98.50],
+                ['date' => '2025-01-01', 'totalHits' => 10, 'hitCost' => 0.50, 'apiBalance' => 99.50],
+                ['date' => '2025-01-02', 'totalHits' => 20, 'hitCost' => 1.00, 'apiBalance' => 98.50],
             ];
             $transactions = [];
 
@@ -138,8 +138,8 @@ namespace Tests\Unit\TerrWallet {
         public function testOutputSortedAscendingByDate(): void
         {
             $usageDays = [
-                ['date' => '2025-01-20', 'totalHits' => 5, 'hitCost' => 0.25, 'balance' => 50.00],
-                ['date' => '2025-01-10', 'totalHits' => 3, 'hitCost' => 0.15, 'balance' => 60.00],
+                ['date' => '2025-01-20', 'totalHits' => 5, 'hitCost' => 0.25, 'apiBalance' => 50.00],
+                ['date' => '2025-01-10', 'totalHits' => 3, 'hitCost' => 0.15, 'apiBalance' => 60.00],
             ];
             $transactions = [
                 $this->makeTx('2025-01-25', 10.00, 'Credit'),
@@ -159,7 +159,7 @@ namespace Tests\Unit\TerrWallet {
         public function testFloatPrecisionRounding(): void
         {
             $usageDays = [
-                ['date' => '2025-04-01', 'totalHits' => 1, 'hitCost' => 0.05, 'balance' => 99.95],
+                ['date' => '2025-04-01', 'totalHits' => 1, 'hitCost' => 0.05, 'apiBalance' => 99.95],
             ];
             // These amounts cause IEEE 754 drift: 0.1 + 0.2 = 0.30000000000000004
             $transactions = [
@@ -199,9 +199,9 @@ namespace Tests\Unit\TerrWallet {
         public function testMixedScenario(): void
         {
             $usageDays = [
-                ['date' => '2025-06-01', 'totalHits' => 10, 'hitCost' => 0.50, 'balance' => 100.00],
-                ['date' => '2025-06-02', 'totalHits' => 20, 'hitCost' => 1.00, 'balance' => 99.00],
-                ['date' => '2025-06-04', 'totalHits' => 5,  'hitCost' => 0.25, 'balance' => 73.75],
+                ['date' => '2025-06-01', 'totalHits' => 10, 'hitCost' => 0.50, 'apiBalance' => 100.00],
+                ['date' => '2025-06-02', 'totalHits' => 20, 'hitCost' => 1.00, 'apiBalance' => 99.00],
+                ['date' => '2025-06-04', 'totalHits' => 5,  'hitCost' => 0.25, 'apiBalance' => 73.75],
             ];
             $transactions = [
                 $this->makeTx('2025-06-02', 50.00, 'Big top-up', 1),
@@ -239,7 +239,7 @@ namespace Tests\Unit\TerrWallet {
         public function testDateNormalizationViaFromRaw(): void
         {
             $usageDays = [
-                ['date' => '2025-07-15', 'totalHits' => 8, 'hitCost' => 0.40, 'balance' => 95.00],
+                ['date' => '2025-07-15', 'totalHits' => 8, 'hitCost' => 0.40, 'apiBalance' => 95.00],
             ];
 
             // Simulate raw wallet API object with full datetime string
