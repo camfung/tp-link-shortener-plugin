@@ -894,25 +894,100 @@
             loadWalletTransactions();
         });
 
-        // Add Funds button
+        // Add Funds button — AJAX add-to-cart then redirect to checkout
         $('#tp-ud-wallet-add-btn').on('click', function() {
-            var amount = 0;
+            var $button = $(this);
+            var $message = $('#tp-ud-wallet-topup-message');
+            var $status = $('#tp-ud-wallet-topup-status');
+            var $checkoutLink = $('#tp-ud-wallet-checkout-link');
+            var $customInput = $('#tp-ud-wallet-custom');
+            var $presetButtons = $('.tp-ud-wallet-amt-btn');
             var $selected = $('.tp-ud-wallet-amt-selected');
-            var customVal = $('#tp-ud-wallet-custom').val();
+            var customVal = $customInput.val();
+            var amount = 0;
+            var minAmount = 5;
+            var maxAmount = 500;
+            var originalLabel = $button.data('original-label') || $.trim($button.text());
+            var fallbackTimer = null;
 
-            if (customVal) {
+            function resetUi() {
+                if (fallbackTimer) { window.clearTimeout(fallbackTimer); fallbackTimer = null; }
+                $button.prop('disabled', false).text(originalLabel);
+                $customInput.prop('disabled', false);
+                $presetButtons.prop('disabled', false);
+                $status.hide().text('');
+            }
+
+            $button.data('original-label', originalLabel);
+            $message.hide().text('');
+            $status.hide().text('');
+            $checkoutLink.hide().attr('href', '#');
+
+            if (customVal !== '') {
                 amount = parseFloat(customVal);
             } else if ($selected.length) {
                 amount = parseFloat($selected.data('amount'));
             }
 
-            if (!amount || amount <= 0) {
-                alert('Please select or enter an amount.');
+            if (!amount || isNaN(amount)) {
+                $message.text('Please select or enter an amount.').show();
+                return;
+            }
+            if (amount < minAmount) {
+                $message.text('Minimum top-up amount is $5.00.').show();
+                return;
+            }
+            if (amount > maxAmount) {
+                $message.text('Maximum top-up amount is $500.00.').show();
                 return;
             }
 
-            // TODO: Integrate with WooCommerce wallet top-up endpoint
-            alert('Top-up of $' + amount.toFixed(2) + ' — integration pending.');
+            // Enter loading state — keep modal open
+            $button.prop('disabled', true).text('Redirecting to checkout...');
+            $customInput.prop('disabled', true);
+            $presetButtons.prop('disabled', true);
+            $status.text('Redirecting to checkout...').show();
+
+            // Fallback link after 4 seconds
+            fallbackTimer = window.setTimeout(function() {
+                $checkoutLink.show();
+            }, 4000);
+
+            $.ajax({
+                url: tpUsageDashboard.ajaxUrl,
+                type: 'POST',
+                timeout: 15000,
+                data: {
+                    action: 'tp_wallet_topup_checkout',
+                    nonce: tpUsageDashboard.nonce,
+                    amount: amount.toFixed(2)
+                }
+            }).done(function(response) {
+                if (response && response.success && response.data && response.data.checkout_url) {
+                    $checkoutLink.attr('href', response.data.checkout_url).show();
+                    window.location.href = response.data.checkout_url;
+                    return;
+                }
+                resetUi();
+                $message.text(
+                    response && response.data && response.data.message
+                        ? response.data.message
+                        : 'Could not start checkout. Please try again.'
+                ).show();
+            }).fail(function(xhr) {
+                if (xhr && (xhr.status === 401 || xhr.status === 403)) {
+                    if (fallbackTimer) { window.clearTimeout(fallbackTimer); }
+                    $status.text('Your session expired. Reloading...').show();
+                    window.setTimeout(function() { window.location.reload(); }, 1000);
+                    return;
+                }
+                resetUi();
+                if (xhr && xhr.responseJSON && xhr.responseJSON.data && xhr.responseJSON.data.message) {
+                    $message.text(xhr.responseJSON.data.message).show();
+                    return;
+                }
+                $message.text('Could not start checkout. Please try again.').show();
+            });
         });
     }
 

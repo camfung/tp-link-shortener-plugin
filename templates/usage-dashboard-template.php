@@ -191,11 +191,16 @@ if (!defined('ABSPATH')) {
                             <button class="tp-ud-wallet-amt-btn" data-amount="5">$5</button>
                             <button class="tp-ud-wallet-amt-btn tp-ud-wallet-amt-selected" data-amount="10">$10</button>
                             <button class="tp-ud-wallet-amt-btn" data-amount="25">$25</button>
-                            <input type="number" class="tp-ud-wallet-custom-input" id="tp-ud-wallet-custom" placeholder="$" min="1" step="1">
+                            <input type="number" class="tp-ud-wallet-custom-input" id="tp-ud-wallet-custom" placeholder="$" min="5" max="500" step="0.01" inputmode="decimal">
                         </div>
+                        <div id="tp-ud-wallet-topup-message" role="alert" aria-live="polite" style="display:none; width:100%; color:#fff; font-size:.85rem; font-weight:600;"></div>
+                        <div id="tp-ud-wallet-topup-status" aria-live="polite" style="display:none; width:100%; color:rgba(255,255,255,.9); font-size:.85rem;"></div>
                         <button class="tp-ud-wallet-add-btn" id="tp-ud-wallet-add-btn">
                             <?php esc_html_e('Add Funds', 'tp-link-shortener'); ?>
                         </button>
+                        <a href="#" id="tp-ud-wallet-checkout-link" style="display:none; color:#fff; width:100%; font-size:.85rem; text-decoration:underline;">
+                            <?php esc_html_e('Taking too long? Continue to checkout.', 'tp-link-shortener'); ?>
+                        </a>
                     </div>
                     <div class="tp-ud-wallet-auto-section">
                         <label class="tp-ud-wallet-toggle">

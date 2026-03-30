@@ -65,6 +65,7 @@ class TP_API_Handler {
         $this->init_client();
         $this->register_ajax_handlers();
         add_action('rest_api_init', array($this, 'register_rest_routes'));
+        add_action('woocommerce_thankyou', array($this, 'render_wallet_topup_return_link'), 20);
     }
 
     /**
@@ -191,10 +192,12 @@ class TP_API_Handler {
         add_action('wp_ajax_tp_wallet_transactions', array($this, 'ajax_wallet_transactions'));
         add_action('wp_ajax_tp_wallet_credit', array($this, 'ajax_wallet_credit'));
         add_action('wp_ajax_tp_wallet_debit', array($this, 'ajax_wallet_debit'));
+        add_action('wp_ajax_tp_wallet_topup_checkout', array($this, 'ajax_wallet_topup_checkout'));
         add_action('wp_ajax_nopriv_tp_wallet_balance', array($this, 'ajax_require_login'));
         add_action('wp_ajax_nopriv_tp_wallet_transactions', array($this, 'ajax_require_login'));
         add_action('wp_ajax_nopriv_tp_wallet_credit', array($this, 'ajax_require_login'));
         add_action('wp_ajax_nopriv_tp_wallet_debit', array($this, 'ajax_require_login'));
+        add_action('wp_ajax_nopriv_tp_wallet_topup_checkout', array($this, 'ajax_require_login'));
 
         // Client links endpoints for non-logged-in users (return 401)
         add_action('wp_ajax_nopriv_tp_get_user_map_items', array($this, 'ajax_require_login'));
@@ -2158,5 +2161,175 @@ class TP_API_Handler {
             error_log('WooWallet debit error: ' . $e->getMessage());
             wp_send_json_error(array('message' => 'Could not debit wallet.'), 500);
         }
+    }
+
+    /**
+     * Create a WooCommerce checkout session for wallet top-up.
+     * Adds the WooWallet recharge product to the cart and returns the checkout URL.
+     */
+    public function ajax_wallet_topup_checkout() {
+        check_ajax_referer('tp_link_shortener_nonce', 'nonce');
+
+        if (!function_exists('WC') || !function_exists('wc_get_checkout_url')) {
+            wp_send_json_error(array(
+                'message' => __('WooCommerce checkout is not available.', 'tp-link-shortener'),
+                'code'    => 'woocommerce_unavailable',
+            ), 503);
+        }
+
+        if (!function_exists('get_wallet_rechargeable_product')) {
+            wp_send_json_error(array(
+                'message' => __('Wallet top-up is not available right now.', 'tp-link-shortener'),
+                'code'    => 'wallet_product_unavailable',
+            ), 503);
+        }
+
+        $user = wp_get_current_user();
+        if (!$user || !$user->ID) {
+            wp_send_json_error(array(
+                'message' => __('Not logged in.', 'tp-link-shortener'),
+                'code'    => 'login_required',
+            ), 401);
+        }
+
+        $raw_amount = isset($_POST['amount']) ? sanitize_text_field(wp_unslash($_POST['amount'])) : '';
+        $amount = $raw_amount !== '' ? round((float) $raw_amount, 2) : 0.0;
+        $min_amount = 5.0;
+        $max_amount = 500.0;
+
+        if ($amount <= 0) {
+            wp_send_json_error(array(
+                'message' => __('Please enter a valid top-up amount.', 'tp-link-shortener'),
+                'code'    => 'invalid_amount',
+            ), 400);
+        }
+
+        if ($amount < $min_amount) {
+            wp_send_json_error(array(
+                'message' => sprintf(__('Minimum top-up amount is $%s.', 'tp-link-shortener'), number_format($min_amount, 2)),
+                'code'    => 'amount_too_low',
+            ), 400);
+        }
+
+        if ($amount > $max_amount) {
+            wp_send_json_error(array(
+                'message' => sprintf(__('Maximum top-up amount is $%s.', 'tp-link-shortener'), number_format($max_amount, 2)),
+                'code'    => 'amount_too_high',
+            ), 400);
+        }
+
+        $product = get_wallet_rechargeable_product();
+        if (!$product || !$product->get_id()) {
+            wp_send_json_error(array(
+                'message' => __('Wallet recharge product is not configured.', 'tp-link-shortener'),
+                'code'    => 'wallet_product_missing',
+            ), 503);
+        }
+
+        if (function_exists('wc_load_cart')) {
+            wc_load_cart();
+        }
+
+        if (!WC()->cart) {
+            wp_send_json_error(array(
+                'message' => __('Cart is not available.', 'tp-link-shortener'),
+                'code'    => 'cart_unavailable',
+            ), 503);
+        }
+
+        try {
+            // v1 intentionally replaces any existing cart contents.
+            WC()->cart->empty_cart();
+
+            $cart_item_key = WC()->cart->add_to_cart(
+                $product->get_id(),
+                1,
+                0,
+                array(),
+                array('recharge_amount' => $amount)
+            );
+
+            if (!$cart_item_key) {
+                wp_send_json_error(array(
+                    'message' => __('Could not add the wallet top-up to the cart.', 'tp-link-shortener'),
+                    'code'    => 'add_to_cart_failed',
+                ), 500);
+            }
+
+            WC()->cart->calculate_totals();
+
+            if (method_exists(WC()->cart, 'set_session')) {
+                WC()->cart->set_session();
+            }
+
+            if (isset(WC()->session) && WC()->session && method_exists(WC()->session, 'set_customer_session_cookie')) {
+                WC()->session->set_customer_session_cookie(true);
+            }
+
+            wp_send_json_success(array(
+                'checkout_url' => wc_get_checkout_url(),
+                'amount'       => number_format($amount, 2, '.', ''),
+            ));
+        } catch (\Throwable $e) {
+            error_log('Wallet top-up checkout error: ' . $e->getMessage());
+            wp_send_json_error(array(
+                'message' => __('Could not start checkout. Please try again.', 'tp-link-shortener'),
+                'code'    => 'topup_checkout_failed',
+            ), 500);
+        }
+    }
+
+    /**
+     * Render a return-to-dashboard banner for wallet recharge orders on the thank-you page.
+     *
+     * @param int $order_id WooCommerce order ID.
+     */
+    public function render_wallet_topup_return_link($order_id) {
+        if (!$order_id || !function_exists('wc_get_order')) {
+            return;
+        }
+
+        $order = wc_get_order($order_id);
+        if (!$order) {
+            return;
+        }
+
+        $is_wallet_order = false;
+
+        if (function_exists('is_wallet_rechargeable_order')) {
+            $is_wallet_order = (bool) is_wallet_rechargeable_order($order);
+        }
+
+        if (!$is_wallet_order) {
+            $recharge_product_id = (int) get_option('_woo_wallet_recharge_product');
+            if ($recharge_product_id > 0) {
+                foreach ($order->get_items('line_item') as $item) {
+                    if ((int) $item->get_product_id() === $recharge_product_id) {
+                        $is_wallet_order = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (!$is_wallet_order) {
+            return;
+        }
+
+        $dashboard_url = home_url('/usage-dashboard/');
+
+        echo '<style>
+            .tp-wallet-return-banner { margin:2rem 0 0; padding:1.25rem 1.5rem; border:1px solid #cfe2ff; border-radius:1rem; background:linear-gradient(180deg,#f6fbff 0%,#fff 100%); box-shadow:0 18px 45px -30px rgba(30,79,159,.35); text-align:center; }
+            .tp-wallet-return-banner__title { margin:0 0 .35rem; color:#1c4f9f; font-size:1.05rem; font-weight:700; }
+            .tp-wallet-return-banner__text { margin:0 0 1rem; color:#5f6f8c; }
+            .tp-wallet-return-banner .button { background:#3c7ae5; border-color:#3c7ae5; color:#fff; border-radius:999px; padding:.8rem 1.4rem; font-weight:700; }
+            .tp-wallet-return-banner .button:hover,.tp-wallet-return-banner .button:focus { background:#1c4f9f; border-color:#1c4f9f; color:#fff; }
+        </style>';
+
+        echo '<section class="tp-wallet-return-banner">';
+        echo '<p class="tp-wallet-return-banner__title">' . esc_html__('Wallet top-up complete', 'tp-link-shortener') . '</p>';
+        echo '<p class="tp-wallet-return-banner__text">' . esc_html__('You can return to your usage dashboard to review your updated balance.', 'tp-link-shortener') . '</p>';
+        echo '<a class="button wc-forward" href="' . esc_url($dashboard_url) . '">' . esc_html__('Return to Dashboard', 'tp-link-shortener') . '</a>';
+        echo '</section>';
     }
 }
