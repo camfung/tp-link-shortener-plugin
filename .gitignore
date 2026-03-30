@@ -1,4 +1,12 @@
-vendor/
+# Keep autoloader, ignore dev dependencies
+vendor/bin/
+vendor/doctrine/
+vendor/myclabs/
+vendor/nikic/
+vendor/phar-io/
+vendor/phpunit/
+vendor/sebastian/
+vendor/theseer/
 node_modules/
 .phpunit.result.cache
 .DS_Store
