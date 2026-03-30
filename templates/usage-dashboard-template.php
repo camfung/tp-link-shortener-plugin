@@ -112,6 +112,13 @@ if (!defined('ABSPATH')) {
         <!-- Summary Stats Strip -->
         <div id="tp-ud-summary-strip"></div>
 
+        <!-- Add Funds Button (below summary cards) -->
+        <div class="tp-ud-add-funds-bar">
+            <button class="tp-ud-add-funds-btn" id="tp-ud-add-funds-btn" type="button" data-bs-toggle="modal" data-bs-target="#tp-ud-wallet-modal">
+                <i class="fas fa-plus-circle me-1"></i><?php esc_html_e('Add Funds', 'tp-link-shortener'); ?>
+            </button>
+        </div>
+
         <!-- Chart -->
         <div class="tp-ud-chart-wrapper">
             <canvas id="tp-ud-chart"></canvas>
@@ -165,6 +172,61 @@ if (!defined('ABSPATH')) {
 
     </div>
 
+    </div>
+
+    <!-- Wallet Top-Up Modal -->
+    <div class="modal fade" id="tp-ud-wallet-modal" tabindex="-1" aria-labelledby="tp-ud-wallet-modal-label" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content tp-ud-wallet-modal-content">
+                <button type="button" class="btn-close tp-ud-wallet-close" data-bs-dismiss="modal" aria-label="<?php esc_attr_e('Close', 'tp-link-shortener'); ?>"></button>
+
+                <!-- Wide banner -->
+                <div class="tp-ud-wallet-banner">
+                    <div class="tp-ud-wallet-balance-section">
+                        <div class="tp-ud-wallet-balance-label"><?php esc_html_e('Your Balance', 'tp-link-shortener'); ?></div>
+                        <div class="tp-ud-wallet-balance-amount" id="tp-ud-wallet-balance">--</div>
+                    </div>
+                    <div class="tp-ud-wallet-topup-section">
+                        <div class="tp-ud-wallet-amounts">
+                            <button class="tp-ud-wallet-amt-btn" data-amount="5">$5</button>
+                            <button class="tp-ud-wallet-amt-btn tp-ud-wallet-amt-selected" data-amount="10">$10</button>
+                            <button class="tp-ud-wallet-amt-btn" data-amount="25">$25</button>
+                            <input type="number" class="tp-ud-wallet-custom-input" id="tp-ud-wallet-custom" placeholder="$" min="1" step="1">
+                        </div>
+                        <button class="tp-ud-wallet-add-btn" id="tp-ud-wallet-add-btn">
+                            <?php esc_html_e('Add Funds', 'tp-link-shortener'); ?>
+                        </button>
+                    </div>
+                    <div class="tp-ud-wallet-auto-section">
+                        <label class="tp-ud-wallet-toggle">
+                            <input type="checkbox" id="tp-ud-wallet-auto-toggle">
+                            <span class="tp-ud-wallet-toggle-slider"></span>
+                        </label>
+                        <span><?php esc_html_e('Auto top-up', 'tp-link-shortener'); ?></span>
+                    </div>
+                </div>
+
+                <!-- Transactions -->
+                <div class="tp-ud-wallet-transactions">
+                    <div class="tp-ud-wallet-tx-title"><?php esc_html_e('Recent Transactions', 'tp-link-shortener'); ?></div>
+                    <div class="tp-ud-wallet-tx-table-wrap">
+                        <table class="tp-ud-wallet-tx-table">
+                            <thead>
+                                <tr>
+                                    <th><?php esc_html_e('Date', 'tp-link-shortener'); ?></th>
+                                    <th><?php esc_html_e('Description', 'tp-link-shortener'); ?></th>
+                                    <th class="text-right"><?php esc_html_e('Amount', 'tp-link-shortener'); ?></th>
+                                </tr>
+                            </thead>
+                            <tbody id="tp-ud-wallet-tx-body">
+                                <tr><td colspan="3" class="text-center text-muted"><?php esc_html_e('Loading...', 'tp-link-shortener'); ?></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+        </div>
     </div>
 
 </div>

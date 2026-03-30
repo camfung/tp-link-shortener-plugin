@@ -866,6 +866,98 @@
         $dateStart.add($dateEnd).on('change', function() {
             $('.tp-ud-preset-btn').not($customToggle).removeClass('active');
         });
+
+        // ── Wallet Modal ──────────────────────────────────────
+        // Amount preset selection
+        $(document).on('click', '.tp-ud-wallet-amt-btn', function() {
+            $('.tp-ud-wallet-amt-btn').removeClass('tp-ud-wallet-amt-selected');
+            $(this).addClass('tp-ud-wallet-amt-selected');
+            $('#tp-ud-wallet-custom').val('');
+        });
+
+        // Custom input clears preset selection
+        $('#tp-ud-wallet-custom').on('input', function() {
+            if ($(this).val()) {
+                $('.tp-ud-wallet-amt-btn').removeClass('tp-ud-wallet-amt-selected');
+            }
+        });
+
+        // Populate wallet modal when opened
+        $('#tp-ud-wallet-modal').on('show.bs.modal', function() {
+            // Set balance from state
+            var balanceText = state.currentWalletBalance !== null
+                ? formatCurrency(state.currentWalletBalance)
+                : '--';
+            $('#tp-ud-wallet-balance').text(balanceText);
+
+            // Load recent transactions
+            loadWalletTransactions();
+        });
+
+        // Add Funds button
+        $('#tp-ud-wallet-add-btn').on('click', function() {
+            var amount = 0;
+            var $selected = $('.tp-ud-wallet-amt-selected');
+            var customVal = $('#tp-ud-wallet-custom').val();
+
+            if (customVal) {
+                amount = parseFloat(customVal);
+            } else if ($selected.length) {
+                amount = parseFloat($selected.data('amount'));
+            }
+
+            if (!amount || amount <= 0) {
+                alert('Please select or enter an amount.');
+                return;
+            }
+
+            // TODO: Integrate with WooCommerce wallet top-up endpoint
+            alert('Top-up of $' + amount.toFixed(2) + ' — integration pending.');
+        });
+    }
+
+    /**
+     * Load recent wallet transactions into the modal table.
+     */
+    function loadWalletTransactions() {
+        var $tbody = $('#tp-ud-wallet-tx-body');
+        $tbody.html('<tr><td colspan="3" class="text-center text-muted">Loading...</td></tr>');
+
+        $.ajax({
+            url: tpUsageDashboard.ajaxUrl,
+            type: 'POST',
+            data: {
+                action: 'tp_wallet_transactions',
+                nonce: tpUsageDashboard.nonce,
+                per_page: 10,
+                page: 1
+            },
+            timeout: 15000,
+            success: function(response) {
+                if (response.success && response.data && response.data.length > 0) {
+                    var html = '';
+                    for (var i = 0; i < response.data.length; i++) {
+                        var tx = response.data[i];
+                        var amountClass = tx.type === 'credit'
+                            ? 'tp-ud-wallet-tx-credit'
+                            : 'tp-ud-wallet-tx-debit';
+                        var prefix = tx.type === 'credit' ? '+' : '-';
+                        var dateStr = tx.date ? tx.date.substring(0, 10) : '';
+                        html += '<tr>' +
+                            '<td>' + escapeHtml(dateStr) + '</td>' +
+                            '<td>' + escapeHtml(tx.details || tx.description || '') + '</td>' +
+                            '<td class="text-right ' + amountClass + '">' + prefix + formatCurrency(Math.abs(tx.amount)) + '</td>' +
+                            '</tr>';
+                    }
+                    $tbody.html(html);
+                } else {
+                    $tbody.html('<tr><td colspan="3" class="text-center text-muted">No transactions found.</td></tr>');
+                }
+            },
+            error: function() {
+                $tbody.html('<tr><td colspan="3" class="text-center text-muted">Could not load transactions.</td></tr>');
+            }
+        });
     }
 
     /* ---------------------------------------------------------------
