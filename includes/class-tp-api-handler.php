@@ -1826,16 +1826,10 @@ class TP_API_Handler {
             }
         }
 
-        // Path 2: Direct PHP function (woo-wallet plugin active but REST creds not configured)
-        if (function_exists('woo_wallet')) {
-            try {
-                $balance = woo_wallet()->wallet->get_wallet_balance($user->ID, 'edit');
-                if (is_numeric($balance)) {
-                    return (float) $balance;
-                }
-            } catch (\Exception $e) {
-                error_log('TP Link Shortener: woo_wallet() balance failed: ' . $e->getMessage());
-            }
+        // Path 2: Direct PHP via user meta (woo-wallet stores balance in usermeta)
+        $metaBalance = get_user_meta($user->ID, '_current_woo_wallet_balance', true);
+        if ($metaBalance !== '' && is_numeric($metaBalance)) {
+            return (float) $metaBalance;
         }
 
         return null;
