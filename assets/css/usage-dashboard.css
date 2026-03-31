@@ -1040,6 +1040,45 @@
     font-weight: 600;
 }
 
+/* Transaction pagination */
+.tp-ud-wallet-tx-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    padding: .75rem 0 0;
+}
+
+.tp-ud-wallet-tx-page-btn {
+    background: none;
+    border: 1px solid #cfe2ff;
+    border-radius: .5rem;
+    padding: .4rem .8rem;
+    font-size: .8rem;
+    font-weight: 600;
+    color: #3c7ae5;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all .15s;
+}
+
+.tp-ud-wallet-tx-page-btn:hover:not(:disabled) {
+    background: #3c7ae5;
+    color: #fff;
+    border-color: #3c7ae5;
+}
+
+.tp-ud-wallet-tx-page-btn:disabled {
+    opacity: .4;
+    cursor: not-allowed;
+}
+
+.tp-ud-wallet-tx-page-info {
+    font-size: .8rem;
+    font-weight: 600;
+    color: #5f6f8c;
+}
+
 /* Mobile responsive */
 @media (max-width: 768px) {
     .tp-ud-wallet-banner {

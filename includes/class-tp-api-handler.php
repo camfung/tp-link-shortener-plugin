@@ -2061,8 +2061,8 @@ class TP_API_Handler {
             wp_send_json_error(array('message' => 'Not logged in.'), 401);
         }
 
-        $per_page = isset($_GET['per_page']) ? absint($_GET['per_page']) : 20;
-        $page     = isset($_GET['page']) ? absint($_GET['page']) : 1;
+        $per_page = isset($_REQUEST['per_page']) ? absint($_REQUEST['per_page']) : 10;
+        $page     = isset($_REQUEST['page']) ? absint($_REQUEST['page']) : 1;
 
         try {
             $transactions = $this->woowallet_client->getTransactions($user->user_email, $per_page, $page);
@@ -2082,6 +2082,7 @@ class TP_API_Handler {
                 'transactions' => $data,
                 'page'         => $page,
                 'per_page'     => $per_page,
+                'has_more'     => count($transactions) >= $per_page,
             ));
         } catch (WooWalletAuthException $e) {
             wp_send_json_error(array('message' => 'Authentication failed.'), 401);

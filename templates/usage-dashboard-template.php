@@ -228,6 +228,15 @@ if (!defined('ABSPATH')) {
                             </tbody>
                         </table>
                     </div>
+                    <div class="tp-ud-wallet-tx-pagination" id="tp-ud-wallet-tx-pagination" style="display:none;">
+                        <button class="tp-ud-wallet-tx-page-btn" id="tp-ud-wallet-tx-prev" disabled>
+                            <i class="fas fa-chevron-left"></i> <?php esc_html_e('Prev', 'tp-link-shortener'); ?>
+                        </button>
+                        <span class="tp-ud-wallet-tx-page-info" id="tp-ud-wallet-tx-page-info"></span>
+                        <button class="tp-ud-wallet-tx-page-btn" id="tp-ud-wallet-tx-next">
+                            <?php esc_html_e('Next', 'tp-link-shortener'); ?> <i class="fas fa-chevron-right"></i>
+                        </button>
+                    </div>
                 </div>
 
             </div>

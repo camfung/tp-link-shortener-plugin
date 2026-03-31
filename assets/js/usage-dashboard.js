@@ -890,8 +890,18 @@
                 : '--';
             $('#tp-ud-wallet-balance').text(balanceText);
 
-            // Load recent transactions
-            loadWalletTransactions();
+            // Load recent transactions (page 1)
+            loadWalletTransactions(1);
+        });
+
+        // Wallet transaction pagination
+        $('#tp-ud-wallet-tx-prev').on('click', function() {
+            if (walletTxPage > 1) {
+                loadWalletTransactions(walletTxPage - 1);
+            }
+        });
+        $('#tp-ud-wallet-tx-next').on('click', function() {
+            loadWalletTransactions(walletTxPage + 1);
         });
 
         // Add Funds button — AJAX add-to-cart then redirect to checkout
@@ -992,11 +1002,23 @@
     }
 
     /**
-     * Load recent wallet transactions into the modal table.
+     * Load wallet transactions into the modal table with pagination.
      */
-    function loadWalletTransactions() {
+    var walletTxPage = 1;
+    var walletTxPerPage = 10;
+
+    function loadWalletTransactions(page) {
+        page = page || 1;
+        walletTxPage = page;
+
         var $tbody = $('#tp-ud-wallet-tx-body');
+        var $pagination = $('#tp-ud-wallet-tx-pagination');
+        var $prev = $('#tp-ud-wallet-tx-prev');
+        var $next = $('#tp-ud-wallet-tx-next');
+        var $info = $('#tp-ud-wallet-tx-page-info');
+
         $tbody.html('<tr><td colspan="3" class="text-center text-muted">Loading...</td></tr>');
+        $pagination.hide();
 
         $.ajax({
             url: tpUsageDashboard.ajaxUrl,
@@ -1004,14 +1026,16 @@
             data: {
                 action: 'tp_wallet_transactions',
                 nonce: tpUsageDashboard.nonce,
-                per_page: 10,
-                page: 1
+                per_page: walletTxPerPage,
+                page: page
             },
             timeout: 15000,
             success: function(response) {
                 var txList = response.data && response.data.transactions
                     ? response.data.transactions
                     : (Array.isArray(response.data) ? response.data : []);
+                var hasMore = response.data && response.data.has_more;
+
                 if (response.success && txList.length > 0) {
                     var html = '';
                     for (var i = 0; i < txList.length; i++) {
@@ -1028,6 +1052,17 @@
                             '</tr>';
                     }
                     $tbody.html(html);
+
+                    // Show pagination if there's more than page 1 worth of data
+                    if (page > 1 || hasMore) {
+                        $prev.prop('disabled', page <= 1);
+                        $next.prop('disabled', !hasMore);
+                        $info.text('Page ' + page);
+                        $pagination.show();
+                    }
+                } else if (page > 1) {
+                    // Went past the last page — go back
+                    loadWalletTransactions(page - 1);
                 } else {
                     $tbody.html('<tr><td colspan="3" class="text-center text-muted">No transactions found.</td></tr>');
                 }
