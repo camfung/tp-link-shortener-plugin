@@ -884,14 +884,11 @@
 
         // Populate wallet modal when opened
         $('#tp-ud-wallet-modal').on('show.bs.modal', function() {
-            // Set balance from state
+            // Set balance from state (transactions already loaded at page init)
             var balanceText = state.currentWalletBalance !== null
                 ? formatCurrency(state.currentWalletBalance)
                 : '--';
             $('#tp-ud-wallet-balance').text(balanceText);
-
-            // Load recent transactions (page 1)
-            loadWalletTransactions(1);
         });
 
         // Wallet transaction pagination
@@ -1081,7 +1078,7 @@
         initDateInputs();
         bindEvents();
         loadData();
-
+        loadWalletTransactions(1); // Fire in parallel — doesn't block dashboard render
     });
 
 })(jQuery);
