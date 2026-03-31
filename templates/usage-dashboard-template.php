@@ -29,10 +29,6 @@ if (!defined('ABSPATH')) {
                 <div class="tp-ud-skel tp-ud-skel-sm" style="width: 45%; margin-bottom: 8px;"></div>
                 <div class="tp-ud-skel tp-ud-skel-lg" style="width: 75%;"></div>
             </div>
-            <div class="tp-ud-stat-card-skeleton">
-                <div class="tp-ud-skel tp-ud-skel-sm" style="width: 55%; margin-bottom: 8px;"></div>
-                <div class="tp-ud-skel tp-ud-skel-lg" style="width: 60%;"></div>
-            </div>
         </div>
 
         <!-- Table skeleton rows -->
