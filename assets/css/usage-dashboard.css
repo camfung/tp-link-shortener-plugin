@@ -439,8 +439,7 @@
 
 .tp-ud-col-date    { width: 20%; min-width: 100px; }
 .tp-ud-col-hits    { width: 25%; min-width: 120px; }
-.tp-ud-col-other   { width: 18%; min-width: 100px; }
-.tp-ud-col-cost    { width: 17%; min-width: 85px; }
+.tp-ud-col-cost    { width: 20%; min-width: 85px; }
 .tp-ud-col-balance { width: 20%; min-width: 95px; }
 
 /* ========================================
@@ -687,7 +686,6 @@
     /* Remove desktop column width constraints */
     .tp-ud-col-date,
     .tp-ud-col-hits,
-    .tp-ud-col-other,
     .tp-ud-col-cost,
     .tp-ud-col-balance {
         width: auto;

@@ -262,23 +262,6 @@
         }).join('<br>');
     }
 
-    /**
-     * Build the Other Services table cell for a given day record.
-     * Null-safe: returns $0.00 if otherServices is null or amount is 0.
-     */
-    function buildOtherServicesCell(day) {
-        var os = day.otherServices;
-        if (!os || !os.amount || os.amount <= 0) {
-            return '<td class="tp-ud-col-other" data-label="Credits"><span class="tp-ud-other-zero">$0.00</span></td>';
-        }
-        var tooltipHtml = buildTooltipContent(os.items);
-        return '<td class="tp-ud-col-other" data-label="Credits">' +
-            '<span class="tp-ud-other-amount"' +
-            ' data-bs-toggle="tooltip"' +
-            ' data-bs-html="true"' +
-            ' data-bs-title="' + escapeAttr(tooltipHtml) + '"' +
-            '>+' + formatCurrency(os.amount) + '</span></td>';
-    }
 
     /**
      * Dispose all Bootstrap tooltips inside the table body.
@@ -328,9 +311,6 @@
             if (field === 'date') {
                 aVal = new Date(aVal).getTime();
                 bVal = new Date(bVal).getTime();
-            } else if (field === 'otherServices') {
-                aVal = (a.otherServices && a.otherServices.amount) || 0;
-                bVal = (b.otherServices && b.otherServices.amount) || 0;
             }
 
             var cmp = 0;
@@ -418,7 +398,6 @@
                         '</span>' +
                     '</div>' +
                 '</td>' +
-                buildOtherServicesCell(day) +
                 '<td class="tp-ud-col-cost" data-label="Cost"><span class="tp-ud-cost">' + formatCurrency(day.hitCost) + '</span></td>' +
                 '<td class="tp-ud-col-balance" data-label="Balance"><span class="tp-ud-balance">' + (day.balance != null ? formatCurrency(day.balance) : '--') + '</span></td>' +
             '</tr>';
@@ -523,22 +502,13 @@
 
         var totalHits = 0;
         var totalCostCents = 0;
-        var creditsCents = 0;
-        var daysWithCredits = 0;
 
         for (var i = 0; i < data.length; i++) {
             totalHits += data[i].totalHits;
             totalCostCents += Math.round(data[i].hitCost * 100);
-
-            var os = data[i].otherServices;
-            if (os && os.amount && os.amount > 0) {
-                creditsCents += Math.round(os.amount * 100);
-                daysWithCredits++;
-            }
         }
 
         var totalCost = totalCostCents / 100;
-        var creditsTotal = creditsCents / 100;
         var dailyAvg = data.length > 0 ? Math.round(totalHits / data.length) : 0;
 
         // Balance from authoritative wallet source, not row data
@@ -549,7 +519,6 @@
         var html = buildStatCard('fa-wallet', balanceDisplay, 'Current Balance', 'Wallet');
         html += buildStatCard('fa-chart-line', totalHits.toLocaleString(), 'Total Hits', '~' + dailyAvg.toLocaleString() + '/day');
         html += buildStatCard('fa-dollar-sign', formatCurrency(totalCost), 'Total Cost', data.length + ' days');
-        html += buildStatCard('fa-hand-holding-dollar', '+' + formatCurrency(creditsTotal), 'Credits', daysWithCredits + ' day' + (daysWithCredits !== 1 ? 's' : '') + ' with credits');
 
         $summaryStrip.html(html).show();
     }
