@@ -1009,10 +1009,13 @@
             },
             timeout: 15000,
             success: function(response) {
-                if (response.success && response.data && response.data.length > 0) {
+                var txList = response.data && response.data.transactions
+                    ? response.data.transactions
+                    : (Array.isArray(response.data) ? response.data : []);
+                if (response.success && txList.length > 0) {
                     var html = '';
-                    for (var i = 0; i < response.data.length; i++) {
-                        var tx = response.data[i];
+                    for (var i = 0; i < txList.length; i++) {
+                        var tx = txList[i];
                         var amountClass = tx.type === 'credit'
                             ? 'tp-ud-wallet-tx-credit'
                             : 'tp-ud-wallet-tx-debit';
