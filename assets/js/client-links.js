@@ -493,13 +493,13 @@
             // Domain group header
             $tbody.append(
                 '<tr class="tp-cl-domain-row">' +
-                    '<td colspan="3">' +
+                    '<td colspan="2">' +
                         '<div class="tp-cl-domain-label">' +
                             '<i class="fas fa-globe"></i> ' +
                             '<span>' + escapeHtml(domain) + '</span>' +
                         '</div>' +
                     '</td>' +
-                    '<td colspan="2">' +
+                    '<td>' +
                         '<div class="tp-cl-domain-usage">' +
                             '<span>' + totalUsage.toLocaleString() + ' total</span> ' +
                             '<span><i class="fas fa-qrcode"></i> ' + totalQr.toLocaleString() + '</span> ' +

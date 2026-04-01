@@ -334,9 +334,9 @@
 .tp-cl-table tbody tr:hover td { background: var(--tp-surface-soft); }
 
 /* Column widths */
-.tp-cl-col-link   { width: 30%; min-width: 140px; }
-.tp-cl-col-dest   { width: 45%; min-width: 180px; }
-.tp-cl-col-clicks { width: 25%; min-width: 100px; }
+.tp-cl-col-link   { width: 25%; min-width: 140px; }
+.tp-cl-col-dest   { width: 55%; min-width: 180px; }
+.tp-cl-col-clicks { width: 20%; min-width: 100px; }
 
 /* ----------------------------------------------------------------
  * Sortable headers
