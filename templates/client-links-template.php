@@ -120,8 +120,6 @@ $show_filters = isset($atts['show_filters']) ? ($atts['show_filters'] === 'true'
                             <th class="tp-cl-col-link"><?php esc_html_e('Link', 'tp-link-shortener'); ?></th>
                             <th class="tp-cl-col-dest"><?php esc_html_e('Destination', 'tp-link-shortener'); ?></th>
                             <th class="tp-cl-col-clicks"><?php esc_html_e('Clicks', 'tp-link-shortener'); ?></th>
-                            <th class="tp-cl-col-date"><?php esc_html_e('Created', 'tp-link-shortener'); ?></th>
-                            <th class="tp-cl-col-status"><?php esc_html_e('Status', 'tp-link-shortener'); ?></th>
                         </tr>
                     </thead>
                     <tbody id="tp-cl-skeleton-tbody">
