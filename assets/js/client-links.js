@@ -7,6 +7,9 @@
 (function($) {
     'use strict';
 
+    // Sort fields that the external API supports server-side
+    var serverSortFields = ['updated_at', 'tpKey'];
+
     // State
     var state = {
         currentPage: 1,
@@ -235,7 +238,13 @@
             }
             state.currentPage = 1;
             updateSortIndicators();
-            loadData();
+
+            if (serverSortFields.indexOf(field) !== -1) {
+                loadData();
+            } else {
+                // Client-side sort for fields the API doesn't support
+                clientSideSort();
+            }
         });
 
         // Date range
@@ -344,6 +353,40 @@
             closeEditModal();
             loadData();
         });
+    }
+
+    /* ---------------------------------------------------------------
+     * Client-side sort for fields the API doesn't support
+     * ------------------------------------------------------------- */
+    function clientSideSort() {
+        var parts = state.sort.split(':');
+        var field = parts[0];
+        var dir = parts[1];
+
+        state.items.sort(function(a, b) {
+            var aVal, bVal;
+            if (field === 'clicks') {
+                aVal = (a.usage && a.usage.totalHits) || 0;
+                bVal = (b.usage && b.usage.totalHits) || 0;
+            } else if (field === 'created_at') {
+                aVal = a.created_at || '';
+                bVal = b.created_at || '';
+            } else if (field === 'destination') {
+                aVal = (a.destination || '').toLowerCase();
+                bVal = (b.destination || '').toLowerCase();
+            } else {
+                aVal = a[field] || '';
+                bVal = b[field] || '';
+            }
+
+            if (aVal < bVal) return dir === 'asc' ? -1 : 1;
+            if (aVal > bVal) return dir === 'asc' ? 1 : -1;
+            return 0;
+        });
+
+        renderTable(state.items);
+        renderPagination();
+        showTable();
     }
 
     /* ---------------------------------------------------------------
