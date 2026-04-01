@@ -171,8 +171,6 @@
                     '<td class="tp-cl-col-link"><div class="tp-cl-skel tp-cl-skel-lg"></div></td>' +
                     '<td class="tp-cl-col-dest"><div class="tp-cl-skel tp-cl-skel-lg"></div><div class="tp-cl-skel tp-cl-skel-xs"></div></td>' +
                     '<td class="tp-cl-col-clicks"><div class="tp-cl-skel tp-cl-skel-md" style="width:50px"></div></td>' +
-                    '<td class="tp-cl-col-date"><div class="tp-cl-skel tp-cl-skel-md" style="width:80px"></div></td>' +
-                    '<td class="tp-cl-col-status"><div class="tp-cl-skel tp-cl-skel-sm" style="width:60px"></div></td>' +
                 '</tr>'
             );
         }
@@ -368,9 +366,6 @@
             if (field === 'clicks') {
                 aVal = (a.usage && a.usage.totalHits) || 0;
                 bVal = (b.usage && b.usage.totalHits) || 0;
-            } else if (field === 'created_at') {
-                aVal = a.created_at || '';
-                bVal = b.created_at || '';
             } else if (field === 'destination') {
                 aVal = (a.destination || '').toLowerCase();
                 bVal = (b.destination || '').toLowerCase();
@@ -551,15 +546,6 @@
                             '</div>' +
                         '</td>' +
                         '<td class="tp-cl-col-clicks" data-label="Clicks">' + clicksHtml + '</td>' +
-                        '<td class="tp-cl-col-date" data-label="Created">' +
-                            '<span class="tp-cl-date">' + formatDate(item.created_at) + '</span>' +
-                        '</td>' +
-                        '<td class="tp-cl-col-status" data-label="Status">' +
-                            '<label class="tp-cl-toggle" title="' + (isActive ? 'Active' : 'Disabled') + '">' +
-                                '<input type="checkbox" class="tp-cl-status-toggle" data-mid="' + item.mid + '" ' + (isActive ? 'checked' : '') + '>' +
-                                '<span class="tp-cl-toggle-slider"></span>' +
-                            '</label>' +
-                        '</td>' +
                     '</tr>';
 
                 $tbody.append(row);

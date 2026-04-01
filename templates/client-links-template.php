@@ -148,13 +148,6 @@ $show_filters = isset($atts['show_filters']) ? ($atts['show_filters'] === 'true'
                                 <?php esc_html_e('Clicks', 'tp-link-shortener'); ?>
                                 <i class="fas fa-sort tp-cl-sort-icon"></i>
                             </th>
-                            <th class="tp-cl-col-date tp-cl-sortable" data-sort="created_at">
-                                <?php esc_html_e('Created', 'tp-link-shortener'); ?>
-                                <i class="fas fa-sort tp-cl-sort-icon"></i>
-                            </th>
-                            <th class="tp-cl-col-status">
-                                <?php esc_html_e('Status', 'tp-link-shortener'); ?>
-                            </th>
                         </tr>
                     </thead>
                     <tbody id="tp-cl-tbody">
