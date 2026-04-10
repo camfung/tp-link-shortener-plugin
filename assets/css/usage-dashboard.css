@@ -439,8 +439,8 @@
 
 .tp-ud-col-date    { width: 20%; min-width: 100px; }
 .tp-ud-col-hits    { width: 25%; min-width: 120px; }
-.tp-ud-col-cost    { width: 20%; min-width: 85px; }
-.tp-ud-col-balance { width: 20%; min-width: 95px; }
+.tp-ud-col-cost    { width: 20%; min-width: 85px; text-align: left; }
+.tp-ud-col-balance { width: 20%; min-width: 95px; text-align: left; }
 
 /* ========================================
    Sortable Headers
@@ -473,12 +473,14 @@
 
 .tp-ud-hits-cell {
     display: flex;
-    flex-direction: column;
-    gap: 2px;
+    flex-direction: row;
+    align-items: center;
+    gap: .5rem;
 }
 
 .tp-ud-hits-total {
     font-weight: 600;
+    min-width: 1.5ch;
 }
 
 .tp-ud-hits-breakdown {
@@ -486,7 +488,7 @@
     color: var(--tp-muted);
     display: flex;
     align-items: center;
-    gap: .4rem;
+    gap: .35rem;
 }
 
 .tp-ud-hits-breakdown i {
