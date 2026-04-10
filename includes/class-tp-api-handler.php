@@ -183,6 +183,10 @@ class TP_API_Handler {
         // Link change history - logged-in users only
         add_action('wp_ajax_tp_get_link_history', array($this, 'ajax_get_link_history'));
 
+        // Link usage by tpKey - logged-in users only
+        add_action('wp_ajax_tp_get_link_usage', array($this, 'ajax_get_link_usage'));
+        add_action('wp_ajax_nopriv_tp_get_link_usage', array($this, 'ajax_require_login'));
+
         // Usage summary - logged-in users only
         add_action('wp_ajax_tp_get_usage_summary', array($this, 'ajax_get_usage_summary'));
         add_action('wp_ajax_nopriv_tp_get_usage_summary', array($this, 'ajax_require_login'));
@@ -1644,6 +1648,44 @@ class TP_API_Handler {
         ), ARRAY_A);
 
         wp_send_json_success($results ?: array());
+    }
+
+    /**
+     * AJAX handler for polling usage (clicks + scans) for a single link by tpKey.
+     * Used by the frontend form when a logged-in user has a link open.
+     */
+    public function ajax_get_link_usage(): void {
+        check_ajax_referer('tp_link_shortener_nonce', 'nonce');
+
+        if (!is_user_logged_in()) {
+            wp_send_json_error(array('message' => __('You must be logged in.', 'tp-link-shortener')), 401);
+            return;
+        }
+
+        $tp_key = isset($_POST['tpKey']) ? sanitize_text_field($_POST['tpKey']) : '';
+        if (empty($tp_key)) {
+            wp_send_json_error(array('message' => __('tpKey is required.', 'tp-link-shortener')), 400);
+            return;
+        }
+
+        $uid = TP_Link_Shortener::get_user_id();
+
+        try {
+            $response = $this->client->getUserMapItems($uid, 1, 1, null, true, null, $tp_key);
+            $items = $response->toArray();
+            $source = $items['source'] ?? array();
+
+            if (empty($source)) {
+                wp_send_json_error(array('message' => __('Link not found.', 'tp-link-shortener')), 404);
+                return;
+            }
+
+            $item = $source[0];
+            wp_send_json_success(array('usage' => $item['usage'] ?? array('qr' => 0, 'regular' => 0, 'total' => 0)));
+
+        } catch (Exception $e) {
+            wp_send_json_error(array('message' => __('Failed to fetch usage.', 'tp-link-shortener')));
+        }
     }
 
     /**

@@ -2154,9 +2154,14 @@
             TPDebug.log('ui', 'Starting usage stats polling (every ' + (pollingInterval / 1000) + ' seconds)');
 
             this.usagePollingTimer = setInterval(async function() {
-                TPDebug.log('ui', 'Usage polling tick - fetching fingerprint...');
+                // Logged-in users: poll by tpKey directly
+                if (tpAjax.isLoggedIn && self.currentRecord && self.currentRecord.tpKey) {
+                    self.pollUsageByTpKey(self.currentRecord.tpKey);
+                    return;
+                }
 
-                // Get fingerprint and search for updated stats
+                // Anonymous users: poll by fingerprint
+                TPDebug.log('ui', 'Usage polling tick - fetching fingerprint...');
                 const fingerprint = await self.getFingerprint();
                 if (fingerprint) {
                     self.pollUsageByFingerprint(fingerprint);
@@ -2175,6 +2180,33 @@
                 this.usagePollingTimer = null;
                 TPDebug.log('ui', 'Usage stats polling stopped');
             }
+        },
+
+        /**
+         * Poll for usage stats by tpKey (logged-in users)
+         */
+        pollUsageByTpKey: function(tpKey) {
+            TPDebug.log('ui', 'Polling usage for tpKey:', tpKey);
+            const self = this;
+
+            $.ajax({
+                url: tpAjax.ajaxUrl,
+                type: 'POST',
+                data: {
+                    action: 'tp_get_link_usage',
+                    nonce: tpAjax.nonce,
+                    tpKey: tpKey
+                },
+                success: function(response) {
+                    TPDebug.log('ui', 'Usage poll (tpKey) response:', response);
+                    if (response.success && response.data.usage) {
+                        self.displayUsageStats(response.data.usage);
+                    }
+                },
+                error: function(xhr, status, error) {
+                    TPDebug.error('ui', 'Usage poll (tpKey) error:', error);
+                }
+            });
         },
 
         /**

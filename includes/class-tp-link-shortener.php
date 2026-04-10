@@ -208,7 +208,7 @@ class TP_Link_Shortener {
      * Get usage stats polling interval in milliseconds
      */
     public static function get_usage_polling_interval(): int {
-        $seconds = (int) get_option('tp_link_shortener_usage_polling_interval', 5);
+        $seconds = (int) get_option('tp_link_shortener_usage_polling_interval', 1);
         return $seconds * 1000;
     }
 
