@@ -19,12 +19,8 @@ class TP_Usage_Dashboard_Shortcode {
 
     public function render_shortcode($atts): string {
         if (!is_user_logged_in()) {
-            $login_form = wp_login_form(array(
-                'echo'     => false,
-                'redirect' => get_permalink(),
-                'remember' => true,
-            ));
-            return '<div class="tp-ud-login-wrapper">' . $login_form . '</div>';
+            wp_safe_redirect(home_url('/login'));
+            exit;
         }
 
         $atts = shortcode_atts(array(
