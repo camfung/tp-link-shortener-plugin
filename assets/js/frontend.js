@@ -2296,6 +2296,29 @@
         if ($('#tp-shortener-form').length) {
             TPLinkShortener.init();
         }
+
+        var self = TPLinkShortener;
+
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                self.stopCountdown();
+                self.stopUsagePolling();
+                self.stopExpiryCountdown();
+            } else {
+                // Only restart countdown if there is active stored data with time remaining
+                if (window.TPStorageService && window.TPStorageService.getTimeRemaining && window.TPStorageService.getTimeRemaining() > 0) {
+                    self.startCountdown();
+                }
+                // Only restart usage polling if there is an active record being displayed
+                if (self.currentRecord) {
+                    self.startUsagePolling();
+                }
+                // Only restart expiry countdown if a record with an expiry is currently displayed
+                if (self.currentRecord && self.currentRecord.expires_at) {
+                    self.startExpiryCountdown(self.currentRecord.expires_at);
+                }
+            }
+        });
     });
 
 })(jQuery);

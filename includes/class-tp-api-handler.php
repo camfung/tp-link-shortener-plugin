@@ -62,7 +62,6 @@ class TP_API_Handler {
      * Constructor
      */
     public function __construct() {
-        $this->init_client();
         $this->register_ajax_handlers();
         add_action('rest_api_init', array($this, 'register_rest_routes'));
         add_action('woocommerce_thankyou', array($this, 'render_wallet_topup_return_link'), 20);
@@ -84,15 +83,6 @@ class TP_API_Handler {
             $api_key,
             30
         );
-
-        // Initialize AI shortcode client
-        $this->init_shortcode_client();
-
-        // Initialize SnapCapture client
-        $this->init_snapcapture_client();
-
-        // Initialize WooWallet client
-        $this->init_woowallet_client();
     }
 
     /**
@@ -156,6 +146,34 @@ class TP_API_Handler {
             TP_WC_CONSUMER_KEY,
             TP_WC_CONSUMER_SECRET
         );
+    }
+
+    private function get_client() {
+        if ($this->client === null) {
+            $this->init_client();
+        }
+        return $this->client;
+    }
+
+    private function get_shortcode_client() {
+        if ($this->shortcode_client === null) {
+            $this->init_shortcode_client();
+        }
+        return $this->shortcode_client;
+    }
+
+    private function get_snapcapture_client() {
+        if ($this->snapcapture_client === null) {
+            $this->init_snapcapture_client();
+        }
+        return $this->snapcapture_client;
+    }
+
+    private function get_woowallet_client(): ?WooWalletClient {
+        if ($this->woowallet_client === null) {
+            $this->init_woowallet_client();
+        }
+        return $this->woowallet_client;
     }
 
     /**
@@ -305,6 +323,7 @@ class TP_API_Handler {
                 )));
             }
 
+            $this->invalidate_user_caches($uid);
             wp_send_json_success($result['data']);
         } else {
             $this->log_to_file('FAILURE - Link creation failed: ' . $result['message']);
@@ -356,7 +375,7 @@ class TP_API_Handler {
 
             $this->log_to_file('Sending request to API: ' . json_encode($request->toArray()));
             error_log('TP Link Shortener: Sending request to API: ' . json_encode($request->toArray()));
-            $response = $this->client->createMaskedRecord($request);
+            $response = $this->get_client()->createMaskedRecord($request);
             $this->log_to_file('Received API response');
             error_log('TP Link Shortener: Received API response');
 
@@ -469,10 +488,10 @@ class TP_API_Handler {
     private function generate_short_code(string $destination, GenerationTier $tier = null): string {
         $tier = $tier ?? GenerationTier::AI;
 
-        if (TP_Link_Shortener::use_gemini_generation() && $this->shortcode_client instanceof GenerateShortCodeClient) {
+        if (TP_Link_Shortener::use_gemini_generation() && $this->get_shortcode_client() instanceof GenerateShortCodeClient) {
             try {
                 $request = new GenerateShortCodeRequest($destination, TP_Link_Shortener::get_domain());
-                $response = $this->shortcode_client->generateShortCode($request, $tier);
+                $response = $this->get_shortcode_client()->generateShortCode($request, $tier);
                 $shortcode = trim($response->getShortCode());
 
                 if (!empty($shortcode)) {
@@ -506,10 +525,10 @@ class TP_API_Handler {
             'url' => null,
         );
 
-        if (TP_Link_Shortener::use_gemini_generation() && $this->shortcode_client instanceof GenerateShortCodeClient) {
+        if (TP_Link_Shortener::use_gemini_generation() && $this->get_shortcode_client() instanceof GenerateShortCodeClient) {
             try {
                 $request = new GenerateShortCodeRequest($destination, TP_Link_Shortener::get_domain());
-                $response = $this->shortcode_client->generateShortCode($request, $tier);
+                $response = $this->get_shortcode_client()->generateShortCode($request, $tier);
 
                 $result['shortcode'] = trim($response->getShortCode());
                 $result['candidates'] = $response->getCandidates();
@@ -584,7 +603,7 @@ class TP_API_Handler {
      */
     private function validate_key(string $key, string $destination, int $uid): array {
         try {
-            $record = $this->client->getMaskedRecord($key, $uid);
+            $record = $this->get_client()->getMaskedRecord($key, $uid);
 
             // Key not found
             if ($record === null) {
@@ -857,7 +876,7 @@ class TP_API_Handler {
         }
 
         // Check if SnapCapture client is initialized
-        if (!isset($this->snapcapture_client)) {
+        if ($this->get_snapcapture_client() === null) {
             error_log('TP Link Shortener: SnapCapture client not initialized');
             error_log('TP Link Shortener: Check that SNAPCAPTURE_API_KEY is configured');
             wp_send_json_error(array(
@@ -897,7 +916,7 @@ class TP_API_Handler {
             $request = ScreenshotRequest::desktop($url);
 
             // Capture screenshot (returns base64 by default for easier transmission)
-            $response = $this->snapcapture_client->captureScreenshot($request, true);
+            $response = $this->get_snapcapture_client()->captureScreenshot($request, true);
 
             error_log('TP Link Shortener: Screenshot captured successfully');
 
@@ -990,7 +1009,7 @@ class TP_API_Handler {
 
             $this->log_to_file('Step 3: Calling API client searchByFingerprint');
             // Search for records by fingerprint
-            $result = $this->client->searchByFingerprint($fingerprint, 0, '');
+            $result = $this->get_client()->searchByFingerprint($fingerprint, 0, '');
 
             $this->log_to_file('Step 4: API client returned result');
             $this->log_to_file('Result: ' . json_encode($result->toArray()));
@@ -1175,9 +1194,21 @@ class TP_API_Handler {
     }
 
     private function log_to_file($message) {
+        if (!defined('TP_DEBUG_LOG') || !TP_DEBUG_LOG) return;
         $log_file = WP_CONTENT_DIR . '/plugins/tp-update-debug.log';
         $timestamp = date('Y-m-d H:i:s');
         file_put_contents($log_file, "[$timestamp] $message\n", FILE_APPEND);
+    }
+
+    private function invalidate_user_caches(int $uid): void {
+        global $wpdb;
+        $wpdb->query(
+            $wpdb->prepare(
+                "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s",
+                '_transient_tp_usage_' . $uid . '_%',
+                '_transient_tp_links_' . $uid . '_%'
+            )
+        );
     }
 
     /**
@@ -1236,7 +1267,7 @@ class TP_API_Handler {
 
             // Update the record
             $this->log_to_file('Calling updateMaskedRecord with mid=' . $mid);
-            $response = $this->client->updateMaskedRecord($mid, $updateData);
+            $response = $this->get_client()->updateMaskedRecord($mid, $updateData);
 
             $this->log_to_file('API Response received');
 
@@ -1251,6 +1282,7 @@ class TP_API_Handler {
                     'domain' => $domain,
                 )));
 
+                $this->invalidate_user_caches($user_id);
                 wp_send_json_success(array(
                     'message' => __('Link updated successfully!', 'tp-link-shortener'),
                     'data' => $response
@@ -1481,14 +1513,23 @@ class TP_API_Handler {
         $uid = TP_Link_Shortener::get_user_id();
         $this->log_to_file('User ID: ' . $uid);
 
+        $cache_key = 'tp_links_' . $uid . '_' . md5($page . '_' . $page_size . '_' . $sort . '_' . (int)$include_usage . '_' . $status . '_' . $search);
+        $cached = get_transient($cache_key);
+        if ($cached !== false) {
+            wp_send_json_success($cached);
+            return;
+        }
+
         try {
             // Call the real API
-            $response = $this->client->getUserMapItems($uid, $page, $page_size, $sort, $include_usage, $status, $search);
+            $response = $this->get_client()->getUserMapItems($uid, $page, $page_size, $sort, $include_usage, $status, $search);
 
             $this->log_to_file('API response received: ' . json_encode($response->toArray()));
             $this->log_to_file('=== GET USER MAP ITEMS REQUEST END ===');
 
-            wp_send_json_success($response->toArray());
+            $result = $response->toArray();
+            set_transient($cache_key, $result, 5 * MINUTE_IN_SECONDS);
+            wp_send_json_success($result);
 
         } catch (PageNotFoundException $e) {
             $this->log_to_file('Page not found: ' . $e->getMessage());
@@ -1571,7 +1612,7 @@ class TP_API_Handler {
         $user_id = TP_Link_Shortener::get_user_id();
 
         try {
-            $response = $this->client->updateMaskedRecord($mid, array(
+            $response = $this->get_client()->updateMaskedRecord($mid, array(
                 'uid'    => $user_id,
                 'status' => $new_status,
             ));
@@ -1582,6 +1623,7 @@ class TP_API_Handler {
 
                 $this->log_to_file('SUCCESS - Status toggled to ' . $new_status);
                 $this->log_to_file('=== TOGGLE LINK STATUS REQUEST END ===');
+                $this->invalidate_user_caches($user_id);
                 wp_send_json_success(array(
                     'message' => $new_status === 'active'
                         ? __('Link enabled.', 'tp-link-shortener')
@@ -1636,12 +1678,6 @@ class TP_API_Handler {
         global $wpdb;
         $table = $wpdb->prefix . 'tp_link_history';
 
-        // Check if table exists
-        if ($wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $table)) !== $table) {
-            wp_send_json_success(array());
-            return;
-        }
-
         $results = $wpdb->get_results($wpdb->prepare(
             "SELECT action, changes, created_at FROM {$table} WHERE mid = %d ORDER BY created_at DESC LIMIT 50",
             $mid
@@ -1671,7 +1707,7 @@ class TP_API_Handler {
         $uid = TP_Link_Shortener::get_user_id();
 
         try {
-            $response = $this->client->getUserMapItems($uid, 1, 1, null, true, null, $tp_key);
+            $response = $this->get_client()->getUserMapItems($uid, 1, 1, null, true, null, $tp_key);
             $items = $response->toArray();
             $source = $items['source'] ?? array();
 
@@ -1732,8 +1768,15 @@ class TP_API_Handler {
             return;
         }
 
+        $cache_key = 'tp_usage_' . $uid . '_' . md5($start_date . '_' . $end_date);
+        $cached = get_transient($cache_key);
+        if ($cached !== false) {
+            wp_send_json_success($cached);
+            return;
+        }
+
         try {
-            $raw = $this->client->getUserActivitySummary($uid, $start_date, $end_date);
+            $raw = $this->get_client()->getUserActivitySummary($uid, $start_date, $end_date);
 
             // Validate and reshape response
             $validated = $this->validate_usage_summary_response($raw);
@@ -1787,10 +1830,12 @@ class TP_API_Handler {
             $this->log_to_file('Usage summary validated successfully: ' . count($days) . ' days');
             $this->log_to_file('=== GET USAGE SUMMARY REQUEST END ===');
 
-            wp_send_json_success([
+            $response_data = [
                 'days' => $days,
                 'currentWalletBalance' => $currentWalletBalance,
-            ]);
+            ];
+            set_transient($cache_key, $response_data, 5 * MINUTE_IN_SECONDS);
+            wp_send_json_success($response_data);
 
         } catch (NetworkException $e) {
             $this->log_to_file('Network error: ' . $e->getMessage());
@@ -1862,9 +1907,9 @@ class TP_API_Handler {
         }
 
         // Path 1: WooWallet REST API client
-        if ($this->woowallet_client) {
+        if ($this->get_woowallet_client()) {
             try {
-                $balanceDto = $this->woowallet_client->getBalance($user->user_email);
+                $balanceDto = $this->get_woowallet_client()->getBalance($user->user_email);
                 return (float) $balanceDto->balance;
             } catch (\Exception $e) {
                 error_log('TP Link Shortener: WooWallet REST balance failed: ' . $e->getMessage());
@@ -1949,7 +1994,7 @@ class TP_API_Handler {
             $bridgeCreditsCents = 0;
 
             try {
-                $bridgeUsageRaw = $this->client->getUserActivitySummary($uid, $bridgeStart, $today);
+                $bridgeUsageRaw = $this->get_client()->getUserActivitySummary($uid, $bridgeStart, $today);
                 $bridgeUsage = $this->validate_usage_summary_response($bridgeUsageRaw)['days'];
                 $bridgeCostsCents = $this->sum_usage_cost_cents($bridgeUsage);
             } catch (\Exception $e) {
@@ -2028,22 +2073,6 @@ class TP_API_Handler {
         global $wpdb;
         $table = $wpdb->prefix . 'tp_link_history';
 
-        // Create table if it doesn't exist
-        if ($wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $table)) !== $table) {
-            $charset_collate = $wpdb->get_charset_collate();
-            $wpdb->query("CREATE TABLE {$table} (
-                id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-                mid BIGINT(20) UNSIGNED NOT NULL,
-                uid BIGINT(20) NOT NULL,
-                action VARCHAR(50) NOT NULL,
-                changes TEXT,
-                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                PRIMARY KEY (id),
-                KEY idx_mid (mid),
-                KEY idx_uid (uid)
-            ) {$charset_collate}");
-        }
-
         $wpdb->insert($table, array(
             'mid'        => $mid,
             'uid'        => $uid,
@@ -2063,7 +2092,7 @@ class TP_API_Handler {
     public function ajax_wallet_balance() {
         check_ajax_referer('tp_link_shortener_nonce', 'nonce');
 
-        if (!$this->woowallet_client) {
+        if (!$this->get_woowallet_client()) {
             wp_send_json_error(array('message' => 'Wallet service is not configured.'), 503);
         }
 
@@ -2073,7 +2102,7 @@ class TP_API_Handler {
         }
 
         try {
-            $balance = $this->woowallet_client->getBalance($user->user_email);
+            $balance = $this->get_woowallet_client()->getBalance($user->user_email);
             wp_send_json_success(array(
                 'balance' => $balance->balance,
                 'email'   => $balance->email,
@@ -2094,7 +2123,7 @@ class TP_API_Handler {
     public function ajax_wallet_transactions() {
         check_ajax_referer('tp_link_shortener_nonce', 'nonce');
 
-        if (!$this->woowallet_client) {
+        if (!$this->get_woowallet_client()) {
             wp_send_json_error(array('message' => 'Wallet service is not configured.'), 503);
         }
 
@@ -2107,7 +2136,7 @@ class TP_API_Handler {
         $page     = isset($_REQUEST['page']) ? absint($_REQUEST['page']) : 1;
 
         try {
-            $transactions = $this->woowallet_client->getTransactions($user->user_email, $per_page, $page);
+            $transactions = $this->get_woowallet_client()->getTransactions($user->user_email, $per_page, $page);
 
             $data = array_map(fn($t) => [
                 'transaction_id' => $t->transactionId,
@@ -2142,7 +2171,7 @@ class TP_API_Handler {
     public function ajax_wallet_credit() {
         check_ajax_referer('tp_link_shortener_nonce', 'nonce');
 
-        if (!$this->woowallet_client) {
+        if (!$this->get_woowallet_client()) {
             wp_send_json_error(array('message' => 'Wallet service is not configured.'), 503);
         }
 
@@ -2159,7 +2188,7 @@ class TP_API_Handler {
         }
 
         try {
-            $transaction_id = $this->woowallet_client->credit($user->user_email, $amount, $note);
+            $transaction_id = $this->get_woowallet_client()->credit($user->user_email, $amount, $note);
             wp_send_json_success(array('transaction_id' => $transaction_id));
         } catch (WooWalletAuthException $e) {
             wp_send_json_error(array('message' => 'Authentication failed.'), 401);
@@ -2177,7 +2206,7 @@ class TP_API_Handler {
     public function ajax_wallet_debit() {
         check_ajax_referer('tp_link_shortener_nonce', 'nonce');
 
-        if (!$this->woowallet_client) {
+        if (!$this->get_woowallet_client()) {
             wp_send_json_error(array('message' => 'Wallet service is not configured.'), 503);
         }
 
@@ -2194,7 +2223,7 @@ class TP_API_Handler {
         }
 
         try {
-            $transaction_id = $this->woowallet_client->debit($user->user_email, $amount, $note);
+            $transaction_id = $this->get_woowallet_client()->debit($user->user_email, $amount, $note);
             wp_send_json_success(array('transaction_id' => $transaction_id));
         } catch (WooWalletAuthException $e) {
             wp_send_json_error(array('message' => 'Authentication failed.'), 401);

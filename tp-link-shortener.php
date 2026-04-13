@@ -26,6 +26,7 @@ define('TP_LINK_SHORTENER_VERSION', '1.0.6');
 define('TP_LINK_SHORTENER_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('TP_LINK_SHORTENER_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('TP_LINK_SHORTENER_PLUGIN_BASENAME', plugin_basename(__FILE__));
+define('TP_DEBUG_LOG', false);
 
 // Autoload Traffic Portal API Client
 require_once TP_LINK_SHORTENER_PLUGIN_DIR . 'includes/autoload.php';
@@ -65,6 +66,24 @@ function tp_link_shortener_activate() {
     if (!get_option('tp_link_shortener_domain')) {
         add_option('tp_link_shortener_domain', 'dev.trfc.link');
     }
+
+    // Create link history table
+    global $wpdb;
+    $table = $wpdb->prefix . 'tp_link_history';
+    $charset_collate = $wpdb->get_charset_collate();
+    $sql = "CREATE TABLE {$table} (
+        id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+        mid BIGINT(20) UNSIGNED NOT NULL,
+        uid BIGINT(20) NOT NULL,
+        action VARCHAR(50) NOT NULL,
+        changes TEXT,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        KEY idx_mid (mid),
+        KEY idx_uid (uid)
+    ) {$charset_collate};";
+    require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+    dbDelta($sql);
 
     flush_rewrite_rules();
 }
