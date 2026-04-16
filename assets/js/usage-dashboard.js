@@ -398,7 +398,7 @@
                         '</span>' +
                     '</div>' +
                 '</td>' +
-                '<td class="tp-ud-col-cost" data-label="Cost"><span class="tp-ud-cost">' + formatCurrency(day.hitCost) + '</span></td>' +
+                '<td class="tp-ud-col-cost" data-label="Cost"><span class="tp-ud-cost">' + formatCurrency(-day.hitCost) + '</span></td>' +
                 '<td class="tp-ud-col-balance" data-label="Balance"><span class="tp-ud-balance">' + (day.balance != null ? formatCurrency(day.balance) : '--') + '</span></td>' +
             '</tr>';
 

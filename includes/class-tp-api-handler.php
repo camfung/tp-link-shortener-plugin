@@ -1881,7 +1881,7 @@ class TP_API_Handler {
             $days[] = [
                 'date'       => sanitize_text_field($record['date']),
                 'totalHits'  => (int) $record['totalHits'],
-                'hitCost'    => (float) ($record['hitCost'] ?? 0),
+                'hitCost'    => abs((float) ($record['hitCost'] ?? 0)),
                 'apiBalance' => isset($record['balance']) && is_numeric($record['balance'])
                     ? (float) $record['balance']
                     : null,
