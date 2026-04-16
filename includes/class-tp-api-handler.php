@@ -1513,13 +1513,6 @@ class TP_API_Handler {
         $uid = TP_Link_Shortener::get_user_id();
         $this->log_to_file('User ID: ' . $uid);
 
-        $cache_key = 'tp_links_' . $uid . '_' . md5($page . '_' . $page_size . '_' . $sort . '_' . (int)$include_usage . '_' . $status . '_' . $search);
-        $cached = get_transient($cache_key);
-        if ($cached !== false) {
-            wp_send_json_success($cached);
-            return;
-        }
-
         try {
             // Call the real API
             $response = $this->get_client()->getUserMapItems($uid, $page, $page_size, $sort, $include_usage, $status, $search);
@@ -1528,7 +1521,6 @@ class TP_API_Handler {
             $this->log_to_file('=== GET USER MAP ITEMS REQUEST END ===');
 
             $result = $response->toArray();
-            set_transient($cache_key, $result, 5 * MINUTE_IN_SECONDS);
             wp_send_json_success($result);
 
         } catch (PageNotFoundException $e) {
