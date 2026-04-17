@@ -316,12 +316,23 @@
         var field = parts[0];
         var dir = parts[1];
 
-        // Merge usage days with top-up transaction rows, filtered to current date range
-        var merged = state.data.slice();
+        // Build a date-keyed map of usage day rows (cloned so we don't mutate state.data)
+        var dateMap = {};
+        var merged = [];
+        for (var d = 0; d < state.data.length; d++) {
+            var dayCopy = $.extend({}, state.data[d], { creditedAmount: 0 });
+            dateMap[dayCopy.date] = dayCopy;
+            merged.push(dayCopy);
+        }
+
+        // Merge top-up transactions: same day → add credited amount to existing row
         for (var t = 0; t < state.topupTransactions.length; t++) {
             var tx = state.topupTransactions[t];
-            if (tx.date >= state.dateStart && tx.date <= state.dateEnd) {
-                merged.push(tx);
+            if (tx.date < state.dateStart || tx.date > state.dateEnd) continue;
+            if (dateMap[tx.date]) {
+                dateMap[tx.date].creditedAmount = (dateMap[tx.date].creditedAmount || 0) + tx.amount;
+            } else {
+                merged.push($.extend({}, tx, { creditedAmount: tx.amount }));
             }
         }
         var sorted = merged;
@@ -409,12 +420,16 @@
             var day = pageData[i];
             var row;
 
+            var creditedCell = day.creditedAmount
+                ? '<span class="tp-ud-topup-credit">+' + formatCurrency(day.creditedAmount) + '</span>'
+                : '<span class="text-muted">--</span>';
+
             if (day.rowType === 'topup') {
                 row = '<tr class="tp-ud-topup-row">' +
                     '<td class="tp-ud-col-date" data-label="Date"><span class="tp-ud-date">' + formatDate(day.date) + '</span></td>' +
                     '<td class="tp-ud-col-hits" data-label="Hits"><span class="text-muted">--</span></td>' +
                     '<td class="tp-ud-col-debited" data-label="Debited"><span class="text-muted">--</span></td>' +
-                    '<td class="tp-ud-col-credited" data-label="Credited"><span class="tp-ud-topup-credit">+' + formatCurrency(day.amount) + '</span></td>' +
+                    '<td class="tp-ud-col-credited" data-label="Credited">' + creditedCell + '</td>' +
                     '<td class="tp-ud-col-balance" data-label="Balance"><span class="tp-ud-balance">' + (day.balance != null ? formatCurrency(day.balance) : '--') + '</span></td>' +
                 '</tr>';
             } else {
@@ -431,7 +446,7 @@
                         '</div>' +
                     '</td>' +
                     '<td class="tp-ud-col-debited" data-label="Debited"><span class="tp-ud-cost">' + formatCurrency(-day.hitCost) + '</span></td>' +
-                    '<td class="tp-ud-col-credited" data-label="Credited"><span class="text-muted">--</span></td>' +
+                    '<td class="tp-ud-col-credited" data-label="Credited">' + creditedCell + '</td>' +
                     '<td class="tp-ud-col-balance" data-label="Balance"><span class="tp-ud-balance">' + (day.balance != null ? formatCurrency(day.balance) : '--') + '</span></td>' +
                 '</tr>';
             }
