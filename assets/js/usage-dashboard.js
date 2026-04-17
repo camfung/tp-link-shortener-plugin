@@ -123,12 +123,24 @@
      * ------------------------------------------------------------- */
 
     /**
-     * Deterministic mock split of totalHits into clicks and QR scans.
-     * Guarantees clicks + qr === totalHits (no rounding mismatch).
+     * Split totalHits into qr vs clicks from the API-provided sources array.
+     * qr = hits from sources whose query_param_key === 'qr'.
+     * clicks = everything else (Direct + any named traffic source).
+     * If sources is missing/empty, falls back to totalHits shown in the
+     * clicks bucket so the invariant clicks + qr === totalHits still holds.
      */
-    function splitHits(totalHits) {
-        var qr = Math.round(totalHits * 0.3);
-        var clicks = totalHits - qr;
+    function splitHits(sources, totalHits) {
+        var qr = 0;
+        if (sources && sources.length) {
+            for (var i = 0; i < sources.length; i++) {
+                if (sources[i] && sources[i].query_param_key === 'qr') {
+                    qr += parseInt(sources[i].hits, 10) || 0;
+                }
+            }
+        }
+        var total = parseInt(totalHits, 10) || 0;
+        var clicks = total - qr;
+        if (clicks < 0) clicks = 0;
         return { clicks: clicks, qr: qr };
     }
 
@@ -385,7 +397,7 @@
 
         for (var i = 0; i < pageData.length; i++) {
             var day = pageData[i];
-            var split = splitHits(day.totalHits);
+            var split = splitHits(day.sources, day.totalHits);
 
             var row = '<tr>' +
                 '<td class="tp-ud-col-date" data-label="Date"><span class="tp-ud-date">' + formatDate(day.date) + '</span></td>' +
@@ -551,7 +563,7 @@
 
         for (var i = 0; i < data.length; i++) {
             labels.push(data[i].date);
-            var split = splitHits(data[i].totalHits);
+            var split = splitHits(data[i].sources, data[i].totalHits);
             clicksData.push(split.clicks);
             qrData.push(split.qr);
         }

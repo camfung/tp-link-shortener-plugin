@@ -22,9 +22,9 @@ class UsageMergeAdapter
      * usage fields with apiBalance: null (balance is computed downstream).
      * Multiple transactions on the same day are aggregated.
      *
-     * @param array<int, array{date: string, totalHits: int, hitCost: float, apiBalance: ?float}> $usageDays
+     * @param array<int, array{date: string, totalHits: int, hitCost: float, apiBalance: ?float, sources?: array}> $usageDays
      * @param WalletTransaction[] $walletTransactions
-     * @return array<int, array{date: string, totalHits: int, hitCost: float, apiBalance: ?float, otherServices: ?array}>
+     * @return array<int, array{date: string, totalHits: int, hitCost: float, apiBalance: ?float, sources: array, otherServices: ?array}>
      */
     public static function merge(array $usageDays, array $walletTransactions): array
     {
@@ -36,6 +36,7 @@ class UsageMergeAdapter
                 'totalHits'     => $day['totalHits'],
                 'hitCost'       => $day['hitCost'],
                 'apiBalance'    => $day['apiBalance'],
+                'sources'       => $day['sources'] ?? [],
                 'otherServices' => null,
             ];
         }
@@ -51,6 +52,7 @@ class UsageMergeAdapter
                     'totalHits'     => 0,
                     'hitCost'       => 0.00,
                     'apiBalance'    => null,
+                    'sources'       => [],
                     'otherServices' => null,
                 ];
             }

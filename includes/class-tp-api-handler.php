@@ -1870,17 +1870,56 @@ class TP_API_Handler {
                 continue;
             }
 
+            // API may return "YYYY-MM-DD" or "YYYY-MM-DD HH:MM:SS" -- normalize to YYYY-MM-DD
+            $rawDate = sanitize_text_field((string) $record['date']);
+            $date = substr($rawDate, 0, 10);
+
             $days[] = [
-                'date'       => sanitize_text_field($record['date']),
+                'date'       => $date,
                 'totalHits'  => (int) $record['totalHits'],
                 'hitCost'    => abs((float) ($record['hitCost'] ?? 0)),
                 'apiBalance' => isset($record['balance']) && is_numeric($record['balance'])
                     ? (float) $record['balance']
                     : null,
+                'sources'    => $this->sanitize_sources($record['sources'] ?? []),
             ];
         }
 
         return ['days' => $days];
+    }
+
+    /**
+     * Sanitize the `sources` array from a usage-summary record.
+     *
+     * Expected shape per entry:
+     *   { source_name: string, query_param_key: string|null, hits: int }
+     *
+     * Skips malformed entries. Returns empty array when input is not an array.
+     */
+    private function sanitize_sources($raw): array {
+        if (!is_array($raw)) {
+            return [];
+        }
+
+        $clean = [];
+        foreach ($raw as $entry) {
+            if (!is_array($entry) || !isset($entry['hits'])) {
+                continue;
+            }
+
+            $queryKey = $entry['query_param_key'] ?? null;
+            if ($queryKey !== null) {
+                $queryKey = sanitize_text_field((string) $queryKey);
+            }
+
+            $clean[] = [
+                'source_name'     => sanitize_text_field((string) ($entry['source_name'] ?? '')),
+                'query_param_key' => $queryKey,
+                'hits'            => (int) $entry['hits'],
+            ];
+        }
+
+        return $clean;
     }
 
     /**

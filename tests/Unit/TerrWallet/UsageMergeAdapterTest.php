@@ -264,5 +264,61 @@ namespace Tests\Unit\TerrWallet {
             $this->assertSame(12.50, $result[0]['otherServices']['amount']);
             $this->assertSame('Wallet top-up', $result[0]['otherServices']['items'][0]['description']);
         }
+
+        /**
+         * Usage days may include a sources[] array (per-day breakdown by
+         * traffic source). The adapter preserves it on usage-only and merged
+         * days, and defaults to [] on wallet-only days.
+         */
+        public function testSourcesPassThroughAndDefaults(): void
+        {
+            $usageDays = [
+                [
+                    'date'       => '2025-08-01',
+                    'totalHits'  => 13,
+                    'hitCost'    => 0.13,
+                    'apiBalance' => 99.87,
+                    'sources'    => [
+                        ['source_name' => 'QR Code', 'query_param_key' => 'qr',  'hits' => 4],
+                        ['source_name' => 'Direct',  'query_param_key' => null, 'hits' => 9],
+                    ],
+                ],
+            ];
+            $transactions = [
+                $this->makeTx('2025-08-01', 10.00, 'Top-up'),
+                $this->makeTx('2025-08-02', 5.00, 'Top-up no usage'),
+            ];
+
+            $result = UsageMergeAdapter::merge($usageDays, $transactions);
+
+            $this->assertCount(2, $result);
+
+            // Merged day preserves sources
+            $this->assertSame('2025-08-01', $result[0]['date']);
+            $this->assertCount(2, $result[0]['sources']);
+            $this->assertSame('qr', $result[0]['sources'][0]['query_param_key']);
+            $this->assertSame(4, $result[0]['sources'][0]['hits']);
+            $this->assertNull($result[0]['sources'][1]['query_param_key']);
+            $this->assertSame(9, $result[0]['sources'][1]['hits']);
+
+            // Wallet-only day defaults to empty sources array
+            $this->assertSame('2025-08-02', $result[1]['date']);
+            $this->assertSame([], $result[1]['sources']);
+        }
+
+        /**
+         * Usage day missing the sources key (legacy shape) defaults to [].
+         */
+        public function testMissingSourcesDefaultsToEmpty(): void
+        {
+            $usageDays = [
+                ['date' => '2025-09-01', 'totalHits' => 3, 'hitCost' => 0.03, 'apiBalance' => 50.00],
+            ];
+
+            $result = UsageMergeAdapter::merge($usageDays, []);
+
+            $this->assertCount(1, $result);
+            $this->assertSame([], $result[0]['sources']);
+        }
     }
 }
