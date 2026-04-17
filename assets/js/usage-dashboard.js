@@ -14,6 +14,7 @@
         dateStart: tpUsageDashboard.dateRange.start,
         dateEnd: tpUsageDashboard.dateRange.end,
         data: null,
+        topupTransactions: [],
         currentWalletBalance: null,
         sort: 'date:desc',
         currentPage: 1,
@@ -314,7 +315,16 @@
         var parts = state.sort.split(':');
         var field = parts[0];
         var dir = parts[1];
-        var sorted = state.data.slice();
+
+        // Merge usage days with top-up transaction rows, filtered to current date range
+        var merged = state.data.slice();
+        for (var t = 0; t < state.topupTransactions.length; t++) {
+            var tx = state.topupTransactions[t];
+            if (tx.date >= state.dateStart && tx.date <= state.dateEnd) {
+                merged.push(tx);
+            }
+        }
+        var sorted = merged;
 
         sorted.sort(function(a, b) {
             var aVal = a[field];
@@ -397,22 +407,32 @@
 
         for (var i = 0; i < pageData.length; i++) {
             var day = pageData[i];
-            var split = splitHits(day.sources, day.totalHits);
+            var row;
 
-            var row = '<tr>' +
-                '<td class="tp-ud-col-date" data-label="Date"><span class="tp-ud-date">' + formatDate(day.date) + '</span></td>' +
-                '<td class="tp-ud-col-hits" data-label="Hits">' +
-                    '<div class="tp-ud-hits-cell">' +
-                        '<span class="tp-ud-hits-total">' + day.totalHits.toLocaleString() + '</span>' +
-                        '<span class="tp-ud-hits-breakdown">' +
-                            '<i class="fas fa-mouse-pointer"></i> ' + split.clicks.toLocaleString() +
-                            ' <i class="fas fa-qrcode ms-1"></i> ' + split.qr.toLocaleString() +
-                        '</span>' +
-                    '</div>' +
-                '</td>' +
-                '<td class="tp-ud-col-cost" data-label="Cost"><span class="tp-ud-cost">' + formatCurrency(-day.hitCost) + '</span></td>' +
-                '<td class="tp-ud-col-balance" data-label="Balance"><span class="tp-ud-balance">' + (day.balance != null ? formatCurrency(day.balance) : '--') + '</span></td>' +
-            '</tr>';
+            if (day.rowType === 'topup') {
+                row = '<tr class="tp-ud-topup-row">' +
+                    '<td class="tp-ud-col-date" data-label="Date"><span class="tp-ud-date">' + formatDate(day.date) + '</span></td>' +
+                    '<td class="tp-ud-col-hits" data-label="Hits"><span class="text-muted">--</span></td>' +
+                    '<td class="tp-ud-col-cost" data-label="Cost"><span class="tp-ud-topup-credit">+' + formatCurrency(day.amount) + '</span></td>' +
+                    '<td class="tp-ud-col-balance" data-label="Balance"><span class="tp-ud-balance">' + (day.balance != null ? formatCurrency(day.balance) : '--') + '</span></td>' +
+                '</tr>';
+            } else {
+                var split = splitHits(day.sources, day.totalHits);
+                row = '<tr>' +
+                    '<td class="tp-ud-col-date" data-label="Date"><span class="tp-ud-date">' + formatDate(day.date) + '</span></td>' +
+                    '<td class="tp-ud-col-hits" data-label="Hits">' +
+                        '<div class="tp-ud-hits-cell">' +
+                            '<span class="tp-ud-hits-total">' + day.totalHits.toLocaleString() + '</span>' +
+                            '<span class="tp-ud-hits-breakdown">' +
+                                '<i class="fas fa-mouse-pointer"></i> ' + split.clicks.toLocaleString() +
+                                ' <i class="fas fa-qrcode ms-1"></i> ' + split.qr.toLocaleString() +
+                            '</span>' +
+                        '</div>' +
+                    '</td>' +
+                    '<td class="tp-ud-col-cost" data-label="Cost"><span class="tp-ud-cost">' + formatCurrency(-day.hitCost) + '</span></td>' +
+                    '<td class="tp-ud-col-balance" data-label="Balance"><span class="tp-ud-balance">' + (day.balance != null ? formatCurrency(day.balance) : '--') + '</span></td>' +
+                '</tr>';
+            }
 
             $tbody.append(row);
         }
@@ -1052,71 +1072,42 @@
     }
 
     /**
-     * Load wallet transactions into the dashboard top-up section.
+     * Fetch all wallet top-up (credit) transactions and store in state.topupTransactions.
+     * Re-renders the table once loaded if dashboard data is already available.
      */
-    var dashTxPage = 1;
-    var dashTxPerPage = 10;
-
-    function loadDashboardTransactions(page) {
-        page = page || 1;
-        dashTxPage = page;
-
-        var $tbody = $('#tp-ud-topup-tx-body');
-        var $pagination = $('#tp-ud-topup-tx-pagination');
-        var $prev = $('#tp-ud-topup-tx-prev');
-        var $next = $('#tp-ud-topup-tx-next');
-        var $info = $('#tp-ud-topup-tx-page-info');
-
-        $tbody.html('<tr><td colspan="3" class="text-center text-muted">Loading...</td></tr>');
-        $pagination.hide();
-
+    function fetchTopupTransactions() {
         $.ajax({
             url: tpUsageDashboard.ajaxUrl,
             type: 'POST',
             data: {
                 action: 'tp_wallet_transactions',
                 nonce: tpUsageDashboard.nonce,
-                per_page: dashTxPerPage,
-                page: page
+                per_page: 100,
+                page: 1
             },
             timeout: 15000,
             success: function(response) {
                 var txList = response.data && response.data.transactions
                     ? response.data.transactions
                     : (Array.isArray(response.data) ? response.data : []);
-                var hasMore = response.data && response.data.has_more;
 
-                if (response.success && txList.length > 0) {
-                    var html = '';
-                    for (var i = 0; i < txList.length; i++) {
-                        var tx = txList[i];
-                        var amountClass = tx.type === 'credit'
-                            ? 'tp-ud-wallet-tx-credit'
-                            : 'tp-ud-wallet-tx-debit';
-                        var prefix = tx.type === 'credit' ? '+' : '-';
-                        var dateStr = tx.date ? tx.date.substring(0, 10) : '';
-                        html += '<tr>' +
-                            '<td>' + escapeHtml(dateStr) + '</td>' +
-                            '<td>' + escapeHtml(tx.details || tx.description || '') + '</td>' +
-                            '<td class="text-right ' + amountClass + '">' + prefix + formatCurrency(Math.abs(tx.amount)) + '</td>' +
-                            '</tr>';
-                    }
-                    $tbody.html(html);
-
-                    if (page > 1 || hasMore) {
-                        $prev.prop('disabled', page <= 1);
-                        $next.prop('disabled', !hasMore);
-                        $info.text('Page ' + page);
-                        $pagination.show();
-                    }
-                } else if (page > 1) {
-                    loadDashboardTransactions(page - 1);
-                } else {
-                    $tbody.html('<tr><td colspan="3" class="text-center text-muted">No top-up history found.</td></tr>');
+                state.topupTransactions = [];
+                for (var i = 0; i < txList.length; i++) {
+                    var tx = txList[i];
+                    if (tx.type !== 'credit') continue;
+                    state.topupTransactions.push({
+                        rowType: 'topup',
+                        date: tx.date ? tx.date.substring(0, 10) : '',
+                        amount: Math.abs(tx.amount),
+                        balance: tx.balance != null ? parseFloat(tx.balance) : null,
+                        totalHits: 0,
+                        hitCost: 0
+                    });
                 }
-            },
-            error: function() {
-                $tbody.html('<tr><td colspan="3" class="text-center text-muted">Could not load top-up history.</td></tr>');
+
+                if (state.data && state.data.length > 0) {
+                    renderTable();
+                }
             }
         });
     }
@@ -1130,14 +1121,7 @@
         bindEvents();
         loadData();
         loadWalletTransactions(1); // Fire in parallel — doesn't block dashboard render
-        loadDashboardTransactions(1);
-
-        $('#tp-ud-topup-tx-prev').on('click', function() {
-            if (dashTxPage > 1) loadDashboardTransactions(dashTxPage - 1);
-        });
-        $('#tp-ud-topup-tx-next').on('click', function() {
-            loadDashboardTransactions(dashTxPage + 1);
-        });
+        fetchTopupTransactions();
     });
 
 })(jQuery);
