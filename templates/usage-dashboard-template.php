@@ -130,8 +130,11 @@ if (!defined('ABSPATH')) {
                             <th class="tp-ud-col-hits tp-ud-sortable" data-sort="totalHits">
                                 <?php esc_html_e('Hits', 'tp-link-shortener'); ?> <i class="fas fa-sort tp-ud-sort-icon"></i>
                             </th>
-                            <th class="tp-ud-col-cost tp-ud-sortable" data-sort="hitCost">
-                                <?php esc_html_e('Cost', 'tp-link-shortener'); ?> <i class="fas fa-sort tp-ud-sort-icon"></i>
+                            <th class="tp-ud-col-debited tp-ud-sortable" data-sort="hitCost">
+                                <?php esc_html_e('Debited', 'tp-link-shortener'); ?> <i class="fas fa-sort tp-ud-sort-icon"></i>
+                            </th>
+                            <th class="tp-ud-col-credited">
+                                <?php esc_html_e('Credited', 'tp-link-shortener'); ?>
                             </th>
                             <th class="tp-ud-col-balance">
                                 <?php esc_html_e('Balance', 'tp-link-shortener'); ?>

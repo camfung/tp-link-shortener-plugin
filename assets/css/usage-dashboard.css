@@ -437,10 +437,11 @@
    Column Widths
    ======================================== */
 
-.tp-ud-col-date    { width: 20%; min-width: 100px; }
-.tp-ud-col-hits    { width: 25%; min-width: 120px; }
-.tp-ud-col-cost    { width: 20%; min-width: 85px; text-align: left; }
-.tp-ud-col-balance { width: 20%; min-width: 95px; text-align: left; }
+.tp-ud-col-date     { width: 18%; min-width: 100px; }
+.tp-ud-col-hits     { width: 22%; min-width: 120px; }
+.tp-ud-col-debited  { width: 15%; min-width: 80px; text-align: left; }
+.tp-ud-col-credited { width: 15%; min-width: 80px; text-align: left; }
+.tp-ud-col-balance  { width: 18%; min-width: 95px; text-align: left; }
 
 /* ========================================
    Sortable Headers
@@ -688,7 +689,8 @@
     /* Remove desktop column width constraints */
     .tp-ud-col-date,
     .tp-ud-col-hits,
-    .tp-ud-col-cost,
+    .tp-ud-col-debited,
+    .tp-ud-col-credited,
     .tp-ud-col-balance {
         width: auto;
         min-width: 0;

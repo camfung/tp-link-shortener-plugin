@@ -413,7 +413,8 @@
                 row = '<tr class="tp-ud-topup-row">' +
                     '<td class="tp-ud-col-date" data-label="Date"><span class="tp-ud-date">' + formatDate(day.date) + '</span></td>' +
                     '<td class="tp-ud-col-hits" data-label="Hits"><span class="text-muted">--</span></td>' +
-                    '<td class="tp-ud-col-cost" data-label="Cost"><span class="tp-ud-topup-credit">+' + formatCurrency(day.amount) + '</span></td>' +
+                    '<td class="tp-ud-col-debited" data-label="Debited"><span class="text-muted">--</span></td>' +
+                    '<td class="tp-ud-col-credited" data-label="Credited"><span class="tp-ud-topup-credit">+' + formatCurrency(day.amount) + '</span></td>' +
                     '<td class="tp-ud-col-balance" data-label="Balance"><span class="tp-ud-balance">' + (day.balance != null ? formatCurrency(day.balance) : '--') + '</span></td>' +
                 '</tr>';
             } else {
@@ -429,7 +430,8 @@
                             '</span>' +
                         '</div>' +
                     '</td>' +
-                    '<td class="tp-ud-col-cost" data-label="Cost"><span class="tp-ud-cost">' + formatCurrency(-day.hitCost) + '</span></td>' +
+                    '<td class="tp-ud-col-debited" data-label="Debited"><span class="tp-ud-cost">' + formatCurrency(-day.hitCost) + '</span></td>' +
+                    '<td class="tp-ud-col-credited" data-label="Credited"><span class="text-muted">--</span></td>' +
                     '<td class="tp-ud-col-balance" data-label="Balance"><span class="tp-ud-balance">' + (day.balance != null ? formatCurrency(day.balance) : '--') + '</span></td>' +
                 '</tr>';
             }
