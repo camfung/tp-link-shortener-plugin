@@ -1079,6 +1079,20 @@
     color: #5f6f8c;
 }
 
+/* Top-Up History dashboard section */
+.tp-ud-topup-section {
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid #e8eef8;
+}
+
+.tp-ud-topup-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #1c4f9f;
+    margin-bottom: .75rem;
+}
+
 /* Mobile responsive */
 @media (max-width: 768px) {
     .tp-ud-wallet-banner {

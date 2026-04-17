@@ -1051,6 +1051,76 @@
         });
     }
 
+    /**
+     * Load wallet transactions into the dashboard top-up section.
+     */
+    var dashTxPage = 1;
+    var dashTxPerPage = 10;
+
+    function loadDashboardTransactions(page) {
+        page = page || 1;
+        dashTxPage = page;
+
+        var $tbody = $('#tp-ud-topup-tx-body');
+        var $pagination = $('#tp-ud-topup-tx-pagination');
+        var $prev = $('#tp-ud-topup-tx-prev');
+        var $next = $('#tp-ud-topup-tx-next');
+        var $info = $('#tp-ud-topup-tx-page-info');
+
+        $tbody.html('<tr><td colspan="3" class="text-center text-muted">Loading...</td></tr>');
+        $pagination.hide();
+
+        $.ajax({
+            url: tpUsageDashboard.ajaxUrl,
+            type: 'POST',
+            data: {
+                action: 'tp_wallet_transactions',
+                nonce: tpUsageDashboard.nonce,
+                per_page: dashTxPerPage,
+                page: page
+            },
+            timeout: 15000,
+            success: function(response) {
+                var txList = response.data && response.data.transactions
+                    ? response.data.transactions
+                    : (Array.isArray(response.data) ? response.data : []);
+                var hasMore = response.data && response.data.has_more;
+
+                if (response.success && txList.length > 0) {
+                    var html = '';
+                    for (var i = 0; i < txList.length; i++) {
+                        var tx = txList[i];
+                        var amountClass = tx.type === 'credit'
+                            ? 'tp-ud-wallet-tx-credit'
+                            : 'tp-ud-wallet-tx-debit';
+                        var prefix = tx.type === 'credit' ? '+' : '-';
+                        var dateStr = tx.date ? tx.date.substring(0, 10) : '';
+                        html += '<tr>' +
+                            '<td>' + escapeHtml(dateStr) + '</td>' +
+                            '<td>' + escapeHtml(tx.details || tx.description || '') + '</td>' +
+                            '<td class="text-right ' + amountClass + '">' + prefix + formatCurrency(Math.abs(tx.amount)) + '</td>' +
+                            '</tr>';
+                    }
+                    $tbody.html(html);
+
+                    if (page > 1 || hasMore) {
+                        $prev.prop('disabled', page <= 1);
+                        $next.prop('disabled', !hasMore);
+                        $info.text('Page ' + page);
+                        $pagination.show();
+                    }
+                } else if (page > 1) {
+                    loadDashboardTransactions(page - 1);
+                } else {
+                    $tbody.html('<tr><td colspan="3" class="text-center text-muted">No top-up history found.</td></tr>');
+                }
+            },
+            error: function() {
+                $tbody.html('<tr><td colspan="3" class="text-center text-muted">Could not load top-up history.</td></tr>');
+            }
+        });
+    }
+
     /* ---------------------------------------------------------------
      * Document ready
      * ------------------------------------------------------------- */
@@ -1060,6 +1130,14 @@
         bindEvents();
         loadData();
         loadWalletTransactions(1); // Fire in parallel — doesn't block dashboard render
+        loadDashboardTransactions(1);
+
+        $('#tp-ud-topup-tx-prev').on('click', function() {
+            if (dashTxPage > 1) loadDashboardTransactions(dashTxPage - 1);
+        });
+        $('#tp-ud-topup-tx-next').on('click', function() {
+            loadDashboardTransactions(dashTxPage + 1);
+        });
     });
 
 })(jQuery);

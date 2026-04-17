@@ -161,6 +161,34 @@ if (!defined('ABSPATH')) {
             <p class="text-muted" id="tp-ud-empty-range"></p>
         </div>
 
+        <!-- Top-Up History -->
+        <div class="tp-ud-topup-section" id="tp-ud-topup-section">
+            <div class="tp-ud-topup-title"><?php esc_html_e('Top-Up History', 'tp-link-shortener'); ?></div>
+            <div class="tp-ud-wallet-tx-table-wrap">
+                <table class="tp-ud-wallet-tx-table">
+                    <thead>
+                        <tr>
+                            <th><?php esc_html_e('Date', 'tp-link-shortener'); ?></th>
+                            <th><?php esc_html_e('Description', 'tp-link-shortener'); ?></th>
+                            <th class="text-right"><?php esc_html_e('Amount', 'tp-link-shortener'); ?></th>
+                        </tr>
+                    </thead>
+                    <tbody id="tp-ud-topup-tx-body">
+                        <tr><td colspan="3" class="text-center text-muted"><?php esc_html_e('Loading...', 'tp-link-shortener'); ?></td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="tp-ud-wallet-tx-pagination" id="tp-ud-topup-tx-pagination" style="display:none;">
+                <button class="tp-ud-wallet-tx-page-btn" id="tp-ud-topup-tx-prev" disabled>
+                    <i class="fas fa-chevron-left"></i> <?php esc_html_e('Prev', 'tp-link-shortener'); ?>
+                </button>
+                <span class="tp-ud-wallet-tx-page-info" id="tp-ud-topup-tx-page-info"></span>
+                <button class="tp-ud-wallet-tx-page-btn" id="tp-ud-topup-tx-next">
+                    <?php esc_html_e('Next', 'tp-link-shortener'); ?> <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
+
     </div>
 
     </div>
@@ -193,7 +221,7 @@ if (!defined('ABSPATH')) {
                             <?php esc_html_e('Taking too long? Continue to checkout.', 'tp-link-shortener'); ?>
                         </a>
                     </div>
-                    <div class="tp-ud-wallet-auto-section">
+                    <div class="tp-ud-wallet-auto-section" style="display:none;">
                         <label class="tp-ud-wallet-toggle">
                             <input type="checkbox" id="tp-ud-wallet-auto-toggle">
                             <span class="tp-ud-wallet-toggle-slider"></span>
