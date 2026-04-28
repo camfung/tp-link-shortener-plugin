@@ -1,6 +1,6 @@
 <?php
 /**
- * Plugin Name: Traffic Portal Link Shortener
+ * Plugin Name: Trafficportal ui plugin
  * Plugin URI: https://trafficportal.dev
  * Description: Create short links using Traffic Portal API with QR code generation. Simple interface for creating memorable short URLs.
  * Version: 1.0.0
