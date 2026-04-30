@@ -1405,15 +1405,15 @@
             var hasQr = pendingChanges.has('tpKey') || pendingChanges.has('domain');
 
             if (hasDestination && hasQr) {
-                return "Updates this link's record and regenerates the preview and QR code";
+                return 'Will regenerate the preview and QR code';
             }
             if (hasDestination) {
-                return "Updates this link's record and regenerates the preview";
+                return 'Will regenerate the preview';
             }
             if (hasQr) {
-                return "Updates this link's record and regenerates the QR code";
+                return 'Will regenerate the QR code';
             }
-            return "Updates this link's record";
+            return '';
         },
 
         /**

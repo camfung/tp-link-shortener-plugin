@@ -58,33 +58,33 @@ describe('M1 — window.tpSaveHelper global (IIFE browser path)', () => {
 // ---------------------------------------------------------------------------
 
 describe('T010 — computeHelperText pure function', () => {
-    it('returns base string when pendingChanges is empty', () => {
-        expect(computeHelperText(new Set())).toBe("Updates this link's record");
+    it('returns empty string when pendingChanges is empty', () => {
+        expect(computeHelperText(new Set())).toBe('');
     });
 
     it('returns preview-regen string when only destination changed', () => {
         expect(computeHelperText(new Set(['destination'])))
-            .toBe("Updates this link's record and regenerates the preview");
+            .toBe('Will regenerate the preview');
     });
 
     it('returns QR-regen string when only tpKey changed', () => {
         expect(computeHelperText(new Set(['tpKey'])))
-            .toBe("Updates this link's record and regenerates the QR code");
+            .toBe('Will regenerate the QR code');
     });
 
     it('returns QR-regen string when only domain changed', () => {
         expect(computeHelperText(new Set(['domain'])))
-            .toBe("Updates this link's record and regenerates the QR code");
+            .toBe('Will regenerate the QR code');
     });
 
     it('returns both-regen string when destination AND tpKey changed', () => {
         expect(computeHelperText(new Set(['destination', 'tpKey'])))
-            .toBe("Updates this link's record and regenerates the preview and QR code");
+            .toBe('Will regenerate the preview and QR code');
     });
 
     it('returns both-regen string when destination AND domain changed', () => {
         expect(computeHelperText(new Set(['destination', 'domain'])))
-            .toBe("Updates this link's record and regenerates the preview and QR code");
+            .toBe('Will regenerate the preview and QR code');
     });
 });
 
@@ -160,7 +160,7 @@ describe('T010 — Edit modal button label and helper text', () => {
 
         const helperEl = document.getElementById('tp-save-helper-text');
         expect(helperEl).not.toBeNull();
-        expect(helperEl.textContent).toBe("Updates this link's record");
+        expect(helperEl.textContent).toBe('');
     });
 
     it('changing destination updates helper text to preview-regen string', () => {
@@ -175,7 +175,7 @@ describe('T010 — Edit modal button label and helper text', () => {
         destInput.dispatchEvent(new window.Event('input'));
 
         const helperEl = document.getElementById('tp-save-helper-text');
-        expect(helperEl.textContent).toBe("Updates this link's record and regenerates the preview");
+        expect(helperEl.textContent).toBe('Will regenerate the preview');
     });
 
     it('changing tpKey updates helper text to QR-regen string', () => {
@@ -190,7 +190,7 @@ describe('T010 — Edit modal button label and helper text', () => {
         keyInput.dispatchEvent(new window.Event('input'));
 
         const helperEl = document.getElementById('tp-save-helper-text');
-        expect(helperEl.textContent).toBe("Updates this link's record and regenerates the QR code");
+        expect(helperEl.textContent).toBe('Will regenerate the QR code');
     });
 
     it('changing both destination and tpKey shows both-regen string', () => {
@@ -209,7 +209,7 @@ describe('T010 — Edit modal button label and helper text', () => {
         keyInput.dispatchEvent(new window.Event('input'));
 
         const helperEl = document.getElementById('tp-save-helper-text');
-        expect(helperEl.textContent).toBe("Updates this link's record and regenerates the preview and QR code");
+        expect(helperEl.textContent).toBe('Will regenerate the preview and QR code');
     });
 
     it('reverting all changes returns helper text to initial string', () => {
@@ -227,7 +227,7 @@ describe('T010 — Edit modal button label and helper text', () => {
         destInput.dispatchEvent(new window.Event('input'));
 
         const helperEl = document.getElementById('tp-save-helper-text');
-        expect(helperEl.textContent).toBe("Updates this link's record");
+        expect(helperEl.textContent).toBe('');
     });
 });
 

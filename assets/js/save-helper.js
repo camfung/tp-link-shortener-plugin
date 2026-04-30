@@ -21,10 +21,10 @@
     // Helper text strings (F005 Scenario 4)
     // ---------------------------------------------------------------------------
 
-    var TEXT_BASE    = "Updates this link's record";
-    var TEXT_PREVIEW = "Updates this link's record and regenerates the preview";
-    var TEXT_QR      = "Updates this link's record and regenerates the QR code";
-    var TEXT_BOTH    = "Updates this link's record and regenerates the preview and QR code";
+    var TEXT_BASE    = '';
+    var TEXT_PREVIEW = 'Will regenerate the preview';
+    var TEXT_QR      = 'Will regenerate the QR code';
+    var TEXT_BOTH    = 'Will regenerate the preview and QR code';
 
     /**
      * Compute the helper text string based on the set of pending field changes.
