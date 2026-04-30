@@ -180,6 +180,15 @@ class TP_API_Handler {
     }
 
     /**
+     * Inject a TrafficPortal client (used by tests to supply a mock).
+     *
+     * @param TrafficPortalApiClient $client
+     */
+    public function set_client(TrafficPortalApiClient $client): void {
+        $this->client = $client;
+    }
+
+    /**
      * Sideload a SnapCapture preview image for a link.
      *
      * Captures a screenshot of $destinationUrl via SnapCapture, writes the
@@ -1660,6 +1669,7 @@ class TP_API_Handler {
             $this->log_to_file('=== GET USER MAP ITEMS REQUEST END ===');
 
             $result = $response->toArray();
+            $this->enrich_items_with_preview_url($result['source']);
             wp_send_json_success($result);
 
         } catch (PageNotFoundException $e) {
@@ -2689,5 +2699,62 @@ class TP_API_Handler {
         echo '<p class="tp-wallet-return-banner__text">' . esc_html__('You can return to your usage dashboard to review your updated balance.', 'tp-link-shortener') . '</p>';
         echo '<a class="button wc-forward" href="' . esc_url($dashboard_url) . '">' . esc_html__('Return to Dashboard', 'tp-link-shortener') . '</a>';
         echo '</section>';
+    }
+
+    /**
+     * Enrich a list of serialised map-item arrays with a `preview_url` field.
+     *
+     * Issues a single batched SELECT against wp_tp_link_previews (no N+1):
+     *   SELECT mid, local_path FROM wp_tp_link_previews WHERE mid IN (...)
+     *
+     * Each item receives:
+     *   - A full local URL (baseurl + '/tp-link-previews/' + local_path) when a
+     *     previews row exists and local_path is non-empty.
+     *   - null otherwise (no row, or row with empty local_path from a soft-fail).
+     *
+     * @param array<int, array<string, mixed>> $items  Reference to $result['source'] array.
+     *                                                  Modified in-place.
+     */
+    private function enrich_items_with_preview_url(array &$items): void {
+        if (empty($items)) {
+            return;
+        }
+
+        // Collect all MIDs from this page of results.
+        $mids = array_map(fn(array $item) => (int) $item['mid'], $items);
+
+        // Single batched query — no N+1.
+        global $wpdb;
+        $placeholders = implode(',', array_fill(0, count($mids), '%d'));
+        $rows = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT mid, local_path FROM " . TP_LINK_PREVIEWS_TABLE . " WHERE mid IN ({$placeholders})",
+                ...$mids
+            ),
+            ARRAY_A
+        ) ?? [];
+
+        // Build mid → local_path lookup.
+        $previewMap = [];
+        foreach ($rows as $row) {
+            $previewMap[(int) $row['mid']] = $row['local_path'];
+        }
+
+        // Determine the base URL for uploads.
+        $uploadDir = wp_upload_dir();
+        $baseUrl   = rtrim($uploadDir['baseurl'], '/');
+
+        // Annotate each item.
+        foreach ($items as &$item) {
+            $mid       = (int) $item['mid'];
+            $localPath = $previewMap[$mid] ?? null;
+
+            if ($localPath !== null && $localPath !== '') {
+                $item['preview_url'] = $baseUrl . '/' . ltrim($localPath, '/');
+            } else {
+                $item['preview_url'] = null;
+            }
+        }
+        unset($item); // Break reference after loop.
     }
 }
