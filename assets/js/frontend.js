@@ -677,6 +677,13 @@
                 success: function(response) {
                     TPDebug.log('update', 'TP Update: Success response:', response);
 
+                    // Handle server-side no-op (T009): no fields changed
+                    if (response.success && response.data && response.data.status === 'no_changes') {
+                        self.showSnackbar('No changes to save', 'info');
+                        $(document).trigger('tp:linkUpdated');
+                        return;
+                    }
+
                     if (response.success) {
                         self.showSnackbar('Link updated successfully!', 'success');
 
@@ -1386,14 +1393,104 @@
         /**
          * Switch to update mode
          */
+        /**
+         * Compute the save-action helper text based on pending field changes.
+         * Pure function — same as save-helper.js:computeHelperText.
+         *
+         * @param {Set} pendingChanges - Set of changed field keys
+         * @returns {string}
+         */
+        _computeHelperText: function(pendingChanges) {
+            var hasDestination = pendingChanges.has('destination');
+            var hasQr = pendingChanges.has('tpKey') || pendingChanges.has('domain');
+
+            if (hasDestination && hasQr) {
+                return "Updates this link's record and regenerates the preview and QR code";
+            }
+            if (hasDestination) {
+                return "Updates this link's record and regenerates the preview";
+            }
+            if (hasQr) {
+                return "Updates this link's record and regenerates the QR code";
+            }
+            return "Updates this link's record";
+        },
+
+        /**
+         * Inject (or reuse) the helper text element below the submit button group.
+         * Wires input listeners on destination + custom key to update helper text.
+         */
+        _setupSaveHelperText: function() {
+            var self = this;
+            var original = this._editOriginal || {};
+
+            // Ensure helper text element exists
+            var helperEl = document.getElementById('tp-save-helper-text');
+            if (!helperEl) {
+                var inputVisual = document.querySelector('.tp-custom-key-group .tp-input-visual');
+                if (inputVisual) {
+                    helperEl = document.createElement('div');
+                    helperEl.id = 'tp-save-helper-text';
+                    helperEl.className = 'tp-save-helper-text';
+                    helperEl.setAttribute('aria-live', 'polite');
+                    if (inputVisual.nextSibling) {
+                        inputVisual.parentNode.insertBefore(helperEl, inputVisual.nextSibling);
+                    } else {
+                        inputVisual.parentNode.appendChild(helperEl);
+                    }
+                }
+            }
+
+            if (!helperEl) {
+                return; // DOM not ready — bail gracefully
+            }
+
+            // Set initial text
+            helperEl.textContent = this._computeHelperText(new Set());
+
+            // Refresh helper text on every keystroke
+            function refresh() {
+                var pendingChanges = new Set();
+                var curDest = self.$destinationInput ? self.$destinationInput.val() : '';
+                var curKey  = self.$customKeyInput ? self.$customKeyInput.val() : '';
+
+                if (curDest !== original.destination) {
+                    pendingChanges.add('destination');
+                }
+                if (curKey !== original.tpKey) {
+                    pendingChanges.add('tpKey');
+                }
+
+                helperEl.textContent = self._computeHelperText(pendingChanges);
+            }
+
+            // Unbind previous listeners (avoid duplicate binds on re-open)
+            if (this.$destinationInput) {
+                this.$destinationInput.off('input.saveHelper').on('input.saveHelper', refresh);
+            }
+            if (this.$customKeyInput) {
+                this.$customKeyInput.off('input.saveHelper').on('input.saveHelper', refresh);
+            }
+        },
+
         switchToUpdateMode: function() {
             this.formMode = 'update';
 
-            const updateLabel = 'Update Link';
+            const updateLabel = 'Save changes';
             this.$submitText.text(updateLabel);
             this.$submitBtn.attr('aria-label', updateLabel);
             this.$submitBtn.attr('title', updateLabel);
-            this.$submitIcon.removeClass('fa-link').addClass('fa-save');
+            this.$submitIcon.removeClass('fa-link fa-save fa-edit').addClass('fa-floppy-disk');
+
+            // Snapshot original values for change detection
+            this._editOriginal = {
+                destination: this.currentRecord ? (this.currentRecord.destination || '') : '',
+                tpKey: this.currentRecord ? (this.currentRecord.tpKey || this.currentRecord.key || '') : '',
+                domain: this.currentRecord ? (this.currentRecord.domain || '') : ''
+            };
+
+            // Inject / reset helper text element
+            this._setupSaveHelperText();
 
             // Ensure the destination input is enabled in update mode
             this.$destinationInput.prop('disabled', false);
@@ -1426,7 +1523,20 @@
             this.$submitText.text(createLabel);
             this.$submitBtn.attr('aria-label', createLabel);
             this.$submitBtn.attr('title', createLabel);
-            this.$submitIcon.removeClass('fa-edit').addClass('fa-save');
+            this.$submitIcon.removeClass('fa-edit fa-floppy-disk').addClass('fa-save');
+
+            // Remove save helper text and input listeners
+            var helperEl = document.getElementById('tp-save-helper-text');
+            if (helperEl) {
+                helperEl.parentNode.removeChild(helperEl);
+            }
+            if (this.$destinationInput) {
+                this.$destinationInput.off('input.saveHelper');
+            }
+            if (this.$customKeyInput) {
+                this.$customKeyInput.off('input.saveHelper');
+            }
+            this._editOriginal = null;
 
             this.$destinationInput.val('');
             this.$customKeyInput.val('');

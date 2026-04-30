@@ -1078,3 +1078,14 @@ form .tp-plain-input:focus,
         width: calc(100% - 2rem);
     }
 }
+
+/* ----------------------------------------------------------------
+ * Save helper text (T010 — dynamic save-action label)
+ * -------------------------------------------------------------- */
+.tp-save-helper-text {
+    font-size: 0.8rem;
+    color: var(--tp-muted);
+    margin-top: 0.35rem;
+    line-height: 1.4;
+    transition: opacity 0.2s ease;
+}
