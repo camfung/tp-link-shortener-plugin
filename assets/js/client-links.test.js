@@ -414,6 +414,360 @@ describe('T011 — Disabled rows retain tp-cl-row-disabled class and are clickab
 });
 
 // ===========================================================================
+// T008 — Thumbnail rendering + placeholder + onerror swap
+// ===========================================================================
+
+/**
+ * Replicate the renderThumbnail(item) helper from client-links.js.
+ *
+ * Returns the HTML string for the thumbnail slot:
+ *   - <img> with loading="lazy", src=escaped URL, alt="", and onerror swap
+ *   - placeholder <span> when no preview_url
+ *
+ * This is a verbatim copy of the implementation so tests run in isolation
+ * without loading jQuery or the full module.
+ */
+
+var T008_PLACEHOLDER_HTML =
+    '<span class="tp-cl-row-thumb tp-cl-row-thumb-placeholder">' +
+        '<i class="fas fa-globe"></i>' +
+    '</span>';
+
+function t008EscapeHtml(text) {
+    if (!text) return '';
+    var div = { textContent: text, innerHTML: '' };
+    // Minimal escape for test context — replicate the DOM-based escapeHtml
+    return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+// Mirrors the PLACEHOLDER_ATTR_ESCAPED constant in client-links.js
+var PLACEHOLDER_ATTR_ESCAPED =
+    '<span class=&quot;tp-cl-row-thumb tp-cl-row-thumb-placeholder&quot;>' +
+        '<i class=&quot;fas fa-globe&quot;></i>' +
+    '</span>';
+
+function renderThumbnail(item) {
+    if (item.preview_url) {
+        return (
+            '<img class="tp-cl-row-thumb" loading="lazy" src="' +
+            t008EscapeHtml(item.preview_url) +
+            '" alt="" onerror="this.outerHTML=\'' + PLACEHOLDER_ATTR_ESCAPED + '\'">'
+        );
+    }
+    return T008_PLACEHOLDER_HTML;
+}
+
+/**
+ * Updated buildRowHtml that mirrors the T008 changes to the real row template:
+ * renderThumbnail output is the first child of .tp-cl-link-cell.
+ */
+function buildRowHtmlWithThumb(item) {
+    var shortUrl = 'https://' + item.domain + '/' + item.tpKey;
+    var isActive = (item.status || 'active') !== 'disabled';
+
+    var clicksHtml = '<span class="text-muted">-</span>';
+    if (item.usage) {
+        clicksHtml =
+            '<div class="tp-cl-clicks-cell">' +
+                '<span class="tp-cl-clicks-total">' + item.usage.total + '</span>' +
+                '<span class="tp-cl-clicks-breakdown">' +
+                    item.usage.qr + ' ' + item.usage.regular +
+                '</span>' +
+            '</div>';
+    }
+
+    return (
+        '<tr data-mid="' + item.mid + '" class="' + (isActive ? '' : 'tp-cl-row-disabled') + '">' +
+            '<td class="tp-cl-col-link" data-label="Link">' +
+                '<div class="tp-cl-link-cell">' +
+                    renderThumbnail(item) +
+                    '<a href="' + shortUrl + '" target="_blank" class="tp-cl-link">' + item.tpKey + '</a>' +
+                    '<span class="tp-cl-inline-actions">' +
+                        '<button class="tp-cl-inline-btn tp-cl-copy-btn" data-url="' + shortUrl + '" title="Copy"><i class="fas fa-copy"></i></button>' +
+                        '<button class="tp-cl-inline-btn tp-cl-qr-btn" data-url="' + shortUrl + '" title="QR"><i class="fas fa-qrcode"></i></button>' +
+                        '<button class="tp-cl-inline-btn tp-cl-history-btn" data-mid="' + item.mid + '" title="History"><i class="fas fa-history"></i></button>' +
+                    '</span>' +
+                '</div>' +
+            '</td>' +
+            '<td class="tp-cl-col-dest" data-label="Destination">' +
+                '<div class="tp-cl-dest-cell">' +
+                    '<a href="' + item.destination + '" target="_blank" class="tp-cl-dest">' + item.destination + '</a>' +
+                '</div>' +
+            '</td>' +
+            '<td class="tp-cl-col-clicks" data-label="Clicks">' +
+                clicksHtml +
+                '<span class="tp-cl-row-edit-hint" aria-hidden="true"><i class="fas fa-edit"></i></span>' +
+            '</td>' +
+        '</tr>'
+    );
+}
+
+// ---------------------------------------------------------------------------
+// T008 Fixtures
+// ---------------------------------------------------------------------------
+
+const ITEM_WITH_PREVIEW = {
+    mid: 10,
+    tpKey: 'abc123',
+    domain: 'trfc.link',
+    destination: 'https://example.com',
+    status: 'active',
+    notes: '',
+    usage: null,
+    preview_url: 'https://cdn.example.com/previews/10.jpg',
+};
+
+const ITEM_NO_PREVIEW = {
+    mid: 11,
+    tpKey: 'xyz789',
+    domain: 'trfc.link',
+    destination: 'https://example.com',
+    status: 'active',
+    notes: '',
+    usage: null,
+    preview_url: null,
+};
+
+const ITEM_EVIL_URL = {
+    mid: 12,
+    tpKey: 'evil',
+    domain: 'trfc.link',
+    destination: 'https://evil.com',
+    status: 'active',
+    notes: '',
+    usage: null,
+    preview_url: 'https://cdn.example.com/p.jpg?a=1&b=<script>',
+};
+
+// ---------------------------------------------------------------------------
+// Tests — renderThumbnail helper
+// ---------------------------------------------------------------------------
+
+describe('T008 — renderThumbnail: with preview_url', () => {
+    let dom;
+    let document;
+
+    beforeEach(() => {
+        dom = new JSDOM('<!DOCTYPE html><html><body></body></html>');
+        document = dom.window.document;
+    });
+
+    it('returns an <img> element when preview_url is present', () => {
+        const html = renderThumbnail(ITEM_WITH_PREVIEW);
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = html;
+        const img = wrapper.querySelector('img');
+        expect(img).not.toBeNull();
+    });
+
+    it('<img> has class tp-cl-row-thumb', () => {
+        const html = renderThumbnail(ITEM_WITH_PREVIEW);
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = html;
+        const img = wrapper.querySelector('img');
+        expect(img.classList.contains('tp-cl-row-thumb')).toBe(true);
+    });
+
+    it('<img> has loading="lazy"', () => {
+        const html = renderThumbnail(ITEM_WITH_PREVIEW);
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = html;
+        const img = wrapper.querySelector('img');
+        expect(img.getAttribute('loading')).toBe('lazy');
+    });
+
+    it('<img> src matches preview_url', () => {
+        const html = renderThumbnail(ITEM_WITH_PREVIEW);
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = html;
+        const img = wrapper.querySelector('img');
+        expect(img.getAttribute('src')).toBe(ITEM_WITH_PREVIEW.preview_url);
+    });
+
+    it('<img> alt is empty string (decorative)', () => {
+        const html = renderThumbnail(ITEM_WITH_PREVIEW);
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = html;
+        const img = wrapper.querySelector('img');
+        expect(img.getAttribute('alt')).toBe('');
+    });
+
+    it('<img> has an onerror attribute', () => {
+        const html = renderThumbnail(ITEM_WITH_PREVIEW);
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = html;
+        const img = wrapper.querySelector('img');
+        expect(img.getAttribute('onerror')).toBeTruthy();
+    });
+
+    it('HTML-escapes special chars in preview_url', () => {
+        const html = renderThumbnail(ITEM_EVIL_URL);
+        // The raw HTML string should have & escaped as &amp; and < as &lt;
+        expect(html).toContain('&amp;');
+        expect(html).toContain('&lt;');
+        // The raw script tag should NOT appear unescaped
+        expect(html).not.toContain('<script>');
+    });
+});
+
+describe('T008 — renderThumbnail: without preview_url', () => {
+    let dom;
+    let document;
+
+    beforeEach(() => {
+        dom = new JSDOM('<!DOCTYPE html><html><body></body></html>');
+        document = dom.window.document;
+    });
+
+    it('returns a placeholder <span> when preview_url is null', () => {
+        const html = renderThumbnail(ITEM_NO_PREVIEW);
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = html;
+        const span = wrapper.querySelector('span.tp-cl-row-thumb');
+        expect(span).not.toBeNull();
+    });
+
+    it('placeholder has class tp-cl-row-thumb-placeholder', () => {
+        const html = renderThumbnail(ITEM_NO_PREVIEW);
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = html;
+        const span = wrapper.querySelector('span');
+        expect(span.classList.contains('tp-cl-row-thumb-placeholder')).toBe(true);
+    });
+
+    it('placeholder contains fa-globe icon', () => {
+        const html = renderThumbnail(ITEM_NO_PREVIEW);
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = html;
+        const icon = wrapper.querySelector('i.fas.fa-globe');
+        expect(icon).not.toBeNull();
+    });
+
+    it('does NOT render an <img> when preview_url is null', () => {
+        const html = renderThumbnail(ITEM_NO_PREVIEW);
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = html;
+        expect(wrapper.querySelector('img')).toBeNull();
+    });
+
+    it('returns placeholder span when preview_url is empty string', () => {
+        const html = renderThumbnail({ ...ITEM_NO_PREVIEW, preview_url: '' });
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = html;
+        expect(wrapper.querySelector('span.tp-cl-row-thumb')).not.toBeNull();
+        expect(wrapper.querySelector('img')).toBeNull();
+    });
+});
+
+describe('T008 — renderThumbnail: row template integration', () => {
+    let dom;
+    let document;
+
+    beforeEach(() => {
+        dom = new JSDOM('<!DOCTYPE html><html><body></body></html>');
+        document = dom.window.document;
+    });
+
+    it('row with preview_url has <img> as first child of .tp-cl-link-cell', () => {
+        const rowHtml = buildRowHtmlWithThumb(ITEM_WITH_PREVIEW);
+        const tbody = document.createElement('tbody');
+        tbody.innerHTML = rowHtml;
+
+        const linkCell = tbody.querySelector('.tp-cl-link-cell');
+        const firstChild = linkCell.firstElementChild;
+        expect(firstChild.tagName.toLowerCase()).toBe('img');
+    });
+
+    it('row with preview_url: <img> appears before the <a> link', () => {
+        const rowHtml = buildRowHtmlWithThumb(ITEM_WITH_PREVIEW);
+        const tbody = document.createElement('tbody');
+        tbody.innerHTML = rowHtml;
+
+        const linkCell = tbody.querySelector('.tp-cl-link-cell');
+        const children = Array.from(linkCell.children);
+        const imgIdx = children.findIndex(el => el.tagName.toLowerCase() === 'img');
+        const aIdx = children.findIndex(el => el.tagName.toLowerCase() === 'a');
+        expect(imgIdx).toBeLessThan(aIdx);
+    });
+
+    it('row with null preview_url has placeholder <span> as first child of .tp-cl-link-cell', () => {
+        const rowHtml = buildRowHtmlWithThumb(ITEM_NO_PREVIEW);
+        const tbody = document.createElement('tbody');
+        tbody.innerHTML = rowHtml;
+
+        const linkCell = tbody.querySelector('.tp-cl-link-cell');
+        const firstChild = linkCell.firstElementChild;
+        expect(firstChild.tagName.toLowerCase()).toBe('span');
+        expect(firstChild.classList.contains('tp-cl-row-thumb')).toBe(true);
+        expect(firstChild.classList.contains('tp-cl-row-thumb-placeholder')).toBe(true);
+    });
+
+    it('row with null preview_url: placeholder does NOT contain an <img>', () => {
+        const rowHtml = buildRowHtmlWithThumb(ITEM_NO_PREVIEW);
+        const tbody = document.createElement('tbody');
+        tbody.innerHTML = rowHtml;
+
+        const linkCell = tbody.querySelector('.tp-cl-link-cell');
+        expect(linkCell.querySelector('img')).toBeNull();
+    });
+});
+
+describe('T008 — onerror swap: img replaced by placeholder', () => {
+    let dom;
+    let document;
+
+    beforeEach(() => {
+        dom = new JSDOM('<!DOCTYPE html><html><body></body></html>', {
+            runScripts: 'dangerously',
+        });
+        document = dom.window.document;
+    });
+
+    it('after error event fires, img is replaced by placeholder span', () => {
+        const html = renderThumbnail(ITEM_WITH_PREVIEW);
+        const wrapper = document.createElement('div');
+        document.body.appendChild(wrapper);
+        wrapper.innerHTML = html;
+
+        const img = wrapper.querySelector('img');
+        expect(img).not.toBeNull();
+
+        // Trigger the onerror handler by evaluating it
+        // eslint-disable-next-line no-new-func
+        const onerrorAttr = img.getAttribute('onerror');
+        // Execute the handler with img as `this`
+        const fn = new dom.window.Function('with(this){' + onerrorAttr + '}');
+        fn.call(img);
+
+        // After swap, there should be no img and a placeholder span instead
+        const imgAfter = wrapper.querySelector('img');
+        const placeholder = wrapper.querySelector('span.tp-cl-row-thumb-placeholder');
+
+        expect(imgAfter).toBeNull();
+        expect(placeholder).not.toBeNull();
+    });
+
+    it('after error event fires, placeholder has fa-globe icon', () => {
+        const html = renderThumbnail(ITEM_WITH_PREVIEW);
+        const wrapper = document.createElement('div');
+        document.body.appendChild(wrapper);
+        wrapper.innerHTML = html;
+
+        const img = wrapper.querySelector('img');
+        const onerrorAttr = img.getAttribute('onerror');
+        const fn = new dom.window.Function('with(this){' + onerrorAttr + '}');
+        fn.call(img);
+
+        const icon = wrapper.querySelector('i.fas.fa-globe');
+        expect(icon).not.toBeNull();
+    });
+});
+
+// ===========================================================================
 // T003 — formatHistoryChanges unit tests
 // ===========================================================================
 

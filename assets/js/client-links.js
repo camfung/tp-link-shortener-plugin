@@ -527,6 +527,7 @@
                     '<tr data-mid="' + item.mid + '" class="' + (isActive ? '' : 'tp-cl-row-disabled') + '">' +
                         '<td class="tp-cl-col-link" data-label="Link">' +
                             '<div class="tp-cl-link-cell">' +
+                                renderThumbnail(item) +
                                 '<a href="' + escapeHtml(shortUrl) + '" target="_blank" class="tp-cl-link" title="' + escapeHtml(shortUrl) + '">' + escapeHtml(item.tpKey) + '</a>' +
                                 '<span class="tp-cl-inline-actions">' +
                                     '<button class="tp-cl-inline-btn tp-cl-copy-btn" data-url="' + escapeHtml(shortUrl) + '" title="Copy"><i class="fas fa-copy"></i></button>' +
@@ -1019,6 +1020,41 @@
         var div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+
+    /* ---------------------------------------------------------------
+     * Thumbnail helpers (T008)
+     * ------------------------------------------------------------- */
+
+    // Pre-escaped placeholder HTML for use inside the onerror attribute value.
+    // The outer onerror attribute is delimited by " — inner JS string uses ' —
+    // inner replacement HTML uses &quot; so the parser expands it to " when
+    // the onerror JS executes and assigns outerHTML.
+    var PLACEHOLDER_ATTR_ESCAPED =
+        '<span class=&quot;tp-cl-row-thumb tp-cl-row-thumb-placeholder&quot;>' +
+            '<i class=&quot;fas fa-globe&quot;></i>' +
+        '</span>';
+
+    var PLACEHOLDER_SPAN =
+        '<span class="tp-cl-row-thumb tp-cl-row-thumb-placeholder">' +
+            '<i class="fas fa-globe"></i>' +
+        '</span>';
+
+    /**
+     * Returns the thumbnail HTML for a row.
+     *
+     * @param {Object} item  Row item from the API; must have preview_url (string|null).
+     * @returns {string}     HTML string — either <img> or placeholder <span>.
+     */
+    function renderThumbnail(item) {
+        if (item.preview_url) {
+            return (
+                '<img class="tp-cl-row-thumb" loading="lazy" src="' +
+                escapeHtml(item.preview_url) +
+                '" alt="" onerror="this.outerHTML=\'' + PLACEHOLDER_ATTR_ESCAPED + '\'">'
+            );
+        }
+        return PLACEHOLDER_SPAN;
     }
 
     // Init on ready
