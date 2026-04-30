@@ -312,6 +312,13 @@
             if (e.target === $historyModalOverlay[0]) $historyModalOverlay.hide();
         });
 
+        // History retry button (delegated — injected dynamically on AJAX error)
+        $historyList.on('click', '.tp-cl-history-retry-btn', function(e) {
+            e.preventDefault();
+            var mid = parseInt($(this).data('mid'), 10);
+            showHistory(mid);
+        });
+
         // QR dialog
         $qrDialogOverlay.on('click', function(e) {
             if (e.target === $qrDialogOverlay[0]) $qrDialogOverlay.hide();
@@ -706,6 +713,85 @@
     /* ---------------------------------------------------------------
      * History
      * ------------------------------------------------------------- */
+
+    /** Friendly labels for known link fields used in history diffs. */
+    var FIELD_LABELS = {
+        destination: 'Destination',
+        tpKey: 'Short code',
+        domain: 'Domain',
+        notes: 'Notes',
+    };
+
+    /**
+     * Pure function: format a history entry's changes payload into a
+     * human-readable HTML fragment (one line per changed field).
+     *
+     * Handles:
+     *   - 'enabled' / 'disabled' — returns the literal word, ignores payload
+     *   - 'created' — "Created with destination <url>", optional notes line
+     *   - 'updated' diff shape {"field":{"from":...,"to":...}} — "Label: from → to"
+     *   - 'updated' legacy flat shape {"field":"value"} — "Label: value"
+     *   - malformed JSON — italic raw line + console.warn
+     *
+     * @param {string} action     - 'created'|'updated'|'enabled'|'disabled'
+     * @param {string|null} changesRaw - JSON string from wp_tp_link_history.changes
+     * @returns {string} Safe HTML fragment (fields are HTML-escaped)
+     */
+    function formatHistoryChanges(action, changesRaw) {
+        if (action === 'enabled')  return 'Enabled';
+        if (action === 'disabled') return 'Disabled';
+
+        var changes;
+        if (!changesRaw || changesRaw === '') {
+            changes = {};
+        } else {
+            try {
+                changes = JSON.parse(changesRaw);
+            } catch (e) {
+                console.warn('[tp] malformed history JSON:', changesRaw);
+                return '<em>' + escapeHtml(changesRaw) + '</em>';
+            }
+        }
+
+        if (action === 'created') {
+            var dest = changes.destination || '';
+            var notes = changes.notes || '';
+            var out = 'Created with destination ' + escapeHtml(dest);
+            if (notes) {
+                out += '<br>' + escapeHtml(notes);
+            }
+            return out;
+        }
+
+        // 'updated' (or unknown action): diff shape or legacy flat shape
+        var fieldOrder = ['destination', 'tpKey', 'domain', 'notes'];
+        var lines = [];
+        var seen = {};
+
+        function renderField(key, val) {
+            var label = FIELD_LABELS[key] || key;
+            if (val !== null && typeof val === 'object' && 'from' in val && 'to' in val) {
+                // diff shape (T002 server-side enrichment)
+                return label + ': ' + escapeHtml(String(val.from)) + ' → ' + escapeHtml(String(val.to));
+            }
+            // legacy flat shape
+            return label + ': ' + escapeHtml(String(val));
+        }
+
+        fieldOrder.forEach(function(key) {
+            if (!Object.prototype.hasOwnProperty.call(changes, key)) return;
+            seen[key] = true;
+            lines.push(renderField(key, changes[key]));
+        });
+
+        // Any extra unknown fields not in fieldOrder
+        Object.keys(changes).forEach(function(key) {
+            if (!seen[key]) lines.push(renderField(key, changes[key]));
+        });
+
+        return lines.join('<br>');
+    }
+
     function showHistory(mid) {
         $historyList.html('<div class="text-center py-3"><i class="fas fa-spinner fa-spin"></i> Loading...</div>');
         $historyModalOverlay.show();
@@ -722,19 +808,20 @@
                 if (response.success && response.data.length) {
                     var html = '';
                     response.data.forEach(function(entry) {
+                        var details = formatHistoryChanges(entry.action, entry.changes || '');
                         html +=
                             '<div class="tp-cl-history-entry">' +
                                 '<div class="tp-cl-history-action">' +
                                     '<i class="fas ' + historyIcon(entry.action) + '"></i> ' +
                                     escapeHtml(entry.action) +
                                 '</div>' +
-                                '<div class="tp-cl-history-details">' + escapeHtml(entry.changes || '') + '</div>' +
+                                '<div class="tp-cl-history-details">' + details + '</div>' +
                                 '<div class="tp-cl-history-time">' + formatDate(entry.created_at) + '</div>' +
                             '</div>';
                     });
                     $historyList.html(html);
                 } else {
-                    $historyList.html('<div class="text-center text-muted py-3">No history found.</div>');
+                    $historyList.html('<div class="text-center text-muted py-3">No change history yet for this link.</div>');
                 }
             },
             error: function(xhr) {
@@ -742,7 +829,15 @@
                     redirectToLogin();
                     return;
                 }
-                $historyList.html('<div class="text-center text-danger py-3">Failed to load history.</div>');
+                $historyList.html(
+                    '<div class="text-center text-danger py-3">' +
+                        'Failed to load history. Try again.' +
+                        '<br>' +
+                        '<button class="tp-cl-history-retry-btn btn btn-sm btn-outline-secondary mt-2" data-mid="' + mid + '">' +
+                            'Retry' +
+                        '</button>' +
+                    '</div>'
+                );
             }
         });
     }

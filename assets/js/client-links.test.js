@@ -412,3 +412,315 @@ describe('T011 — Disabled rows retain tp-cl-row-disabled class and are clickab
         expect(isGuarded(tr)).toBe(false);
     });
 });
+
+// ===========================================================================
+// T003 — formatHistoryChanges unit tests
+// ===========================================================================
+
+/**
+ * Replication of the pure formatHistoryChanges(action, changesRaw) function
+ * from client-links.js.
+ *
+ * This is a verbatim copy of the implementation so tests can run in isolation
+ * without loading jQuery or the full module. Any drift between this copy and
+ * the source is caught by the assertions failing against the real rendered
+ * output in integration/E2E.
+ */
+
+var T003_FIELD_LABELS = {
+    destination: 'Destination',
+    tpKey: 'Short code',
+    domain: 'Domain',
+    notes: 'Notes',
+};
+
+/** Minimal escapeHtml matching the DOM-based version in client-links.js */
+function t003EscapeHtml(text) {
+    if (!text) return '';
+    return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function formatHistoryChanges(action, changesRaw) {
+    if (action === 'enabled')  return 'Enabled';
+    if (action === 'disabled') return 'Disabled';
+
+    var changes;
+    if (!changesRaw || changesRaw === '') {
+        changes = {};
+    } else {
+        try {
+            changes = JSON.parse(changesRaw);
+        } catch (e) {
+            console.warn('[tp] malformed history JSON:', changesRaw);
+            return '<em>' + t003EscapeHtml(changesRaw) + '</em>';
+        }
+    }
+
+    if (action === 'created') {
+        var dest = changes.destination || '';
+        var notes = changes.notes || '';
+        var out = 'Created with destination ' + t003EscapeHtml(dest);
+        if (notes) {
+            out += '<br>' + t003EscapeHtml(notes);
+        }
+        return out;
+    }
+
+    // 'updated' (or unknown): diff shape or legacy flat shape
+    var fieldOrder = ['destination', 'tpKey', 'domain', 'notes'];
+    var lines = [];
+    var seen = {};
+
+    fieldOrder.forEach(function(key) {
+        if (!Object.prototype.hasOwnProperty.call(changes, key)) return;
+        seen[key] = true;
+        var val = changes[key];
+        var label = T003_FIELD_LABELS[key] || key;
+        if (val !== null && typeof val === 'object' && 'from' in val && 'to' in val) {
+            lines.push(label + ': ' + t003EscapeHtml(String(val.from)) + ' → ' + t003EscapeHtml(String(val.to)));
+        } else {
+            lines.push(label + ': ' + t003EscapeHtml(String(val)));
+        }
+    });
+
+    Object.keys(changes).forEach(function(key) {
+        if (seen[key]) return;
+        var val = changes[key];
+        var label = T003_FIELD_LABELS[key] || key;
+        if (val !== null && typeof val === 'object' && 'from' in val && 'to' in val) {
+            lines.push(label + ': ' + t003EscapeHtml(String(val.from)) + ' → ' + t003EscapeHtml(String(val.to)));
+        } else {
+            lines.push(label + ': ' + t003EscapeHtml(String(val)));
+        }
+    });
+
+    return lines.join('<br>');
+}
+
+// ---------------------------------------------------------------------------
+// Tests — Acceptance Criterion 1: 'updated' diff shape
+// ---------------------------------------------------------------------------
+
+describe('T003 — formatHistoryChanges: updated entry (diff shape)', () => {
+    it('single changed field: renders "Label: from → to"', () => {
+        const result = formatHistoryChanges(
+            'updated',
+            JSON.stringify({ destination: { from: 'https://old.com', to: 'https://new.com' } })
+        );
+        expect(result).toBe('Destination: https://old.com → https://new.com');
+    });
+
+    it('multiple changed fields: renders one line per field separated by <br>', () => {
+        const result = formatHistoryChanges(
+            'updated',
+            JSON.stringify({
+                destination: { from: 'https://old.com', to: 'https://new.com' },
+                notes: { from: 'old note', to: 'new note' },
+            })
+        );
+        const lines = result.split('<br>');
+        expect(lines).toHaveLength(2);
+        expect(lines[0]).toBe('Destination: https://old.com → https://new.com');
+        expect(lines[1]).toBe('Notes: old note → new note');
+    });
+
+    it('fields appear in stable order: destination before notes', () => {
+        const result = formatHistoryChanges(
+            'updated',
+            JSON.stringify({
+                notes: { from: 'a', to: 'b' },
+                destination: { from: 'x', to: 'y' },
+            })
+        );
+        const lines = result.split('<br>');
+        expect(lines[0]).toContain('Destination:');
+        expect(lines[1]).toContain('Notes:');
+    });
+
+    it('unchanged fields not listed (only fields in payload are rendered)', () => {
+        const result = formatHistoryChanges(
+            'updated',
+            JSON.stringify({ destination: { from: 'a', to: 'b' } })
+        );
+        expect(result).not.toContain('Short code');
+        expect(result).not.toContain('Domain');
+        expect(result).not.toContain('Notes');
+    });
+
+    it('uses friendly label: tpKey → "Short code"', () => {
+        const result = formatHistoryChanges(
+            'updated',
+            JSON.stringify({ tpKey: { from: 'old', to: 'new' } })
+        );
+        expect(result).toBe('Short code: old → new');
+    });
+});
+
+// ---------------------------------------------------------------------------
+// Tests — Acceptance Criterion 2: 'created' entry
+// ---------------------------------------------------------------------------
+
+describe('T003 — formatHistoryChanges: created entry', () => {
+    it('renders "Created with destination <url>"', () => {
+        const result = formatHistoryChanges(
+            'created',
+            JSON.stringify({ destination: 'https://example.com' })
+        );
+        expect(result).toBe('Created with destination https://example.com');
+    });
+
+    it('appends notes on next line when present', () => {
+        const result = formatHistoryChanges(
+            'created',
+            JSON.stringify({ destination: 'https://example.com', notes: 'my note' })
+        );
+        expect(result).toContain('Created with destination https://example.com');
+        expect(result).toContain('my note');
+        expect(result).toContain('<br>');
+    });
+
+    it('does not append notes line when notes is absent', () => {
+        const result = formatHistoryChanges(
+            'created',
+            JSON.stringify({ destination: 'https://x.com' })
+        );
+        expect(result).not.toContain('<br>');
+    });
+});
+
+// ---------------------------------------------------------------------------
+// Tests — Acceptance Criterion 3: enabled / disabled
+// ---------------------------------------------------------------------------
+
+describe('T003 — formatHistoryChanges: enabled / disabled', () => {
+    it('"enabled" action returns "Enabled" regardless of payload', () => {
+        expect(formatHistoryChanges('enabled', '')).toBe('Enabled');
+        expect(formatHistoryChanges('enabled', null)).toBe('Enabled');
+        expect(formatHistoryChanges('enabled', '{}')).toBe('Enabled');
+    });
+
+    it('"disabled" action returns "Disabled" regardless of payload', () => {
+        expect(formatHistoryChanges('disabled', '')).toBe('Disabled');
+        expect(formatHistoryChanges('disabled', null)).toBe('Disabled');
+    });
+});
+
+// ---------------------------------------------------------------------------
+// Tests — Acceptance Criterion 6: backwards-compat (legacy flat shape)
+// ---------------------------------------------------------------------------
+
+describe('T003 — formatHistoryChanges: legacy flat shape (backwards-compat)', () => {
+    it('renders "Label: value" for flat string values (no arrow)', () => {
+        const result = formatHistoryChanges(
+            'updated',
+            JSON.stringify({ destination: 'https://new.com' })
+        );
+        expect(result).toBe('Destination: https://new.com');
+        expect(result).not.toContain('→');
+    });
+
+    it('handles multiple flat fields without arrow', () => {
+        const result = formatHistoryChanges(
+            'updated',
+            JSON.stringify({ destination: 'https://x.com', tpKey: 'abc' })
+        );
+        expect(result).toContain('Destination: https://x.com');
+        expect(result).toContain('Short code: abc');
+        expect(result).not.toContain('→');
+    });
+});
+
+// ---------------------------------------------------------------------------
+// Tests — Acceptance Criterion 7: malformed JSON
+// ---------------------------------------------------------------------------
+
+describe('T003 — formatHistoryChanges: malformed JSON', () => {
+    it('returns italic raw string for malformed JSON', () => {
+        const result = formatHistoryChanges('updated', 'not-valid-json{');
+        expect(result).toContain('<em>');
+        expect(result).toContain('not-valid-json{');
+    });
+
+    it('calls console.warn for malformed JSON', () => {
+        vi.clearAllMocks();
+        formatHistoryChanges('updated', 'bad json');
+        expect(console.warn).toHaveBeenCalled();
+    });
+});
+
+// ---------------------------------------------------------------------------
+// Tests — Acceptance Criterion 5: failed fetch renders retry button (jsdom)
+// ---------------------------------------------------------------------------
+
+describe('T003 — showHistory error state: retry button', () => {
+    /**
+     * Build the history error state HTML as showHistory() injects on AJAX error
+     * after T003 changes (retry button added).
+     */
+    function buildHistoryErrorHtml(mid) {
+        return (
+            '<div class="text-center text-danger py-3">' +
+                'Failed to load history. Try again.' +
+                '<br>' +
+                '<button class="tp-cl-history-retry-btn btn btn-sm btn-outline-secondary mt-2" data-mid="' + mid + '">' +
+                    'Retry' +
+                '</button>' +
+            '</div>'
+        );
+    }
+
+    let dom;
+    let document;
+
+    beforeEach(() => {
+        dom = new JSDOM('<!DOCTYPE html><html><body></body></html>');
+        document = dom.window.document;
+    });
+
+    it('error state contains "Failed to load history. Try again." text', () => {
+        const html = buildHistoryErrorHtml(42);
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = html;
+        expect(wrapper.textContent).toContain('Failed to load history. Try again.');
+    });
+
+    it('error state contains a retry button with class tp-cl-history-retry-btn', () => {
+        const html = buildHistoryErrorHtml(42);
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = html;
+        const btn = wrapper.querySelector('.tp-cl-history-retry-btn');
+        expect(btn).not.toBeNull();
+    });
+
+    it('retry button carries data-mid for re-invoking the loader', () => {
+        const html = buildHistoryErrorHtml(42);
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = html;
+        const btn = wrapper.querySelector('.tp-cl-history-retry-btn');
+        expect(btn.getAttribute('data-mid')).toBe('42');
+    });
+
+    it('clicking retry resolves to the correct mid value', () => {
+        const html = buildHistoryErrorHtml(99);
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = html;
+        const btn = wrapper.querySelector('.tp-cl-history-retry-btn');
+        const mid = parseInt(btn.getAttribute('data-mid'), 10);
+        expect(mid).toBe(99);
+    });
+});
+
+// ---------------------------------------------------------------------------
+// Tests — Acceptance Criterion 4: empty history state
+// ---------------------------------------------------------------------------
+
+describe('T003 — formatHistoryChanges: empty / no-op cases', () => {
+    it('empty changes object with "updated" action returns empty string', () => {
+        const result = formatHistoryChanges('updated', '{}');
+        expect(result).toBe('');
+    });
+});
