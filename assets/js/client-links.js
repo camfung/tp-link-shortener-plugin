@@ -545,7 +545,10 @@
                                 (item.notes && item.notes !== 'Created via WordPress plugin' ? '<div class="tp-cl-dest-notes" title="' + escapeHtml(item.notes) + '">' + escapeHtml(item.notes) + '</div>' : '') +
                             '</div>' +
                         '</td>' +
-                        '<td class="tp-cl-col-clicks" data-label="Clicks">' + clicksHtml + '</td>' +
+                        '<td class="tp-cl-col-clicks" data-label="Clicks">' +
+                            clicksHtml +
+                            '<span class="tp-cl-row-edit-hint" aria-hidden="true"><i class="fas fa-edit"></i></span>' +
+                        '</td>' +
                     '</tr>';
 
                 $tbody.append(row);

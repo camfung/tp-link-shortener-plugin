@@ -479,6 +479,43 @@
 .tp-cl-clicks-breakdown i { color: var(--tp-secondary); }
 
 /* ----------------------------------------------------------------
+ * Row edit affordance — pencil icon (T004)
+ * -------------------------------------------------------------- */
+
+/* Row cursor: pointer on hoverable devices */
+@media (hover: hover) {
+    .tp-cl-table tbody tr[data-mid] {
+        cursor: pointer;
+    }
+}
+
+/* Pencil icon — hidden by default on hover-capable devices, shown on hover */
+.tp-cl-row-edit-hint {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 150ms;
+    color: var(--tp-muted);
+    font-size: .78rem;
+    margin-left: .4rem;
+    vertical-align: middle;
+}
+
+@media (hover: hover) {
+    .tp-cl-table tbody tr:hover .tp-cl-row-edit-hint {
+        opacity: 1;
+    }
+}
+
+/* Touch / mobile: always semi-visible */
+@media (hover: none) {
+    .tp-cl-row-edit-hint {
+        opacity: 0.5;
+    }
+}
+
+/* ----------------------------------------------------------------
  * Date cell
  * -------------------------------------------------------------- */
 .tp-cl-date {
@@ -999,6 +1036,12 @@
     /* Clicks left-aligned */
     .tp-cl-clicks-cell {
         align-items: flex-start;
+    }
+
+    /* Pencil icon: don't stretch on mobile card layout */
+    .tp-cl-row-edit-hint {
+        flex: 0 0 auto;
+        align-self: center;
     }
 
     .tp-cl-domain-row {
