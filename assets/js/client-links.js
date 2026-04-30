@@ -542,7 +542,7 @@
                         '<td class="tp-cl-col-dest" data-label="Destination">' +
                             '<div class="tp-cl-dest-cell">' +
                                 '<a href="' + escapeHtml(item.destination) + '" target="_blank" class="tp-cl-dest" title="' + escapeHtml(item.destination) + '">' + escapeHtml(item.destination) + '</a>' +
-                                (item.notes ? '<div class="tp-cl-dest-notes" title="' + escapeHtml(item.notes) + '">' + escapeHtml(item.notes) + '</div>' : '') +
+                                (item.notes && item.notes !== 'Created via WordPress plugin' ? '<div class="tp-cl-dest-notes" title="' + escapeHtml(item.notes) + '">' + escapeHtml(item.notes) + '</div>' : '') +
                             '</div>' +
                         '</td>' +
                         '<td class="tp-cl-col-clicks" data-label="Clicks">' + clicksHtml + '</td>' +

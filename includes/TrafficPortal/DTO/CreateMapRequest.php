@@ -90,10 +90,16 @@ class CreateMapRequest
             'type' => $this->type,
             'is_set' => $this->isSet,
             'tags' => $this->tags,
-            'notes' => $this->notes,
             'settings' => $this->settings,
             'cache_content' => $this->cacheContent,
         ];
+
+        // Only include notes when the user supplied a non-empty value.
+        // Omitting the field avoids TP API validation errors on empty strings
+        // and ensures no legacy auto-text can leak into the request body.
+        if ($this->notes !== '') {
+            $data['notes'] = $this->notes;
+        }
 
         if ($this->expiresAt !== null) {
             $data['expires_at'] = $this->expiresAt;

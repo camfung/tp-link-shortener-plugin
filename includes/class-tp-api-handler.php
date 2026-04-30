@@ -366,7 +366,7 @@ class TP_API_Handler {
                 type: 'redirect',
                 isSet: 0,
                 tags: 'wordpress,plugin',
-                notes: 'Created via WordPress plugin',
+                notes: '',
                 settings: '{}',
                 cacheContent: 0,
                 expiresAt: null,
