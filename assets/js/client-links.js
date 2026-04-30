@@ -17,7 +17,6 @@
         totalRecords: 0,
         totalPages: 0,
         sort: 'updated_at:desc',
-        status: '',
         search: '',
         isLoading: false,
         searchDebounceTimer: null,
@@ -40,7 +39,6 @@
         $paginationList,
         $totalCount,
         $searchInput,
-        $statusFilter,
         $refreshBtn,
         $addLinkBtn,
         $retryBtn,
@@ -122,7 +120,6 @@
         $paginationList  = $('#tp-cl-pagination-list');
         $totalCount      = $('#tp-cl-total-count');
         $searchInput     = $('#tp-cl-search');
-        $statusFilter    = $('#tp-cl-filter-status');
         $refreshBtn      = $('#tp-cl-refresh-btn');
         $addLinkBtn      = $('#tp-cl-add-link-btn');
         $retryBtn        = $('#tp-cl-retry-btn');
@@ -213,13 +210,6 @@
                     setTimeout(function() { state.chart.resize(); }, 50);
                 }
             }
-        });
-
-        // Status filter
-        $statusFilter.on('change', function() {
-            state.status = $(this).val();
-            state.currentPage = 1;
-            loadData();
         });
 
         // Sortable column headers
@@ -422,7 +412,6 @@
                 page: state.currentPage,
                 page_size: state.pageSize,
                 sort: state.sort,
-                status: state.status || null,
                 search: state.search || null,
                 include_usage: true
             },

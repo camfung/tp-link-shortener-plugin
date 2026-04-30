@@ -49,16 +49,6 @@ $show_filters = isset($atts['show_filters']) ? ($atts['show_filters'] === 'true'
                 </div>
                 <?php endif; ?>
 
-                <?php if ($show_filters): ?>
-                <div class="tp-cl-filters">
-                    <select class="form-select form-select-sm" id="tp-cl-filter-status">
-                        <option value=""><?php esc_html_e('All Statuses', 'tp-link-shortener'); ?></option>
-                        <option value="active"><?php esc_html_e('Active', 'tp-link-shortener'); ?></option>
-                        <option value="disabled"><?php esc_html_e('Disabled', 'tp-link-shortener'); ?></option>
-                    </select>
-                </div>
-                <?php endif; ?>
-
                 <button class="btn btn-sm btn-primary" id="tp-cl-add-link-btn" title="<?php esc_attr_e('Add a link', 'tp-link-shortener'); ?>">
                     <i class="fas fa-plus me-1"></i><?php esc_html_e('Add a link', 'tp-link-shortener'); ?>
                 </button>

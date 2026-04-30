@@ -40,6 +40,7 @@ require_once TP_LINK_SHORTENER_PLUGIN_DIR . 'includes/class-tp-client-links-shor
 require_once TP_LINK_SHORTENER_PLUGIN_DIR . 'includes/class-tp-usage-dashboard-shortcode.php';
 require_once TP_LINK_SHORTENER_PLUGIN_DIR . 'includes/class-tp-admin-settings.php';
 require_once TP_LINK_SHORTENER_PLUGIN_DIR . 'includes/class-tp-assets.php';
+require_once TP_LINK_SHORTENER_PLUGIN_DIR . 'includes/class-tp-db-migrations.php';
 
 /**
  * Initialize the plugin
@@ -47,11 +48,15 @@ require_once TP_LINK_SHORTENER_PLUGIN_DIR . 'includes/class-tp-assets.php';
 function tp_link_shortener_init() {
     $plugin = new TP_Link_Shortener();
     $plugin->init();
+
+    // Upgrade path: run pending migrations for existing installs that never
+    // re-trigger the activation hook (e.g. after a simple file update via git).
+    TP_DB_Migrations::maybe_run();
 }
 add_action('plugins_loaded', 'tp_link_shortener_init');
 
 /**
- * Activation hook
+ * Activation hook — runs on fresh install or manual (de)activate → activate cycle.
  */
 function tp_link_shortener_activate() {
     // Set default options
@@ -84,6 +89,9 @@ function tp_link_shortener_activate() {
     ) {$charset_collate};";
     require_once ABSPATH . 'wp-admin/includes/upgrade.php';
     dbDelta($sql);
+
+    // Run all schema migrations (including wp_tp_link_previews).
+    TP_DB_Migrations::run();
 
     flush_rewrite_rules();
 }
