@@ -8,7 +8,12 @@ $baseDir = dirname($vendorDir);
 return array(
     'WooWallet\\' => array($baseDir . '/includes/WooWallet'),
     'TrafficPortal\\' => array($baseDir . '/includes/TrafficPortal'),
+    'Tests\\' => array($baseDir . '/tests'),
     'TerrWallet\\' => array($baseDir . '/includes/TerrWallet'),
+    'TP\\History\\' => array($baseDir . '/includes/History'),
     'SnapCapture\\' => array($baseDir . '/includes/SnapCapture'),
     'ShortCode\\' => array($baseDir . '/includes/ShortCode'),
+    'PhpParser\\' => array($vendorDir . '/nikic/php-parser/lib/PhpParser'),
+    'Doctrine\\Instantiator\\' => array($vendorDir . '/doctrine/instantiator/src/Doctrine/Instantiator'),
+    'DeepCopy\\' => array($vendorDir . '/myclabs/deep-copy/src/DeepCopy'),
 );

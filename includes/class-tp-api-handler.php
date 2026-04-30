@@ -35,6 +35,7 @@ use WooWallet\Exception\WooWalletException;
 use WooWallet\Exception\AuthenticationException as WooWalletAuthException;
 use WooWallet\Exception\ValidationException as WooWalletValidationException;
 use WooWallet\Exception\ApiException as WooWalletApiException;
+use TP\History\LinkHistoryDiff;
 
 class TP_API_Handler {
 
@@ -1252,6 +1253,10 @@ class TP_API_Handler {
             $user_id = get_current_user_id();
             $this->log_to_file('User ID: ' . $user_id);
 
+            // Capture the link's current state BEFORE the update for diff logging.
+            // Read once here; T009 (F005 no-op detection) can also reuse this value.
+            $link_state_before = $this->read_link_state($mid);
+
             // Prepare update data
             $updateData = array(
                 'uid' => $user_id,
@@ -1275,12 +1280,16 @@ class TP_API_Handler {
                 $this->log_to_file('SUCCESS - Link updated');
                 $this->log_to_file('=== UPDATE LINK REQUEST END ===');
 
-                // Log history
-                $this->log_link_history($mid, $user_id, 'updated', json_encode(array(
+                // Build the after-state from the submitted values
+                $link_state_after = [
                     'destination' => $destination,
-                    'tpKey' => $tpKey,
-                    'domain' => $domain,
-                )));
+                    'tpKey'       => $tpKey,
+                    'domain'      => $domain,
+                    'notes'       => '',
+                ];
+
+                // Log history with diff (skipped automatically on no-op)
+                $this->log_link_history($mid, $user_id, 'updated', '', $link_state_before, $link_state_after);
 
                 $this->invalidate_user_caches($user_id);
                 wp_send_json_success(array(
@@ -2098,10 +2107,44 @@ class TP_API_Handler {
     }
 
     /**
-     * Log a link change to the history table
+     * Log a link change to the history table.
+     *
+     * For 'updated' actions, pass $before and $after state arrays to produce a
+     * field-level diff payload shaped as {"field": {"from": OLD, "to": NEW}}.
+     * Only changed fields are stored. When the diff is empty (no-op update),
+     * the history row is skipped entirely.
+     *
+     * For 'created', 'enabled', and 'disabled' actions the $changes string is
+     * passed through as-is (backwards-compatible with existing callers).
+     *
+     * @param int         $mid     Link record ID
+     * @param int         $uid     WordPress user ID performing the action
+     * @param string      $action  One of 'created', 'updated', 'enabled', 'disabled'
+     * @param string      $changes Pre-built JSON string (used for non-updated actions)
+     * @param array|null  $before  Previous link state (destination, tpKey, domain, notes)
+     * @param array|null  $after   New link state after the update
      */
-    private function log_link_history(int $mid, int $uid, string $action, string $changes): void {
+    private function log_link_history(
+        int $mid,
+        int $uid,
+        string $action,
+        string $changes = '',
+        ?array $before = null,
+        ?array $after = null
+    ): void {
         global $wpdb;
+
+        if ($action === 'updated' && $before !== null && $after !== null) {
+            $diff = LinkHistoryDiff::compute($before, $after);
+
+            // No-op: nothing changed — skip the history write
+            if (empty($diff)) {
+                return;
+            }
+
+            $changes = (string) json_encode($diff);
+        }
+
         $table = $wpdb->prefix . 'tp_link_history';
 
         $wpdb->insert($table, array(
@@ -2111,6 +2154,88 @@ class TP_API_Handler {
             'changes'    => $changes,
             'created_at' => current_time('mysql'),
         ), array('%d', '%d', '%s', '%s', '%s'));
+    }
+
+    /**
+     * Read the current state of a link from wp_tp_link_history for diff purposes.
+     *
+     * Reconstructs the link's current field values by walking history backwards:
+     * finds the most recent row for this mid that carries a non-empty changes payload
+     * (either a 'created' row or an 'updated' diff row) and extracts the latest
+     * known values for destination, tpKey, domain, notes.
+     *
+     * This is a best-effort read: if no history exists yet (e.g. the link pre-dates
+     * the history feature), returns null and the caller falls back to legacy behaviour.
+     *
+     * @param int $mid Link record ID
+     * @return array{destination: string, tpKey: string, domain: string, notes: string}|null
+     */
+    private function read_link_state(int $mid): ?array {
+        global $wpdb;
+        $history_table = $wpdb->prefix . 'tp_link_history';
+
+        // Fetch the most recent rows for this mid (limit to avoid scanning all history)
+        $rows = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT action, changes FROM `{$history_table}` WHERE mid = %d ORDER BY created_at DESC LIMIT 20",
+                $mid
+            ),
+            ARRAY_A
+        );
+
+        if (empty($rows)) {
+            return null;
+        }
+
+        // Accumulate the latest known values field-by-field by walking rows
+        // from most-recent to oldest. A 'to' value in an updated diff row is
+        // the current value; in a 'created' row each key is the initial value.
+        $state = [];
+        $target_fields = ['destination', 'tpKey', 'domain', 'notes'];
+
+        foreach ($rows as $row) {
+            $changes_raw = $row['changes'] ?? '';
+            if ($changes_raw === '' || $changes_raw === null) {
+                continue;
+            }
+            $changes = json_decode($changes_raw, true);
+            if (!is_array($changes)) {
+                continue;
+            }
+
+            if ($row['action'] === 'updated') {
+                // Diff shape: {"field": {"from": OLD, "to": NEW}}
+                foreach ($target_fields as $field) {
+                    if (!isset($state[$field]) && isset($changes[$field]['to'])) {
+                        $state[$field] = (string) $changes[$field]['to'];
+                    }
+                }
+            } elseif ($row['action'] === 'created') {
+                // Flat shape: {"destination": "...", "tpKey": "..."}
+                foreach ($target_fields as $field) {
+                    if (!isset($state[$field]) && isset($changes[$field])) {
+                        $state[$field] = (string) $changes[$field];
+                    }
+                }
+            }
+
+            // Stop once we have all target fields
+            if (count($state) >= count($target_fields)) {
+                break;
+            }
+        }
+
+        if (empty($state)) {
+            return null;
+        }
+
+        // Fill any missing fields with empty string
+        return [
+            'destination' => $state['destination'] ?? '',
+            'tpKey'       => $state['tpKey'] ?? '',
+            'domain'      => $state['domain'] ?? '',
+            'notes'       => $state['notes'] ?? '',
+        ];
     }
 
     // TEMP: Remove after milestone v2.2 complete

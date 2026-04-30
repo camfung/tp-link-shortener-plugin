@@ -13,7 +13,9 @@
             "ShortCode\\": "includes/ShortCode/",
             "SnapCapture\\": "includes/SnapCapture/",
             "TrafficPortal\\": "includes/TrafficPortal/",
-            "TerrWallet\\": "includes/TerrWallet/"
+            "TerrWallet\\": "includes/TerrWallet/",
+            "WooWallet\\": "includes/WooWallet/",
+            "TP\\History\\": "includes/History/"
         }
     },
     "autoload-dev": {
