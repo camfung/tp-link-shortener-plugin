@@ -170,6 +170,133 @@ class TP_API_Handler {
         return $this->snapcapture_client;
     }
 
+    /**
+     * Inject a SnapCapture client (used by tests to supply a mock).
+     *
+     * @param SnapCaptureClient $client
+     */
+    public function set_snapcapture_client(SnapCaptureClient $client): void {
+        $this->snapcapture_client = $client;
+    }
+
+    /**
+     * Sideload a SnapCapture preview image for a link.
+     *
+     * Captures a screenshot of $destinationUrl via SnapCapture, writes the
+     * binary image to uploads/tp-link-previews/{mid}.{ext}, and inserts /
+     * replaces a row in wp_tp_link_previews.
+     *
+     * On failure (SnapCapture error, network timeout, etc.) the method logs
+     * and returns false without throwing — callers must not block the parent
+     * link-creation request on sideload failure.
+     *
+     * On a non-writable uploads directory the method still inserts a row with
+     * an empty local_path so the placeholder renderer has a row to detect.
+     *
+     * @param int         $mid             Link ID (primary key).
+     * @param string      $destinationUrl  URL to screenshot.
+     * @param string|null $uploadsOverride Override the uploads base dir (for tests).
+     * @return bool True on full success (file written + row inserted); false otherwise.
+     */
+    public function sideload_preview(int $mid, string $destinationUrl, ?string $uploadsOverride = null): bool {
+        global $wpdb;
+
+        try {
+            $snapcapture = $this->get_snapcapture_client();
+            if ($snapcapture === null) {
+                error_log("TP Sideload: SnapCapture client not available for mid={$mid}");
+                return false;
+            }
+
+            // 1. Capture screenshot binary from SnapCapture.
+            $request  = ScreenshotRequest::desktop($destinationUrl);
+            $response = $snapcapture->captureScreenshot($request, false);
+
+            $imageData   = $response->getImageData();
+            $contentType = $response->getContentType();
+
+            // 2. Derive file extension from Content-Type.
+            $ext = match (true) {
+                str_contains($contentType, 'image/jpeg') => 'jpg',
+                str_contains($contentType, 'image/png')  => 'png',
+                str_contains($contentType, 'image/gif')  => 'gif',
+                str_contains($contentType, 'image/webp') => 'webp',
+                default                                   => 'png',
+            };
+
+            // 3. Resolve the uploads directory.
+            if ($uploadsOverride !== null) {
+                $uploadsBase = $uploadsOverride;
+            } else {
+                $uploadDir   = wp_upload_dir();
+                $uploadsBase = $uploadDir['basedir'];
+            }
+            $previewsDir = $uploadsBase . '/tp-link-previews';
+            $filename    = "{$mid}.{$ext}";
+            $localPath   = $previewsDir . '/' . $filename;
+            $relPath     = "tp-link-previews/{$filename}";
+
+            // 4. Write image bytes to disk (soft-fail: directory errors are caught locally).
+            $fileWritten = false;
+            try {
+                $dirReady = is_writable($previewsDir);
+                if (!$dirReady) {
+                    $dirReady = @wp_mkdir_p($previewsDir) && is_writable($previewsDir);
+                }
+                if ($dirReady) {
+                    $bytes       = file_put_contents($localPath, $imageData);
+                    $fileWritten = ($bytes !== false && $bytes > 0);
+                }
+            } catch (\Throwable $dirErr) {
+                error_log("TP Sideload: dir error for mid={$mid}: " . $dirErr->getMessage());
+            }
+
+            if (!$fileWritten) {
+                error_log("TP Sideload: uploads dir not writable for mid={$mid}, storing empty local_path");
+            }
+
+            // 5. Compute dimensions (only when file is on disk).
+            $width  = 0;
+            $height = 0;
+            if ($fileWritten) {
+                $size = @getimagesize($localPath);
+                if ($size !== false) {
+                    $width  = (int) $size[0];
+                    $height = (int) $size[1];
+                }
+            }
+
+            // 6. Persist row (UPSERT via wpdb->replace — always runs, even on soft-fail).
+            $now = current_time('mysql');
+            $wpdb->replace(
+                TP_LINK_PREVIEWS_TABLE,
+                [
+                    'mid'          => $mid,
+                    'local_path'   => $fileWritten ? $relPath : '',
+                    'original_url' => $destinationUrl,
+                    'width'        => $width,
+                    'height'       => $height,
+                    'created_at'   => $now,
+                    'updated_at'   => $now,
+                ],
+                ['%d', '%s', '%s', '%d', '%d', '%s', '%s']
+            );
+
+            if (!$fileWritten) {
+                return false;
+            }
+
+            error_log("TP Sideload: preview saved for mid={$mid} at {$relPath}");
+            return true;
+
+        } catch (\Throwable $e) {
+            // SnapCapture API failure or other fatal error.
+            // Do NOT insert a DB row in this case — there is no image data to record.
+            error_log("TP Sideload: failed for mid={$mid}: " . $e->getMessage());
+            return false;
+        }
+    }
+
     private function get_woowallet_client(): ?WooWalletClient {
         if ($this->woowallet_client === null) {
             $this->init_woowallet_client();
@@ -322,6 +449,9 @@ class TP_API_Handler {
                     'destination' => $destination,
                     'tpKey' => $custom_key,
                 )));
+
+                // Sideload SnapCapture preview (soft-fail — never blocks link creation).
+                $this->sideload_preview($created_mid, $destination);
             }
 
             $this->invalidate_user_caches($uid);
