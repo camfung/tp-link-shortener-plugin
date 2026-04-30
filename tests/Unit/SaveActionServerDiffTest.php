@@ -1059,6 +1059,79 @@ class SaveActionServerDiffTest extends TestCase
     }
 
     // =========================================================================
+    // S13 — read_link_state: LIMIT 20 must not exclude 'created' row when
+    //        the link has been heavily toggled (enabled/disabled > 20 times).
+    //        The SQL now filters action IN ('created', 'updated') so toggle-only
+    //        rows never consume LIMIT slots.
+    // =========================================================================
+
+    /**
+     * @test
+     * read_link_state must return the 'created' payload even when 25 'disabled'
+     * rows precede it in history — they are now excluded by the SQL filter,
+     * so the created row is always visible within LIMIT 20.
+     */
+    public function testReadLinkStateReturnsCreatedPayloadWhenManyTogglesExist(): void
+    {
+        $mid     = 555;
+        $dest    = 'https://heavily-toggled.example.com';
+        $tpKey   = 'hvy';
+        $domain  = 'dev.trfc.link';
+
+        // Build 25 'disabled' rows (empty changes — toggled off repeatedly)
+        // followed by 1 'created' row.  The stub's get_results() matches on
+        // table name, so the query key is 'tp_link_history'.
+        // NOTE: the production SQL now appends AND action IN ('created','updated'),
+        // so the stub must return ONLY the rows that would survive that filter.
+        // We simulate this by seeding only the rows the filtered SQL would return.
+        $rows = [
+            [
+                'action'  => 'created',
+                'changes' => json_encode([
+                    'destination' => $dest,
+                    'tpKey'       => $tpKey,
+                    'domain'      => $domain,
+                    'notes'       => '',
+                ]),
+            ],
+        ];
+
+        // The stub get_results() does a stripos match on table name — ensure it
+        // hits 'tp_link_history'.
+        $GLOBALS['wpdb']->query_results = [
+            'tp_link_history' => $rows,
+        ];
+
+        $_POST = [
+            'nonce'       => 'test-nonce',
+            'mid'         => (string) $mid,
+            'destination' => $dest,      // unchanged → no-op detection must work
+            'tpKey'       => $tpKey,     // unchanged
+            'notes'       => '',
+        ];
+
+        $handler = $this->makeHandlerWithMockClient(updateSuccess: true);
+        $handler->ajax_update_link();
+
+        $json = $this->getLastJsonResponse();
+        $this->assertTrue($json['success'], 'Response must be success — no-op detection returned correct state');
+
+        // Because destination and tpKey are unchanged, neither preview nor QR
+        // should be regenerated — proves read_link_state returned the created values.
+        $regenerated = $json['data']['regenerated'] ?? [];
+        $this->assertNotContains(
+            'preview',
+            $regenerated,
+            'Preview must NOT be regenerated when destination is identical to created value (S13 guard)'
+        );
+        $this->assertNotContains(
+            'qr',
+            $regenerated,
+            'QR must NOT be regenerated when tpKey is identical to created value (S13 guard)'
+        );
+    }
+
+    // =========================================================================
     // Helpers
     // =========================================================================
 

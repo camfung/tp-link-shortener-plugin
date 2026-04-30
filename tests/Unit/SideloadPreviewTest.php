@@ -397,68 +397,121 @@ class SideloadPreviewTest extends TestCase
     }
 
     // =========================================================================
-    // M3 — delete_cached_preview_file: no error suppression
-    //      Exercises the unlink path via delete_cached_preview_file when the
-    //      file does NOT exist (should be a no-op without suppression).
-    //      Also verifies the function completes (no throw) when file is absent.
+    // M5 — delete_cached_preview_file: real unlink exercises (replaces M3 placeholders)
+    //      These tests create actual temp files on disk so unlink() is truly called.
     // =========================================================================
 
     /**
      * @test
-     * delete_cached_preview_file completes without error when the file does not exist.
-     * Tests the code path where file_exists() returns false — no unlink attempted.
-     * This covers the removal of the error-suppressing @ operator.
+     * delete_cached_preview_file actually unlinks the file when it exists on disk.
+     * Verifies the unlink code path is reached and the file is gone afterwards.
      */
-    public function testDeleteCachedPreviewFileCompletesWhenFileDoesNotExist(): void
+    public function testDeleteCachedPreviewFileUnlinksExistingFile(): void
     {
-        $mid = 9001;
+        $mid      = 9001;
+        $realFile = self::$previewsDir . "/{$mid}.png";
 
-        // Seed the previews table stub with a local_path that does NOT exist on disk
+        // Create a real file on disk so unlink() will be invoked
+        file_put_contents($realFile, 'FAKE_PREVIEW_BYTES');
+        $this->assertFileExists($realFile, 'Pre-condition: file must exist before delete');
+
+        // Seed the previews table query so local_path resolves to this real file
         $GLOBALS['wpdb']->query_results = [
             'tp_link_previews' => [
                 ['local_path' => "tp-link-previews/{$mid}.png"],
             ],
         ];
 
-        $handler = new \TP_API_Handler();
-
-        // Use reflection to call the private method directly
-        $ref    = new \ReflectionClass('TP_API_Handler');
-        $method = $ref->getMethod('delete_cached_preview_file');
-        $method->setAccessible(true);
-
-        // No file on disk at this path — should complete cleanly without throwing
-        $this->expectNotToPerformAssertions();
-        $method->invoke($handler, $mid);
-    }
-
-    /**
-     * @test
-     * delete_cached_preview_file returns void (no exception) and logs an error when
-     * the file exists but cannot be unlinked. Simulated by using a temp file that
-     * is unlinked first (causing the second delete to fail gracefully).
-     */
-    public function testDeleteCachedPreviewFileReturnsVoidWhenFileMissing(): void
-    {
-        $mid      = 9002;
-        $fakeFile = self::$previewsDir . "/{$mid}.png";
-
-        // Do NOT create the file — so file_exists() returns false
-        $GLOBALS['wpdb']->query_results = [
-            'tp_link_previews' => [
-                ['local_path' => "tp-link-previews/{$mid}.png"],
-            ],
-        ];
+        // wp_upload_dir() stub already points at self::$uploadsBase (set in setUpBeforeClass)
 
         $handler = new \TP_API_Handler();
         $ref     = new \ReflectionClass('TP_API_Handler');
         $method  = $ref->getMethod('delete_cached_preview_file');
         $method->setAccessible(true);
+        $method->invoke($handler, $mid);
 
-        // Must not throw — verify return is void (null)
-        $result = $method->invoke($handler, $mid);
-        $this->assertNull($result, 'delete_cached_preview_file must return void (null)');
-        $this->assertFileDoesNotExist($fakeFile, 'File must still not exist');
+        // Assert unlink was reached and succeeded — file no longer exists
+        $this->assertFileDoesNotExist($realFile, 'unlink() must have removed the file');
+    }
+
+    /**
+     * @test
+     * delete_cached_preview_file logs an error when unlink() fails.
+     *
+     * Simulates failure by placing the file inside a chmod 0500 directory so the
+     * OS refuses the unlink() call (returns false without throwing).  Skipped when
+     * running as root because root bypasses directory permission checks.
+     */
+    public function testDeleteCachedPreviewFileLogsErrorOnUnlinkFailure(): void
+    {
+        if (function_exists('posix_getuid') && posix_getuid() === 0) {
+            $this->markTestSkipped('chmod-based unlink failure cannot be simulated as root');
+        }
+
+        $mid = 9002;
+
+        // Create a subdirectory inside self::$previewsDir that will be made read-only.
+        // The fake .png will live inside it so that unlink() fails due to parent permissions.
+        $lockedDir = self::$previewsDir . '/locked_9002';
+        if (!is_dir($lockedDir)) {
+            mkdir($lockedDir, 0755, true);
+        }
+        $realFile = $lockedDir . '/file.png';
+        file_put_contents($realFile, 'FAKE');
+        $this->assertFileExists($realFile, 'Pre-condition: file must exist');
+
+        // Make the parent directory read-only so unlink() inside it fails
+        chmod($lockedDir, 0500);
+
+        // Seed the previews table — local_path must resolve to $realFile via uploads basedir.
+        // We override _tp_test_uploads_dir so basedir points at self::$previewsDir and the
+        // relative path becomes "locked_9002/file.png".
+        $savedUploads = $GLOBALS['_tp_test_uploads_dir'] ?? null;
+        $GLOBALS['_tp_test_uploads_dir'] = [
+            'basedir' => self::$previewsDir,
+            'baseurl' => 'http://example.com/wp-content/uploads',
+        ];
+        $GLOBALS['wpdb']->query_results = [
+            'tp_link_previews' => [
+                ['local_path' => 'locked_9002/file.png'],
+            ],
+        ];
+
+        // Redirect error_log to a temp file so we can inspect what was logged
+        $logFile = tempnam(sys_get_temp_dir(), 'tp_unlink_test_');
+        $prevLog = ini_get('error_log');
+        ini_set('error_log', $logFile);
+
+        try {
+            $handler = new \TP_API_Handler();
+            $ref     = new \ReflectionClass('TP_API_Handler');
+            $method  = $ref->getMethod('delete_cached_preview_file');
+            $method->setAccessible(true);
+            // Suppress the PHP warning that unlink emits on permission denied
+            // so PHPUnit doesn't convert it to an error — we test via error_log only.
+            @$method->invoke($handler, $mid);
+        } finally {
+            ini_set('error_log', $prevLog);
+            // Restore write permission so cleanup can proceed
+            chmod($lockedDir, 0755);
+            @unlink($realFile);
+            @rmdir($lockedDir);
+            // Restore uploads dir override
+            if ($savedUploads !== null) {
+                $GLOBALS['_tp_test_uploads_dir'] = $savedUploads;
+            } else {
+                unset($GLOBALS['_tp_test_uploads_dir']);
+            }
+        }
+
+        $logged = file_get_contents($logFile);
+        @unlink($logFile);
+
+        $this->assertStringContainsString(
+            'TP delete_cached_preview_file: unlink failed',
+            $logged,
+            'error_log must record the unlink failure'
+        );
     }
 
     // =========================================================================

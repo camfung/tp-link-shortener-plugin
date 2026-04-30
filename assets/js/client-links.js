@@ -1071,4 +1071,13 @@
     // Init on ready
     $(document).ready(init);
 
+    // Test hook — only activated when running under the Vitest harness.
+    // Exposes internal functions so tests can invoke real production code paths
+    // without duplicating the implementation.
+    if (typeof window !== 'undefined' && window.__TP_TEST__) {
+        window.__tpClientLinksTestHooks = {
+            showHistory: showHistory,
+        };
+    }
+
 })(jQuery);

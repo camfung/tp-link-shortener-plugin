@@ -14,8 +14,15 @@
  *   3. Row with status:'disabled' from API renders tp-cl-row-disabled class and click handler fires
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { JSDOM } from 'jsdom';
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import path from 'path';
+
+// Resolve path to client-links.js relative to this test file
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const CLIENT_LINKS_SRC = readFileSync(path.join(__dirname, 'client-links.js'), 'utf8');
 
 // ---------------------------------------------------------------------------
 // Helpers — build a minimal row HTML matching the template in client-links.js
@@ -1085,82 +1092,171 @@ describe('T003 — formatHistoryChanges: empty / no-op cases', () => {
 });
 
 // ---------------------------------------------------------------------------
-// M4 — showHistory: response.success === false → error state with retry button
+// M6 — showHistory: real production code tests
 // (F002 Scenario 5: Failed history fetch surfaces the error)
+//
+// Uses the __TP_TEST__ / __tpClientLinksTestHooks pattern to invoke the REAL
+// showHistory() from client-links.js rather than a hand-rolled replica.
+// Deletes the former tautological M4 block (buildSuccessFalseHtml) entirely.
 // ---------------------------------------------------------------------------
 
-describe('M4 — showHistory success-false renders error state with retry', () => {
-    /**
-     * Simulate what showHistory()'s success callback renders when the
-     * server returns {success: false, data: {message: 'oops'}}.
-     *
-     * The success branch in showHistory is:
-     *   if (response.success && response.data && response.data.length) { render entries }
-     *   else if (response.success && ...) { render empty state }
-     *   else { render error state with retry button }
-     *
-     * This mirrors the same HTML that the AJAX error: callback emits.
-     */
-    function buildSuccessFalseHtml(mid) {
-        return (
-            '<div class="text-center text-danger py-3">' +
-                'Failed to load history. Try again.' +
-                '<br>' +
-                '<button class="tp-cl-history-retry-btn btn btn-sm btn-outline-secondary mt-2" data-mid="' + mid + '">' +
-                    'Retry' +
-                '</button>' +
-            '</div>'
-        );
+/**
+ * Load client-links.js into a JSDOM window with a minimal jQuery stub and
+ * the __TP_TEST__ flag set.  Returns { showHistory, $historyList } so tests
+ * can drive the function and inspect what it renders.
+ *
+ * @param {object} ajaxImpl  Object with `success` and/or `error` keys — functions
+ *                           that receive the jQuery ajax settings object and call
+ *                           the appropriate callback synchronously.
+ * @returns {{ showHistory: Function, historyListEl: Element, dom: object }}
+ */
+function loadClientLinksWithAjaxStub(ajaxImpl) {
+    const dom = new JSDOM(
+        `<!DOCTYPE html><html><body>
+            <div class="tp-cl-container" data-page-size="10">
+                <div id="tp-cl-content"></div>
+                <div id="tp-cl-history-modal-overlay" style="display:none;">
+                    <div id="tp-cl-history-list"></div>
+                </div>
+            </div>
+        </body></html>`,
+        { runScripts: 'dangerously' }
+    );
+    const win = dom.window;
+
+    // Signal to client-links.js that we are in test mode
+    win.__TP_TEST__ = true;
+
+    // Provide global tpClientLinks so the IIFE doesn't crash at load time
+    win.tpClientLinks = {
+        ajaxUrl: '/wp-admin/admin-ajax.php',
+        nonce: 'test-nonce',
+        isLoggedIn: false,           // keeps init() from wiring up the full UI
+        dateRange: { start: '', end: '' },
+        strings: { error: 'Error', showChart: 'Show', hideChart: 'Hide', confirmDisable: 'Sure?' },
+        loginUrl: '/login/',
+    };
+
+    // Minimal jQuery stub — only the subset that client-links.js exercises at
+    // module load time AND inside showHistory().
+    function makeJQueryObj(el) {
+        return {
+            length: el ? 1 : 0,
+            show() { if (el) el.style.display = ''; return this; },
+            hide() { if (el) el.style.display = 'none'; return this; },
+            html(str) {
+                if (str !== undefined) { if (el) el.innerHTML = str; return this; }
+                return el ? el.innerHTML : '';
+            },
+            text(str) {
+                if (str !== undefined) { if (el) el.textContent = str; return this; }
+                return el ? el.textContent : '';
+            },
+            val(v) {
+                if (v !== undefined) { if (el) el.value = v; return this; }
+                return el ? el.value : '';
+            },
+            data(key) { return el ? el.dataset[key] : undefined; },
+            find(sel) { return makeJQueryObj(el ? el.querySelector(sel) : null); },
+            on() { return this; },
+            off() { return this; },
+            addClass() { return this; },
+            removeClass() { return this; },
+            hasClass() { return false; },
+            append() { return this; },
+            after() { return this; },
+            is() { return false; },
+            trigger() { return this; },
+            empty() { if (el) el.innerHTML = ''; return this; },
+            closest() { return makeJQueryObj(null); },
+            parent() { return makeJQueryObj(null); },
+            attr() { return undefined; },
+            prop() { return this; },
+        };
     }
 
-    let dom;
-    let document;
+    const $ = function(selector) {
+        if (typeof selector === 'string') {
+            if (selector === 'document' || selector === win.document) {
+                return { ready(fn) { fn(); return this; }, on() { return this; }, trigger() { return this; } };
+            }
+            const el = win.document.querySelector(selector);
+            return makeJQueryObj(el);
+        }
+        if (selector === win.document || selector === win) {
+            return { ready(fn) { fn(); return this; }, on() { return this; }, trigger() { return this; } };
+        }
+        return makeJQueryObj(null);
+    };
+    $.ajax = function(settings) {
+        if (ajaxImpl && ajaxImpl.success) {
+            ajaxImpl.success(settings);
+        } else if (ajaxImpl && ajaxImpl.error) {
+            ajaxImpl.error(settings);
+        }
+    };
+    $.fn = {};
 
-    beforeEach(() => {
-        dom = new JSDOM('<!DOCTYPE html><html><body></body></html>');
-        document = dom.window.document;
+    win.jQuery = $;
+
+    // Chart.js stub (client-links.js may reference it inside closures)
+    win.Chart = function() { return { destroy() {} }; };
+
+    // Evaluate the source in the JSDOM window context
+    // eslint-disable-next-line no-new-func
+    const script = win.document.createElement('script');
+    script.textContent = CLIENT_LINKS_SRC;
+    win.document.head.appendChild(script);
+
+    const hooks = win.__tpClientLinksTestHooks;
+    if (!hooks || !hooks.showHistory) {
+        throw new Error('__tpClientLinksTestHooks.showHistory was not set — check the test hook block in client-links.js');
+    }
+
+    const historyListEl = win.document.querySelector('#tp-cl-history-list');
+    return { showHistory: hooks.showHistory, historyListEl, dom };
+}
+
+describe('M6 — showHistory success-false: real production code renders error state', () => {
+    it('renders "Failed to load history" when response.success is false', () => {
+        const { showHistory, historyListEl } = loadClientLinksWithAjaxStub({
+            success(settings) {
+                settings.success({ success: false, data: { message: 'oops' } });
+            }
+        });
+
+        showHistory(42);
+
+        expect(historyListEl.textContent).toContain('Failed to load history');
     });
 
-    it('renders error state when response.success is false', () => {
-        // Simulate the else branch: response = { success: false, data: { message: 'oops' } }
-        const response = { success: false, data: { message: 'oops' } };
+    it('renders retry button with correct data-mid when response.success is false', () => {
+        const { showHistory, historyListEl } = loadClientLinksWithAjaxStub({
+            success(settings) {
+                settings.success({ success: false, data: { message: 'server err' } });
+            }
+        });
 
-        // Determine which branch the new branching logic would take
-        const renderedSuccessAndData = response.success && response.data && response.data.length;
-        const renderedEmptyState = response.success && (!response.data || !response.data.length);
-        // Must fall into the error branch
-        const isErrorBranch = !renderedSuccessAndData && !renderedEmptyState;
-        expect(isErrorBranch).toBe(true);
+        showHistory(77);
 
-        // The error-branch HTML must contain "Failed to load history"
-        const html = buildSuccessFalseHtml(42);
-        const wrapper = document.createElement('div');
-        wrapper.innerHTML = html;
-        expect(wrapper.textContent).toContain('Failed to load history');
-    });
-
-    it('error state from success-false branch contains retry button', () => {
-        const html = buildSuccessFalseHtml(42);
-        const wrapper = document.createElement('div');
-        wrapper.innerHTML = html;
-        const btn = wrapper.querySelector('.tp-cl-history-retry-btn');
+        const btn = historyListEl.querySelector('.tp-cl-history-retry-btn');
         expect(btn).not.toBeNull();
-    });
-
-    it('retry button carries the correct mid', () => {
-        const html = buildSuccessFalseHtml(77);
-        const wrapper = document.createElement('div');
-        wrapper.innerHTML = html;
-        const btn = wrapper.querySelector('.tp-cl-history-retry-btn');
         expect(btn.getAttribute('data-mid')).toBe('77');
     });
 
-    it('empty-data path still reaches empty-state (not error-state)', () => {
-        // response.success = true, data = [] (empty array)
-        const response = { success: true, data: [] };
-        const renderedSuccessAndData = response.success && response.data && response.data.length;
-        const renderedEmptyState = response.success && (!response.data || !response.data.length);
-        expect(renderedSuccessAndData).toBeFalsy();
-        expect(renderedEmptyState).toBeTruthy();
+    it('renders error state on network failure ($.ajax error callback)', () => {
+        const { showHistory, historyListEl } = loadClientLinksWithAjaxStub({
+            error(settings) {
+                // Simulate a non-401 network error
+                settings.error({ status: 500, responseText: 'Internal Server Error' });
+            }
+        });
+
+        showHistory(99);
+
+        expect(historyListEl.textContent).toContain('Failed to load history');
+        const btn = historyListEl.querySelector('.tp-cl-history-retry-btn');
+        expect(btn).not.toBeNull();
+        expect(btn.getAttribute('data-mid')).toBe('99');
     });
 });

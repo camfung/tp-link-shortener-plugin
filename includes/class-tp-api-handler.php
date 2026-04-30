@@ -250,7 +250,10 @@ class TP_API_Handler {
             try {
                 $dirReady = is_writable($previewsDir);
                 if (!$dirReady) {
-                    $dirReady = @wp_mkdir_p($previewsDir) && is_writable($previewsDir);
+                    if (!wp_mkdir_p($previewsDir)) {
+                        error_log('TP sideload_preview: wp_mkdir_p failed for ' . $previewsDir);
+                    }
+                    $dirReady = is_writable($previewsDir);
                 }
                 if ($dirReady) {
                     $bytes       = file_put_contents($localPath, $imageData);
@@ -2422,7 +2425,7 @@ class TP_API_Handler {
         // Fetch the most recent rows for this mid (limit to avoid scanning all history)
         $rows = $wpdb->get_results(
             $wpdb->prepare(
-                "SELECT action, changes FROM `{$history_table}` WHERE mid = %d ORDER BY created_at DESC LIMIT 20",
+                "SELECT action, changes FROM `{$history_table}` WHERE mid = %d AND action IN ('created', 'updated') ORDER BY created_at DESC LIMIT 20",
                 $mid
             ),
             ARRAY_A
