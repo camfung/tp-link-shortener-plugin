@@ -57,10 +57,61 @@ class DbMigrationsTest extends TestCase
         }
 
         // Stub global $wpdb so TP_LINK_PREVIEWS_TABLE can be defined at class-load time.
+        // NOTE: This stub is the canonical shared wpdb mock for all Unit tests.
+        // It must include all methods used across Unit test files (replace, insert,
+        // get_results, query, prepare, get_charset_collate).
         if (!isset($GLOBALS['wpdb'])) {
-            $wpdb = new \stdClass();
-            $wpdb->prefix = 'wp_';
-            $GLOBALS['wpdb'] = $wpdb;
+            $GLOBALS['wpdb'] = new class {
+                public string $prefix       = 'wp_';
+                public array  $last_replace = [];
+                public int    $replace_count = 0;
+                public array  $insert_calls  = [];
+                public int    $insert_count  = 0;
+                public array  $query_results = [];
+                public int    $query_count   = 0;
+                // Legacy: PreviewUrlEnrichmentTest uses this key
+                public array  $queries_log   = [];
+
+                public function replace(string $table, array $data, array $formats): int|false {
+                    $this->last_replace   = ['table' => $table, 'data' => $data];
+                    $this->replace_count++;
+                    return 1;
+                }
+
+                public function insert(string $table, array $data, array $formats = []): int|false {
+                    $this->insert_calls[] = ['table' => $table, 'data' => $data];
+                    $this->insert_count++;
+                    return 1;
+                }
+
+                /** @return array<int, array<string, mixed>> */
+                public function get_results(string $sql, $output = ARRAY_A): array {
+                    // SaveActionServerDiffTest routes by table-name substring.
+                    foreach ($this->query_results as $key => $rows) {
+                        if (stripos($sql, $key) !== false) {
+                            return $rows;
+                        }
+                    }
+                    // PreviewUrlEnrichmentTest uses $GLOBALS['_tp_test_wpdb_results'].
+                    return $GLOBALS['_tp_test_wpdb_results'] ?? [];
+                }
+
+                public function query(string $sql): int|false {
+                    $this->query_count++;
+                    return 0;
+                }
+
+                public function prepare(string $sql, ...$args): string {
+                    $i = 0;
+                    return preg_replace_callback('/%[dsfF]/', function ($m) use ($args, &$i) {
+                        return "'" . ($args[$i++] ?? '') . "'";
+                    }, $sql);
+                }
+
+                public function get_charset_collate(): string {
+                    return "DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci";
+                }
+            };
         }
 
         // Require the file under test.

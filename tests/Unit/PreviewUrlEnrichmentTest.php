@@ -129,20 +129,45 @@ namespace {
         }
     }
 
-    // $wpdb stub — supports replace(), prepare(), get_results().
-    // This stub is shared across all Unit tests in this file.
-    // get_results() is programmed per-test via $GLOBALS['_tp_test_wpdb_results'].
+    // $wpdb stub — canonical shared mock for all Unit tests.
+    // Supports replace(), insert(), query(), prepare(), get_results().
+    // get_results() honours both $GLOBALS['_tp_test_wpdb_results'] (PreviewUrlEnrichmentTest)
+    // and per-instance $this->query_results keyed by SQL substring (SaveActionServerDiffTest).
     if (!isset($GLOBALS['wpdb'])) {
         $GLOBALS['wpdb'] = new class {
             public string $prefix        = 'wp_';
+            public string $options       = 'wp_options'; // WP table property used by invalidate_user_caches()
             public array  $last_replace  = [];
             public int    $replace_count = 0;
             public array  $queries_log   = [];
+            public array  $insert_calls  = [];
+            public int    $insert_count  = 0;
+            public array  $query_results = [];
+            public int    $query_count   = 0;
+            public array  $update_calls  = [];
+            public int    $update_count  = 0;
 
             public function replace(string $table, array $data, array $formats): int|false {
                 $this->last_replace  = ['table' => $table, 'data' => $data];
                 $this->replace_count++;
                 return 1;
+            }
+
+            public function insert(string $table, array $data, array $formats = []): int|false {
+                $this->insert_calls[] = ['table' => $table, 'data' => $data];
+                $this->insert_count++;
+                return 1;
+            }
+
+            public function update(string $table, array $data, array $where, array $dataFormats = [], array $whereFormats = []): int|false {
+                $this->update_calls[] = ['table' => $table, 'data' => $data, 'where' => $where];
+                $this->update_count++;
+                return 1;
+            }
+
+            public function query(string $sql): int|false {
+                $this->query_count++;
+                return 0;
             }
 
             public function prepare(string $sql, ...$args): string {
@@ -169,7 +194,13 @@ namespace {
             public function get_results(string $sql, $output = OBJECT): ?array {
                 // Record every query issued.
                 $this->queries_log[] = $sql;
-                // Return whatever the test has programmed.
+                // SaveActionServerDiffTest uses per-test query_results keyed by substring.
+                foreach ($this->query_results as $key => $rows) {
+                    if (stripos($sql, $key) !== false) {
+                        return $rows;
+                    }
+                }
+                // PreviewUrlEnrichmentTest uses $GLOBALS['_tp_test_wpdb_results'].
                 return $GLOBALS['_tp_test_wpdb_results'] ?? [];
             }
 
@@ -239,6 +270,12 @@ class PreviewUrlEnrichmentTest extends TestCase
         $GLOBALS['wpdb']->queries_log    = [];
         $GLOBALS['wpdb']->last_replace   = [];
         $GLOBALS['wpdb']->replace_count  = 0;
+        $GLOBALS['wpdb']->insert_calls   = [];
+        $GLOBALS['wpdb']->insert_count   = 0;
+        $GLOBALS['wpdb']->query_results  = [];
+        $GLOBALS['wpdb']->query_count    = 0;
+        $GLOBALS['wpdb']->update_calls   = [];
+        $GLOBALS['wpdb']->update_count   = 0;
         $GLOBALS['_tp_test_wpdb_results'] = [];
         $GLOBALS['_tp_test_json_success'] = null;
         $GLOBALS['_tp_test_user_logged_in'] = true;

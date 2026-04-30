@@ -124,21 +124,54 @@ namespace {
         }
     }
 
-    // $wpdb stub — tracks replace() calls so tests can assert on them.
+    // $wpdb stub — shared across all Unit test files.
+    // Methods needed by SideloadPreviewTest (replace) + SaveActionServerDiffTest (insert, get_results, query).
     if (!isset($GLOBALS['wpdb'])) {
         $GLOBALS['wpdb'] = new class {
             public string $prefix        = 'wp_';
             public array  $last_replace  = [];
             public int    $replace_count = 0;
+            /** @var array<int, array<string, mixed>> */
+            public array  $insert_calls  = [];
+            public int    $insert_count  = 0;
+            /** @var array<string, array<int, array<string, mixed>>> */
+            public array  $query_results = [];
+            public int    $query_count   = 0;
 
             public function replace(string $table, array $data, array $formats): int|false {
                 $this->last_replace  = ['table' => $table, 'data' => $data];
                 $this->replace_count++;
                 return 1;
             }
-            public function prepare(string $sql, ...$args): string {
-                return vsprintf(str_replace('%s', "'%s'", $sql), $args);
+
+            public function insert(string $table, array $data, array $formats = []): int|false {
+                $this->insert_calls[] = ['table' => $table, 'data' => $data];
+                $this->insert_count++;
+                return 1;
             }
+
+            /** @return array<int, array<string, mixed>> */
+            public function get_results(string $sql, $output = ARRAY_A): array {
+                foreach ($this->query_results as $key => $rows) {
+                    if (stripos($sql, $key) !== false) {
+                        return $rows;
+                    }
+                }
+                return [];
+            }
+
+            public function query(string $sql): int|false {
+                $this->query_count++;
+                return 0;
+            }
+
+            public function prepare(string $sql, ...$args): string {
+                $i = 0;
+                return preg_replace_callback('/%[dsfF]/', function($m) use ($args, &$i) {
+                    return "'" . ($args[$i++] ?? '') . "'";
+                }, $sql);
+            }
+
             public function get_charset_collate(): string {
                 return "DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci";
             }
@@ -218,6 +251,10 @@ class SideloadPreviewTest extends TestCase
         // Reset wpdb tracking state before each test.
         $GLOBALS['wpdb']->last_replace  = [];
         $GLOBALS['wpdb']->replace_count = 0;
+        $GLOBALS['wpdb']->insert_calls  = [];
+        $GLOBALS['wpdb']->insert_count  = 0;
+        $GLOBALS['wpdb']->query_results = [];
+        $GLOBALS['wpdb']->query_count   = 0;
         // Clean up image files from prior tests.
         foreach (glob(self::$previewsDir . '/*') ?: [] as $f) {
             @unlink($f);

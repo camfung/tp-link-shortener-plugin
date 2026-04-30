@@ -1371,9 +1371,10 @@ class TP_API_Handler {
             }
 
             // Get parameters
-            $mid = isset($_POST['mid']) ? intval($_POST['mid']) : 0;
-            $destination = isset($_POST['destination']) ? esc_url_raw($_POST['destination']) : '';
-            $tpKey = isset($_POST['tpKey']) ? sanitize_text_field($_POST['tpKey']) : '';
+            $mid         = isset($_POST['mid'])         ? intval($_POST['mid'])                        : 0;
+            $destination = isset($_POST['destination']) ? esc_url_raw($_POST['destination'])           : '';
+            $tpKey       = isset($_POST['tpKey'])       ? sanitize_text_field($_POST['tpKey'])         : '';
+            $notes       = isset($_POST['notes'])       ? sanitize_text_field($_POST['notes'])         : '';
 
             // SECURITY: Force domain from server config (don't accept from client)
             $domain = TP_Link_Shortener::get_domain();
@@ -1392,21 +1393,54 @@ class TP_API_Handler {
             $user_id = get_current_user_id();
             $this->log_to_file('User ID: ' . $user_id);
 
-            // Capture the link's current state BEFORE the update for diff logging.
-            // Read once here; T009 (F005 no-op detection) can also reuse this value.
+            // ── T009 (F005): Server-side diff detection ────────────────────────────
+            //
+            // Read the current link state BEFORE making any changes.
+            // Compare it against the submitted values to determine:
+            //   1. Whether anything actually changed (no-op detection).
+            //   2. Which regeneration(s) to trigger (preview / QR).
+            //
+            // When read_link_state() returns null (e.g. link pre-dates history), we
+            // fall back to treating the save as a full update (no no-op detection).
+
             $link_state_before = $this->read_link_state($mid);
+
+            $link_state_after = [
+                'destination' => $destination,
+                'tpKey'       => $tpKey,
+                'domain'      => $domain,
+                'notes'       => $notes,
+            ];
+
+            // Compute the field-level diff (reuses T002's LinkHistoryDiff::compute()).
+            $diff = ($link_state_before !== null)
+                ? LinkHistoryDiff::compute($link_state_before, $link_state_after)
+                : null; // null = unknown — treat as changed, proceed with update
+
+            // No-op: nothing changed → return immediately, no DB write, no history row.
+            if ($diff !== null && empty($diff)) {
+                $this->log_to_file('No-op detected — no fields changed, skipping DB write');
+                $this->log_to_file('=== UPDATE LINK REQUEST END ===');
+                wp_send_json_success(array(
+                    'status'  => 'no_changes',
+                    'message' => __('No changes to save.', 'tp-link-shortener'),
+                ));
+                return;
+            }
+
+            // ── DB Update ──────────────────────────────────────────────────────────
 
             // Prepare update data
             $updateData = array(
-                'uid' => $user_id,
-                'domain' => $domain,
+                'uid'         => $user_id,
+                'domain'      => $domain,
                 'destination' => $destination,
-                'tpKey' => $tpKey,
-                'status' => 'active',
-                'is_set' => 0,
-                'tags' => '',
-                'notes' => '',
-                'settings' => '{}',
+                'tpKey'       => $tpKey,
+                'status'      => 'active',
+                'is_set'      => 0,
+                'tags'        => '',
+                'notes'       => $notes,
+                'settings'    => '{}',
             );
 
             // Update the record
@@ -1415,33 +1449,65 @@ class TP_API_Handler {
 
             $this->log_to_file('API Response received');
 
-            if ($response['success']) {
-                $this->log_to_file('SUCCESS - Link updated');
-                $this->log_to_file('=== UPDATE LINK REQUEST END ===');
-
-                // Build the after-state from the submitted values
-                $link_state_after = [
-                    'destination' => $destination,
-                    'tpKey'       => $tpKey,
-                    'domain'      => $domain,
-                    'notes'       => '',
-                ];
-
-                // Log history with diff (skipped automatically on no-op)
-                $this->log_link_history($mid, $user_id, 'updated', '', $link_state_before, $link_state_after);
-
-                $this->invalidate_user_caches($user_id);
-                wp_send_json_success(array(
-                    'message' => __('Link updated successfully!', 'tp-link-shortener'),
-                    'data' => $response
-                ));
-            } else {
+            if (!$response['success']) {
                 $this->log_to_file('FAILURE - API returned success=false');
                 $this->log_to_file('=== UPDATE LINK REQUEST END ===');
                 wp_send_json_error(array(
                     'message' => __('Failed to update link.', 'tp-link-shortener'),
                 ));
+                return;
             }
+
+            // ── DB write succeeded — conditional regeneration ──────────────────────
+
+            $this->log_to_file('SUCCESS - Link updated');
+
+            $regenerated = []; // Fields whose regeneration succeeded.
+            $failures    = []; // Fields whose regeneration failed (best-effort side effects).
+
+            // Determine which fields changed (use computed diff when available, otherwise
+            // compare after-state directly against submitted values for the regen branches).
+            $diffKeys = $diff !== null ? array_keys($diff) : ['destination', 'tpKey', 'domain', 'notes'];
+
+            // ── Preview regeneration (destination changed) ─────────────────────────
+            if (in_array('destination', $diffKeys, true)) {
+                // Delete the cached preview file so the new screenshot can replace it.
+                $this->delete_cached_preview_file($mid);
+
+                // Re-fetch the screenshot for the new destination URL.
+                $sideloadOk = $this->sideload_preview($mid, $destination);
+
+                if ($sideloadOk) {
+                    $regenerated[] = 'preview';
+                } else {
+                    $failures[] = 'preview_pending';
+                }
+            }
+
+            // ── QR regeneration (short URL changed) ───────────────────────────────
+            // QR encoding = https://{domain}/{tpKey}. Regenerate when either changes.
+            // Actual QR rendering is client-side (qr-utils.js); server signals the need.
+            if (in_array('tpKey', $diffKeys, true) || in_array('domain', $diffKeys, true)) {
+                $regenerated[] = 'qr';
+            }
+
+            // ── History row ────────────────────────────────────────────────────────
+            // log_link_history() uses LinkHistoryDiff internally and skips the write
+            // on a true no-op (already handled above, but guard here for safety).
+            $this->log_link_history($mid, $user_id, 'updated', '', $link_state_before, $link_state_after);
+
+            $this->invalidate_user_caches($user_id);
+
+            $this->log_to_file('=== UPDATE LINK REQUEST END ===');
+
+            wp_send_json_success(array(
+                'status'      => 'updated',
+                'message'     => __('Link updated successfully!', 'tp-link-shortener'),
+                'regenerated' => $regenerated,
+                'failures'    => $failures,
+                'diff'        => $diff ?? [],
+                'data'        => $response,
+            ));
 
         } catch (ValidationException $e) {
             $this->log_to_file('EXCEPTION - ValidationException: ' . $e->getMessage());
@@ -1457,6 +1523,42 @@ class TP_API_Handler {
             wp_send_json_error(array(
                 'message' => __('An unexpected error occurred. Please try again.', 'tp-link-shortener'),
             ));
+        }
+    }
+
+    /**
+     * Delete the cached preview file for a link from the uploads directory.
+     *
+     * Looks up the local_path from wp_tp_link_previews and calls unlink().
+     * Silently fails when no row exists or path is empty — callers must not
+     * depend on this for correctness.
+     *
+     * @param int $mid Link record ID
+     */
+    private function delete_cached_preview_file(int $mid): void {
+        global $wpdb;
+
+        $row = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT local_path FROM " . TP_LINK_PREVIEWS_TABLE . " WHERE mid = %d LIMIT 1",
+                $mid
+            ),
+            ARRAY_A
+        );
+
+        if (empty($row) || empty($row[0]['local_path'])) {
+            return;
+        }
+
+        $localPath = $row[0]['local_path'];
+
+        // local_path is stored as a relative path: "tp-link-previews/{mid}.{ext}"
+        // Resolve to an absolute path under the uploads base directory.
+        $uploadDir = wp_upload_dir();
+        $absPath   = rtrim($uploadDir['basedir'], '/') . '/' . ltrim($localPath, '/');
+
+        if (file_exists($absPath)) {
+            @unlink($absPath);
         }
     }
 
