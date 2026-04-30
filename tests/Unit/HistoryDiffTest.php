@@ -192,6 +192,37 @@ class HistoryDiffTest extends TestCase
         $this->assertEmpty($diff, 'Strictly equal values must produce empty diff');
     }
 
+    // ----------------------------------------------------------------
+    // S7 — Field present in $after but missing from $before
+    // ----------------------------------------------------------------
+
+    /**
+     * @test
+     * should build diff entry with from='' when a field exists in $after but not in $before
+     */
+    public function testComputeAddsFieldsPresentInAfterButMissingFromBefore(): void
+    {
+        $before = [
+            'destination' => 'https://x.com',
+            'tpKey'       => 'k',
+        ];
+        $after = [
+            'destination' => 'https://x.com',
+            'tpKey'       => 'k',
+            'notes'       => 'brand new field',  // present in $after, absent from $before
+        ];
+
+        $diff = LinkHistoryDiff::compute($before, $after);
+
+        $this->assertArrayHasKey('notes', $diff, 'notes field present only in $after must appear in diff');
+        $this->assertSame('', $diff['notes']['from'], 'from must be empty string when field was absent from $before');
+        $this->assertSame('brand new field', $diff['notes']['to'], 'to must be the new value');
+
+        // Unchanged fields must still be absent
+        $this->assertArrayNotHasKey('destination', $diff, 'Unchanged destination must not appear');
+        $this->assertArrayNotHasKey('tpKey', $diff, 'Unchanged tpKey must not appear');
+    }
+
     /**
      * @test
      * should include notes field in diff when notes changes from empty to non-empty

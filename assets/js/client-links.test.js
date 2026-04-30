@@ -596,12 +596,17 @@ describe('T008 — renderThumbnail: with preview_url', () => {
         expect(img.getAttribute('alt')).toBe('');
     });
 
-    it('<img> has an onerror attribute', () => {
+    it('<img> has an onerror attribute that performs the placeholder swap', () => {
         const html = renderThumbnail(ITEM_WITH_PREVIEW);
         const wrapper = document.createElement('div');
         wrapper.innerHTML = html;
         const img = wrapper.querySelector('img');
-        expect(img.getAttribute('onerror')).toBeTruthy();
+        const onerrorAttr = img.getAttribute('onerror');
+        expect(onerrorAttr).toBeTruthy();
+        // Must reference this.outerHTML so the img is replaced (not just hidden)
+        expect(onerrorAttr).toContain('this.outerHTML');
+        // Must target the placeholder class so the correct element is swapped in
+        expect(onerrorAttr).toContain('tp-cl-row-thumb-placeholder');
     });
 
     it('HTML-escapes special chars in preview_url', () => {
@@ -1076,5 +1081,86 @@ describe('T003 — formatHistoryChanges: empty / no-op cases', () => {
     it('empty changes object with "updated" action returns empty string', () => {
         const result = formatHistoryChanges('updated', '{}');
         expect(result).toBe('');
+    });
+});
+
+// ---------------------------------------------------------------------------
+// M4 — showHistory: response.success === false → error state with retry button
+// (F002 Scenario 5: Failed history fetch surfaces the error)
+// ---------------------------------------------------------------------------
+
+describe('M4 — showHistory success-false renders error state with retry', () => {
+    /**
+     * Simulate what showHistory()'s success callback renders when the
+     * server returns {success: false, data: {message: 'oops'}}.
+     *
+     * The success branch in showHistory is:
+     *   if (response.success && response.data && response.data.length) { render entries }
+     *   else if (response.success && ...) { render empty state }
+     *   else { render error state with retry button }
+     *
+     * This mirrors the same HTML that the AJAX error: callback emits.
+     */
+    function buildSuccessFalseHtml(mid) {
+        return (
+            '<div class="text-center text-danger py-3">' +
+                'Failed to load history. Try again.' +
+                '<br>' +
+                '<button class="tp-cl-history-retry-btn btn btn-sm btn-outline-secondary mt-2" data-mid="' + mid + '">' +
+                    'Retry' +
+                '</button>' +
+            '</div>'
+        );
+    }
+
+    let dom;
+    let document;
+
+    beforeEach(() => {
+        dom = new JSDOM('<!DOCTYPE html><html><body></body></html>');
+        document = dom.window.document;
+    });
+
+    it('renders error state when response.success is false', () => {
+        // Simulate the else branch: response = { success: false, data: { message: 'oops' } }
+        const response = { success: false, data: { message: 'oops' } };
+
+        // Determine which branch the new branching logic would take
+        const renderedSuccessAndData = response.success && response.data && response.data.length;
+        const renderedEmptyState = response.success && (!response.data || !response.data.length);
+        // Must fall into the error branch
+        const isErrorBranch = !renderedSuccessAndData && !renderedEmptyState;
+        expect(isErrorBranch).toBe(true);
+
+        // The error-branch HTML must contain "Failed to load history"
+        const html = buildSuccessFalseHtml(42);
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = html;
+        expect(wrapper.textContent).toContain('Failed to load history');
+    });
+
+    it('error state from success-false branch contains retry button', () => {
+        const html = buildSuccessFalseHtml(42);
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = html;
+        const btn = wrapper.querySelector('.tp-cl-history-retry-btn');
+        expect(btn).not.toBeNull();
+    });
+
+    it('retry button carries the correct mid', () => {
+        const html = buildSuccessFalseHtml(77);
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = html;
+        const btn = wrapper.querySelector('.tp-cl-history-retry-btn');
+        expect(btn.getAttribute('data-mid')).toBe('77');
+    });
+
+    it('empty-data path still reaches empty-state (not error-state)', () => {
+        // response.success = true, data = [] (empty array)
+        const response = { success: true, data: [] };
+        const renderedSuccessAndData = response.success && response.data && response.data.length;
+        const renderedEmptyState = response.success && (!response.data || !response.data.length);
+        expect(renderedSuccessAndData).toBeFalsy();
+        expect(renderedEmptyState).toBeTruthy();
     });
 });

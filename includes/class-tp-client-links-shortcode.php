@@ -104,11 +104,20 @@ class TP_Client_Links_Shortcode {
             true
         );
 
+        // Save-helper JS — must load BEFORE client-links.js (exposes window.tpSaveHelper)
+        wp_enqueue_script(
+            'tp-save-helper-js',
+            TP_LINK_SHORTENER_PLUGIN_URL . 'assets/js/save-helper.js',
+            array(),
+            TP_LINK_SHORTENER_VERSION,
+            true
+        );
+
         // Client links JS
         wp_enqueue_script(
             'tp-client-links-js',
             TP_LINK_SHORTENER_PLUGIN_URL . 'assets/js/client-links.js',
-            array('jquery', 'tp-bootstrap-js', 'tp-chartjs', 'tp-qrcode', 'tp-qr-utils'),
+            array('jquery', 'tp-bootstrap-js', 'tp-chartjs', 'tp-qrcode', 'tp-qr-utils', 'tp-save-helper-js'),
             TP_LINK_SHORTENER_VERSION,
             true
         );

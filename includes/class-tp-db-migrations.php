@@ -47,7 +47,11 @@ class TP_DB_Migrations
         require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 
         self::create_link_previews_table($wpdb);
-        self::create_link_previews_directory();
+
+        // Abort version-bump if directory creation fails so maybe_run() retries on next request.
+        if (!self::create_link_previews_directory()) {
+            return;
+        }
 
         update_option('tp_link_shortener_db_version', TP_DB_VERSION);
     }
@@ -79,49 +83,17 @@ class TP_DB_Migrations
      *  - PRIMARY KEY on its own line (not inline with the column).
      *  - Column list must be comma-terminated on each line.
      */
-    private static function create_link_previews_table(\wpdb $wpdb): void
-    {
-        $table          = $wpdb->prefix . 'tp_link_previews';
-        $charset_collate = $wpdb->get_charset_collate();
-
-        $sql = "CREATE TABLE {$table} (
-  mid BIGINT UNSIGNED NOT NULL,
-  local_path VARCHAR(255) NOT NULL DEFAULT '',
-  original_url TEXT,
-  width INT UNSIGNED NOT NULL DEFAULT 0,
-  height INT UNSIGNED NOT NULL DEFAULT 0,
-  created_at DATETIME NOT NULL,
-  updated_at DATETIME NOT NULL,
-  PRIMARY KEY (mid)
-) {$charset_collate};";
-
-        dbDelta($sql);
-    }
-
-    /**
-     * Create the uploads sub-directory used to store sideloaded preview images.
-     *
-     * Uses wp_upload_dir() so the path respects multisite / custom upload-dir
-     * configurations, and wp_mkdir_p() which sets standard WP ownership /
-     * permissions (matching the rest of the uploads tree).
-     */
-    private static function create_link_previews_directory(): void
-    {
-        $upload_dir    = wp_upload_dir();
-        $previews_dir  = $upload_dir['basedir'] . '/tp-link-previews';
-
-        if (!file_exists($previews_dir)) {
-            wp_mkdir_p($previews_dir);
-        }
-    }
-
     /**
      * Return the SQL used to create the link-previews table.
      *
-     * Exposed for testing — callers can assert the SQL contains the expected
-     * columns without needing a live database.
+     * Single source of truth — called by both create_link_previews_table() and
+     * get_link_previews_table_sql() so the schema never drifts between them.
+     *
+     * @param string $table_name      Fully-qualified table name (e.g. wp_tp_link_previews)
+     * @param string $charset_collate Collation clause from wpdb->get_charset_collate()
+     * @return string
      */
-    public static function get_link_previews_table_sql(string $table_name, string $charset_collate = ''): string
+    private static function build_link_previews_sql(string $table_name, string $charset_collate): string
     {
         return "CREATE TABLE {$table_name} (
   mid BIGINT UNSIGNED NOT NULL,
@@ -133,5 +105,47 @@ class TP_DB_Migrations
   updated_at DATETIME NOT NULL,
   PRIMARY KEY (mid)
 ) {$charset_collate};";
+    }
+
+    private static function create_link_previews_table(\wpdb $wpdb): void
+    {
+        $table          = $wpdb->prefix . 'tp_link_previews';
+        $charset_collate = $wpdb->get_charset_collate();
+
+        dbDelta(self::build_link_previews_sql($table, $charset_collate));
+    }
+
+    /**
+     * Create the uploads sub-directory used to store sideloaded preview images.
+     *
+     * Uses wp_upload_dir() so the path respects multisite / custom upload-dir
+     * configurations, and wp_mkdir_p() which sets standard WP ownership /
+     * permissions (matching the rest of the uploads tree).
+     */
+    private static function create_link_previews_directory(): bool
+    {
+        $upload_dir    = wp_upload_dir();
+        $previews_dir  = $upload_dir['basedir'] . '/tp-link-previews';
+
+        if (file_exists($previews_dir)) {
+            return true;
+        }
+
+        $created = wp_mkdir_p($previews_dir);
+        if (!$created) {
+            error_log('TP_DB_Migrations: wp_mkdir_p() failed to create tp-link-previews directory at: ' . $previews_dir);
+        }
+        return $created;
+    }
+
+    /**
+     * Return the SQL used to create the link-previews table.
+     *
+     * Exposed for testing — callers can assert the SQL contains the expected
+     * columns without needing a live database.
+     */
+    public static function get_link_previews_table_sql(string $table_name, string $charset_collate = ''): string
+    {
+        return self::build_link_previews_sql($table_name, $charset_collate);
     }
 }

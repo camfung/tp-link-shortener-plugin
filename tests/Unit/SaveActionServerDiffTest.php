@@ -274,9 +274,11 @@ class SaveActionServerDiffTest extends TestCase
         //   - PreviewUrlEnrichmentTest stubs write to _tp_test_json_success / _tp_test_json_error
         //   - SaveActionServerDiffTest stubs write to _tp_test_last_json
         // We normalise to _tp_test_last_json in getLastJsonResponse().
-        $GLOBALS['_tp_test_last_json']    = null;
-        $GLOBALS['_tp_test_json_success'] = null;
-        $GLOBALS['_tp_test_json_error']   = null;
+        $GLOBALS['_tp_test_last_json']      = null;
+        $GLOBALS['_tp_test_json_success']   = null;
+        $GLOBALS['_tp_test_json_error']     = null;
+        // Support both is_user_logged_in() stub variants (different test files define different globals)
+        $GLOBALS['_tp_test_user_logged_in'] = true;
         $GLOBALS['_tp_test_logged_in']    = true;
         $GLOBALS['_tp_test_user_id']      = 42;
 
@@ -755,6 +757,250 @@ class SaveActionServerDiffTest extends TestCase
         $this->assertArrayHasKey('destination', $diff, 'Diff must include destination key');
         $this->assertSame($oldDest, $diff['destination']['from'], 'from must be the old destination');
         $this->assertSame($newDest, $diff['destination']['to'],   'to must be the new destination');
+    }
+
+    // =========================================================================
+    // M2 — buildCreatedPayload used by ajax_create_link
+    //       First edit after creation: destination-only change must NOT regen QR.
+    //       First edit after creation: tpKey-only change must NOT regen preview.
+    // =========================================================================
+
+    /**
+     * @test
+     * should NOT include qr in regenerated when only destination changed on first edit
+     * after a created row whose payload came from buildCreatedPayload (includes domain+notes)
+     */
+    public function testFirstEditDestinationOnlyDoesNotRegenQr(): void
+    {
+        $mid     = 901;
+        $oldDest = 'https://original.example.com';
+        $newDest = 'https://changed.example.com';
+        $tpKey   = 'stablekey';
+        $domain  = 'dev.trfc.link';
+
+        // Seed a created row with the shape buildCreatedPayload now produces (includes domain)
+        $GLOBALS['wpdb']->query_results = [
+            'tp_link_history' => [
+                [
+                    'action'  => 'created',
+                    'changes' => json_encode([
+                        'destination' => $oldDest,
+                        'tpKey'       => $tpKey,
+                        'domain'      => $domain,
+                    ]),
+                ],
+            ],
+        ];
+
+        $_POST = [
+            'nonce'       => 'test-nonce',
+            'mid'         => (string) $mid,
+            'destination' => $newDest,   // changed
+            'tpKey'       => $tpKey,     // unchanged
+            'notes'       => '',
+        ];
+
+        $handler = $this->makeHandlerWithMockClient(
+            updateSuccess: true,
+            snapcaptureSuccess: true,
+            imageData: 'FAKEDATA',
+            contentType: 'image/png'
+        );
+        $handler->ajax_update_link();
+
+        $json = $this->getLastJsonResponse();
+        $this->assertTrue($json['success'], 'Response must be success');
+        $regenerated = $json['data']['regenerated'] ?? [];
+        $this->assertContains('preview', $regenerated, 'preview must be in regenerated when destination changed');
+        $this->assertNotContains('qr', $regenerated, 'qr must NOT be in regenerated when only destination changed');
+    }
+
+    /**
+     * @test
+     * should NOT include preview in regenerated when only tpKey changed on first edit
+     */
+    public function testFirstEditTpKeyOnlyDoesNotRegenPreview(): void
+    {
+        $mid    = 902;
+        $dest   = 'https://stable.example.com';
+        $oldKey = 'oldkey';
+        $newKey = 'newkey';
+
+        // Seed created row with the full buildCreatedPayload shape (includes domain)
+        $GLOBALS['wpdb']->query_results = [
+            'tp_link_history' => [
+                [
+                    'action'  => 'created',
+                    'changes' => json_encode([
+                        'destination' => $dest,
+                        'tpKey'       => $oldKey,
+                        'domain'      => 'dev.trfc.link',
+                    ]),
+                ],
+            ],
+        ];
+
+        $_POST = [
+            'nonce'       => 'test-nonce',
+            'mid'         => (string) $mid,
+            'destination' => $dest,      // unchanged
+            'tpKey'       => $newKey,    // changed
+            'notes'       => '',
+        ];
+
+        $handler = $this->makeHandlerWithMockClient(updateSuccess: true);
+        $handler->ajax_update_link();
+
+        $json = $this->getLastJsonResponse();
+        $this->assertTrue($json['success'], 'Response must be success');
+        $regenerated = $json['data']['regenerated'] ?? [];
+        $this->assertContains('qr', $regenerated, 'qr must be in regenerated when tpKey changed');
+        $this->assertNotContains('preview', $regenerated, 'preview must NOT be in regenerated when only tpKey changed');
+    }
+
+    // =========================================================================
+    // S3 — Unauthenticated path: login_required error
+    // =========================================================================
+
+    /**
+     * @test
+     * should return login_required error with 401 status when user is not logged in
+     */
+    public function testUnauthenticatedRequestReturnsLoginRequired(): void
+    {
+        // Both globals cover variant stub signatures across test files.
+        // PreviewUrlEnrichmentTest defines is_user_logged_in() reading _tp_test_user_logged_in;
+        // SaveActionServerDiffTest defines the same reading _tp_test_logged_in.
+        // Whichever was registered first, both are set so the check returns false.
+        $GLOBALS['_tp_test_logged_in']      = false;
+        $GLOBALS['_tp_test_user_logged_in'] = false;
+
+        $_POST = [
+            'nonce'       => 'test-nonce',
+            'mid'         => '101',
+            'destination' => 'https://example.com',
+            'tpKey'       => 'somekey',
+            'notes'       => '',
+        ];
+
+        $handler = $this->makeHandlerWithMockClient(updateSuccess: true);
+        $handler->ajax_update_link();
+
+        $json = $this->getLastJsonResponse();
+        $this->assertFalse($json['success'], 'Response must be error when not logged in');
+        // The error data contains 'code' => 'login_required'.
+        // HTTP status (401) is in $json['status'] when the SaveActionServerDiffTest stub is active;
+        // when PreviewUrlEnrichmentTest's stub is first (no status key), we check only code.
+        $this->assertSame('login_required', $json['data']['code'], 'Error code must be login_required');
+    }
+
+    // =========================================================================
+    // S4 — No history rows: null state → full regeneration
+    // =========================================================================
+
+    /**
+     * @test
+     * should regenerate both preview and qr when no history rows exist for mid
+     */
+    public function testNoHistoryRowsTriggersFullRegeneration(): void
+    {
+        $mid  = 999;
+        $dest = 'https://new.example.com';
+        $key  = 'somekey';
+
+        // Zero history rows — link pre-dates history table
+        $GLOBALS['wpdb']->query_results = [
+            'tp_link_history' => [],
+        ];
+
+        $_POST = [
+            'nonce'       => 'test-nonce',
+            'mid'         => (string) $mid,
+            'destination' => $dest,
+            'tpKey'       => $key,
+            'notes'       => '',
+        ];
+
+        $handler = $this->makeHandlerWithMockClient(
+            updateSuccess: true,
+            snapcaptureSuccess: true,
+            imageData: 'FAKEDATA',
+            contentType: 'image/png'
+        );
+        $handler->ajax_update_link();
+
+        $json = $this->getLastJsonResponse();
+        $this->assertTrue($json['success'], 'Response must be success');
+        $regenerated = $json['data']['regenerated'] ?? [];
+        $this->assertContains('preview', $regenerated, 'preview must be in regenerated when no history exists');
+        $this->assertContains('qr', $regenerated, 'qr must be in regenerated when no history exists');
+    }
+
+    // =========================================================================
+    // S5 — Missing required POST parameters
+    // =========================================================================
+
+    /**
+     * @test
+     * should return error when mid is missing (zero)
+     */
+    public function testMissingMidReturnsError(): void
+    {
+        $_POST = [
+            'nonce'       => 'test-nonce',
+            'mid'         => '0',
+            'destination' => 'https://example.com',
+            'tpKey'       => 'somekey',
+            'notes'       => '',
+        ];
+
+        $handler = $this->makeHandlerWithMockClient(updateSuccess: true);
+        $handler->ajax_update_link();
+
+        $json = $this->getLastJsonResponse();
+        $this->assertFalse($json['success'], 'Response must be error when mid is 0');
+    }
+
+    /**
+     * @test
+     * should return error when destination is empty
+     */
+    public function testMissingDestinationReturnsError(): void
+    {
+        $_POST = [
+            'nonce'       => 'test-nonce',
+            'mid'         => '101',
+            'destination' => '',
+            'tpKey'       => 'somekey',
+            'notes'       => '',
+        ];
+
+        $handler = $this->makeHandlerWithMockClient(updateSuccess: true);
+        $handler->ajax_update_link();
+
+        $json = $this->getLastJsonResponse();
+        $this->assertFalse($json['success'], 'Response must be error when destination is empty');
+    }
+
+    /**
+     * @test
+     * should return error when tpKey is empty
+     */
+    public function testMissingTpKeyReturnsError(): void
+    {
+        $_POST = [
+            'nonce'       => 'test-nonce',
+            'mid'         => '101',
+            'destination' => 'https://example.com',
+            'tpKey'       => '',
+            'notes'       => '',
+        ];
+
+        $handler = $this->makeHandlerWithMockClient(updateSuccess: true);
+        $handler->ajax_update_link();
+
+        $json = $this->getLastJsonResponse();
+        $this->assertFalse($json['success'], 'Response must be error when tpKey is empty');
     }
 
     // =========================================================================

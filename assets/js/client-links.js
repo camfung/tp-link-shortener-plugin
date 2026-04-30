@@ -806,7 +806,7 @@
                 mid: mid
             },
             success: function(response) {
-                if (response.success && response.data.length) {
+                if (response.success && response.data && response.data.length) {
                     var html = '';
                     response.data.forEach(function(entry) {
                         var details = formatHistoryChanges(entry.action, entry.changes || '');
@@ -821,8 +821,19 @@
                             '</div>';
                     });
                     $historyList.html(html);
-                } else {
+                } else if (response.success && (!response.data || !response.data.length)) {
                     $historyList.html('<div class="text-center text-muted py-3">No change history yet for this link.</div>');
+                } else {
+                    // response.success === false — server returned an error
+                    $historyList.html(
+                        '<div class="text-center text-danger py-3">' +
+                            'Failed to load history. Try again.' +
+                            '<br>' +
+                            '<button class="tp-cl-history-retry-btn btn btn-sm btn-outline-secondary mt-2" data-mid="' + mid + '">' +
+                                'Retry' +
+                            '</button>' +
+                        '</div>'
+                    );
                 }
             },
             error: function(xhr) {

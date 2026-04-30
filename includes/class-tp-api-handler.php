@@ -454,10 +454,11 @@ class TP_API_Handler {
             // Log history
             $created_mid = isset($result['data']['mid']) ? intval($result['data']['mid']) : 0;
             if ($created_mid) {
-                $this->log_link_history($created_mid, $uid, 'created', json_encode(array(
-                    'destination' => $destination,
-                    'tpKey' => $custom_key,
-                )));
+                $notes  = isset($_POST['notes']) ? sanitize_text_field($_POST['notes']) : '';
+                $domain = TP_Link_Shortener::get_domain();
+                $this->log_link_history($created_mid, $uid, 'created', json_encode(
+                    \TP\History\LinkHistoryDiff::buildCreatedPayload($destination, $custom_key, $notes, $domain)
+                ));
 
                 // Sideload SnapCapture preview (soft-fail — never blocks link creation).
                 $this->sideload_preview($created_mid, $destination);
@@ -1558,7 +1559,9 @@ class TP_API_Handler {
         $absPath   = rtrim($uploadDir['basedir'], '/') . '/' . ltrim($localPath, '/');
 
         if (file_exists($absPath)) {
-            @unlink($absPath);
+            if (!unlink($absPath)) {
+                error_log('TP delete_cached_preview_file: unlink failed for mid=' . $mid . ' path=' . $absPath);
+            }
         }
     }
 

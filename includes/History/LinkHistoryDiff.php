@@ -61,20 +61,28 @@ class LinkHistoryDiff
     /**
      * Build the stable payload for a 'created' history entry.
      *
-     * Shape: {"destination": "...", "tpKey": "..."} plus optional "notes".
+     * Shape: {"destination": "...", "tpKey": "...", "domain": "..."} plus optional "notes".
+     * Including domain ensures that read_link_state() can reconstruct the full before-state
+     * on the first edit, preventing false domain-change diffs.
      * Empty notes are omitted so the renderer can show "Created with destination ..."
      * cleanly without having to handle a blank notes field.
      *
      * @param string $destination The link's destination URL
      * @param string $tpKey       The short code / TP key
      * @param string $notes       User-supplied notes (omitted if empty)
+     * @param string $domain      The short-link domain (e.g. 'trfc.link')
      * @return array<string, string>
      */
-    public static function buildCreatedPayload(string $destination, string $tpKey, string $notes): array
-    {
+    public static function buildCreatedPayload(
+        string $destination,
+        string $tpKey,
+        string $notes,
+        string $domain = ''
+    ): array {
         $payload = [
             'destination' => $destination,
             'tpKey'       => $tpKey,
+            'domain'      => $domain,
         ];
 
         if ($notes !== '') {
