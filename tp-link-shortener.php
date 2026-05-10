@@ -41,8 +41,6 @@ require_once TP_LINK_SHORTENER_PLUGIN_DIR . 'includes/class-tp-usage-dashboard-s
 require_once TP_LINK_SHORTENER_PLUGIN_DIR . 'includes/class-tp-admin-settings.php';
 require_once TP_LINK_SHORTENER_PLUGIN_DIR . 'includes/class-tp-assets.php';
 require_once TP_LINK_SHORTENER_PLUGIN_DIR . 'includes/class-tp-db-migrations.php';
-require_once TP_LINK_SHORTENER_PLUGIN_DIR . 'includes/class-tp-user-profile-shortcode.php';
-require_once TP_LINK_SHORTENER_PLUGIN_DIR . 'includes/class-tp-intro-key-handler.php';
 
 /**
  * Initialize the plugin

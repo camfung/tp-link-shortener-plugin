@@ -53,16 +53,6 @@ class TP_Link_Shortener {
     private $api_handler;
 
     /**
-     * User profile shortcode + WP login -> TP /users sync
-     */
-    private $user_profile_shortcode;
-
-    /**
-     * Intro key AJAX handler + test shortcode
-     */
-    private $intro_key_handler;
-
-    /**
      * Get plugin instance
      */
     public static function get_instance() {
@@ -83,8 +73,6 @@ class TP_Link_Shortener {
         $this->dashboard_shortcode = new TP_Dashboard_Shortcode();
         $this->client_links_shortcode = new TP_Client_Links_Shortcode();
         $this->usage_dashboard_shortcode = new TP_Usage_Dashboard_Shortcode();
-        $this->user_profile_shortcode = new TP_User_Profile_Shortcode();
-        $this->intro_key_handler = new TP_Intro_Key_Handler();
         $this->admin = new TP_Admin_Settings();
 
         // Register hooks
