@@ -24,8 +24,8 @@ class TP_Admin_Settings {
      */
     public function add_admin_menu() {
         add_menu_page(
-            __('Traffic Portal Link Shortener', 'tp-link-shortener'),
-            __('Link Shortener', 'tp-link-shortener'),
+            __('Traffic Portal Plugin', 'tp-link-shortener'),
+            __('Traffic Portal Plugin', 'tp-link-shortener'),
             'manage_options',
             'tp-link-shortener',
             array($this, 'render_settings_page'),
